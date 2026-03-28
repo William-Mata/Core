@@ -1,0 +1,36 @@
+IF OBJECT_ID('dbo.HistoricoTransacaoFinanceira', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.HistoricoTransacaoFinanceira
+    (
+        Id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        DataHoraCadastro DATETIME2 NOT NULL CONSTRAINT DF_HistoricoTransacaoFinanceira_DataHoraCadastro DEFAULT SYSUTCDATETIME(),
+        UsuarioOperacaoId INT NOT NULL,
+        TipoTransacao NVARCHAR(30) NOT NULL,
+        TransacaoId BIGINT NOT NULL,
+        TipoOperacao NVARCHAR(30) NOT NULL,
+        TipoConta NVARCHAR(30) NOT NULL,
+        ContaBancariaId BIGINT NULL,
+        CartaoId BIGINT NULL,
+        DataTransacao DATE NOT NULL,
+        Descricao NVARCHAR(300) NOT NULL,
+        TipoPagamento NVARCHAR(50) NULL,
+        ValorAntesTransacao DECIMAL(18,2) NOT NULL,
+        ValorTransacao DECIMAL(18,2) NOT NULL,
+        ValorDepoisTransacao DECIMAL(18,2) NOT NULL,
+        CONSTRAINT CK_HistoricoTransacaoFinanceira_ContaOuCartaoExclusivo
+            CHECK (NOT (ContaBancariaId IS NOT NULL AND CartaoId IS NOT NULL))
+    );
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.indexes
+    WHERE name = 'IX_HistoricoTransacaoFinanceira_TipoTransacao_TransacaoId_DataHoraCadastro'
+      AND object_id = OBJECT_ID('dbo.HistoricoTransacaoFinanceira')
+)
+BEGIN
+    CREATE INDEX IX_HistoricoTransacaoFinanceira_TipoTransacao_TransacaoId_DataHoraCadastro
+        ON dbo.HistoricoTransacaoFinanceira (TipoTransacao, TransacaoId, DataHoraCadastro DESC);
+END;
+GO

@@ -609,8 +609,25 @@ BEGIN
         DataHoraCadastro DATETIME2(0) NOT NULL CONSTRAINT DF_Area_DataHoraCadastro DEFAULT (SYSUTCDATETIME()),
         UsuarioCadastroId INT NOT NULL,
         Nome NVARCHAR(150) NOT NULL,
+        Tipo NVARCHAR(20) NOT NULL CONSTRAINT DF_Area_Tipo DEFAULT (N'Despesa'),
+        CONSTRAINT CK_Area_Tipo CHECK (Tipo IN (N'Despesa', N'Receita')),
         CONSTRAINT PK_Area PRIMARY KEY CLUSTERED (Id)
     );
+END;
+GO
+
+IF COL_LENGTH(N'dbo.Area', N'Tipo') IS NULL
+BEGIN
+    ALTER TABLE dbo.Area
+        ADD Tipo NVARCHAR(20) NOT NULL
+            CONSTRAINT DF_Area_Tipo DEFAULT (N'Despesa');
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_Area_Tipo' AND parent_object_id = OBJECT_ID(N'dbo.Area'))
+BEGIN
+    ALTER TABLE dbo.Area
+        WITH CHECK ADD CONSTRAINT CK_Area_Tipo CHECK (Tipo IN (N'Despesa', N'Receita'));
 END;
 GO
 
@@ -626,6 +643,13 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_Area_UsuarioCadastroI
 BEGIN
     CREATE NONCLUSTERED INDEX IX_Area_UsuarioCadastroId_Nome
         ON dbo.Area (UsuarioCadastroId, Nome);
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_Area_Tipo_Nome' AND object_id = OBJECT_ID(N'dbo.Area'))
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_Area_Tipo_Nome
+        ON dbo.Area (Tipo, Nome);
 END;
 GO
 
