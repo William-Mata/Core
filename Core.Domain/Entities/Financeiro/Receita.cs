@@ -15,6 +15,7 @@ public sealed class Receita
     public string TipoReceita { get; set; } = string.Empty;
     public string TipoRecebimento { get; set; } = string.Empty;
     public Recorrencia Recorrencia { get; set; } = Recorrencia.Unica;
+    public int? QuantidadeRecorrencia { get; set; }
     public decimal ValorTotal { get; set; }
     public decimal ValorLiquido { get; set; }
     public decimal Desconto { get; set; }

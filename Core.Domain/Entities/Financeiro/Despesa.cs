@@ -15,6 +15,7 @@ public sealed class Despesa
     public string TipoDespesa { get; set; } = string.Empty;
     public string TipoPagamento { get; set; } = string.Empty;
     public Recorrencia Recorrencia { get; set; } = Recorrencia.Unica;
+    public int? QuantidadeRecorrencia { get; set; }
     public decimal ValorTotal { get; set; }
     public decimal ValorLiquido { get; set; }
     public decimal Desconto { get; set; }
@@ -25,6 +26,7 @@ public sealed class Despesa
     public StatusDespesa Status { get; set; } = StatusDespesa.Pendente;
     public string? AnexoDocumento { get; set; }
     public List<DespesaAmigoRateio> AmigosRateio { get; set; } = [];
+    public List<DespesaAreaRateio> AreasRateio { get; set; } = [];
     public List<DespesaTipoRateio> TiposRateio { get; set; } = [];
     public List<DespesaLog> Logs { get; set; } = [];
 }

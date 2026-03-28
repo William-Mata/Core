@@ -3,11 +3,12 @@
 public enum  Recorrencia
 {
     Unica = 1,
-    Semanal = 2,
-    Quinzenal = 3,
-    Mensal = 4,
-    Trimestral = 5,
-    Semestral = 6,
-    Anual = 7,
-    Fixa = 8
+    Diaria = 2,
+    Semanal = 3,
+    Quinzenal = 4,
+    Mensal = 5,
+    Trimestral = 6,
+    Semestral = 7,
+    Anual = 8,
+    Fixa = 9
 }

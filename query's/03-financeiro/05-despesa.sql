@@ -22,6 +22,7 @@ BEGIN
         TipoDespesa NVARCHAR(50) NOT NULL,
         TipoPagamento NVARCHAR(50) NOT NULL,
         Recorrencia NVARCHAR(20) NOT NULL CONSTRAINT DF_Despesa_Recorrencia DEFAULT (N'Unica'),
+        QuantidadeRecorrencia INT NULL,
         ValorTotal DECIMAL(18,2) NOT NULL,
         ValorLiquido DECIMAL(18,2) NOT NULL,
         Desconto DECIMAL(18,2) NOT NULL CONSTRAINT DF_Despesa_Desconto DEFAULT (0),
@@ -32,11 +33,18 @@ BEGIN
         Status NVARCHAR(20) NOT NULL CONSTRAINT DF_Despesa_Status DEFAULT (N'Pendente'),
         AnexoDocumento NVARCHAR(500) NULL,
         CONSTRAINT PK_Despesa PRIMARY KEY CLUSTERED (Id),
-        CONSTRAINT CK_Despesa_Recorrencia CHECK (Recorrencia IN (N'Unica', N'Semanal', N'Quinzenal', N'Mensal', N'Trimestral', N'Semestral', N'Anual', N'Fixa')),
+        CONSTRAINT CK_Despesa_Recorrencia CHECK (Recorrencia IN (N'Unica', N'Diaria', N'Semanal', N'Quinzenal', N'Mensal', N'Trimestral', N'Semestral', N'Anual', N'Fixa')),
+        CONSTRAINT CK_Despesa_QuantidadeRecorrencia CHECK (QuantidadeRecorrencia IS NULL OR QuantidadeRecorrencia > 0),
         CONSTRAINT CK_Despesa_Status CHECK (Status IN (N'Pendente', N'Efetivada', N'Cancelada')),
         CONSTRAINT CK_Despesa_TipoDespesa CHECK (TipoDespesa IN (N'alimentacao', N'transporte', N'moradia', N'lazer', N'saude', N'educacao', N'servicos')),
         CONSTRAINT CK_Despesa_TipoPagamento CHECK (TipoPagamento IN (N'pix', N'cartaoCredito', N'cartaoDebito', N'boleto', N'transferencia', N'dinheiro'))
     );
+END;
+GO
+
+IF COL_LENGTH('dbo.Despesa', 'QuantidadeRecorrencia') IS NULL
+BEGIN
+    ALTER TABLE dbo.Despesa ADD QuantidadeRecorrencia INT NULL;
 END;
 GO
 
@@ -64,8 +72,15 @@ BEGIN
         UsuarioCadastroId INT NOT NULL,
         DespesaId BIGINT NOT NULL,
         AmigoNome NVARCHAR(150) NOT NULL,
+        Valor DECIMAL(18,2) NULL,
         CONSTRAINT PK_DespesaAmigoRateio PRIMARY KEY CLUSTERED (Id)
     );
+END;
+GO
+
+IF COL_LENGTH('dbo.DespesaAmigoRateio', 'Valor') IS NULL
+BEGIN
+    ALTER TABLE dbo.DespesaAmigoRateio ADD Valor DECIMAL(18,2) NULL;
 END;
 GO
 
@@ -90,6 +105,69 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_DespesaAmigoRateio_De
 BEGIN
     CREATE NONCLUSTERED INDEX IX_DespesaAmigoRateio_DespesaId
         ON dbo.DespesaAmigoRateio (DespesaId);
+END;
+GO
+
+IF OBJECT_ID(N'dbo.DespesaAreaRateio', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.DespesaAreaRateio
+    (
+        Id BIGINT IDENTITY(1,1) NOT NULL,
+        DataHoraCadastro DATETIME2(0) NOT NULL CONSTRAINT DF_DespesaAreaRateio_DataHoraCadastro DEFAULT (SYSUTCDATETIME()),
+        UsuarioCadastroId INT NOT NULL,
+        DespesaId BIGINT NOT NULL,
+        AreaId BIGINT NOT NULL,
+        SubAreaId BIGINT NOT NULL,
+        Valor DECIMAL(18,2) NULL,
+        CONSTRAINT PK_DespesaAreaRateio PRIMARY KEY CLUSTERED (Id)
+    );
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_DespesaAreaRateio_Despesa_DespesaId')
+BEGIN
+    ALTER TABLE dbo.DespesaAreaRateio
+        WITH CHECK ADD CONSTRAINT FK_DespesaAreaRateio_Despesa_DespesaId
+        FOREIGN KEY (DespesaId) REFERENCES dbo.Despesa (Id)
+        ON DELETE CASCADE;
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_DespesaAreaRateio_Area_AreaId')
+BEGIN
+    ALTER TABLE dbo.DespesaAreaRateio
+        WITH CHECK ADD CONSTRAINT FK_DespesaAreaRateio_Area_AreaId
+        FOREIGN KEY (AreaId) REFERENCES dbo.Area (Id);
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_DespesaAreaRateio_SubArea_SubAreaId')
+BEGIN
+    ALTER TABLE dbo.DespesaAreaRateio
+        WITH CHECK ADD CONSTRAINT FK_DespesaAreaRateio_SubArea_SubAreaId
+        FOREIGN KEY (SubAreaId) REFERENCES dbo.SubArea (Id);
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_DespesaAreaRateio_Usuario_UsuarioCadastroId')
+BEGIN
+    ALTER TABLE dbo.DespesaAreaRateio
+        WITH CHECK ADD CONSTRAINT FK_DespesaAreaRateio_Usuario_UsuarioCadastroId
+        FOREIGN KEY (UsuarioCadastroId) REFERENCES dbo.Usuario (Id);
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_DespesaAreaRateio_DespesaId' AND object_id = OBJECT_ID(N'dbo.DespesaAreaRateio'))
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_DespesaAreaRateio_DespesaId
+        ON dbo.DespesaAreaRateio (DespesaId);
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_DespesaAreaRateio_AreaId_SubAreaId' AND object_id = OBJECT_ID(N'dbo.DespesaAreaRateio'))
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_DespesaAreaRateio_AreaId_SubAreaId
+        ON dbo.DespesaAreaRateio (AreaId, SubAreaId);
 END;
 GO
 

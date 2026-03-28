@@ -1,15 +1,22 @@
 using Core.Domain.Enums;
 
-namespace Core.Application.DTOs;
+namespace Core.Application.DTOs.Financeiro;
 
 public sealed record DespesaLogDto(long Id, DateOnly Data, AcaoLogs Acao, string Descricao);
-public sealed record DespesaDto(long Id, string Descricao, string? Observacao, DateOnly DataLancamento, DateOnly DataVencimento, DateOnly? DataEfetivacao, string TipoDespesa, string TipoPagamento, Recorrencia Recorrencia, decimal ValorTotal, decimal ValorLiquido, decimal Desconto, decimal Acrescimo, decimal Imposto, decimal Juros, decimal? ValorEfetivacao, string Status, IReadOnlyCollection<string> AmigosRateio, IReadOnlyCollection<string> TiposRateio, string? AnexoDocumento, IReadOnlyCollection<DespesaLogDto> Logs)
-{
-    public string Titulo => Descricao;
-    public decimal Valor => ValorTotal;
-    public DateOnly Data => DataLancamento;
-}
+public sealed record DespesaAreaRateioDto(long AreaId, string AreaNome, long SubAreaId, string SubAreaNome, decimal? Valor);
+public sealed record DespesaDto(long Id, string Descricao, string? Observacao, DateOnly DataLancamento, DateOnly DataVencimento, DateOnly? DataEfetivacao, string TipoDespesa, string TipoPagamento, Recorrencia Recorrencia, int? QuantidadeRecorrencia, decimal ValorTotal, decimal ValorLiquido, decimal Desconto, decimal Acrescimo, decimal Imposto, decimal Juros, decimal? ValorEfetivacao, string Status, IReadOnlyCollection<string> AmigosRateio, IReadOnlyDictionary<string, decimal> RateioAmigosValores, IReadOnlyCollection<DespesaAreaRateioDto> AreasRateio, IReadOnlyCollection<string> TiposRateio, string? AnexoDocumento, IReadOnlyCollection<DespesaLogDto> Logs);
 
-public sealed record CriarDespesaRequest(string Descricao, string? Observacao, DateOnly DataLancamento, DateOnly DataVencimento, string TipoDespesa, string TipoPagamento, Recorrencia Recorrencia, decimal ValorTotal, decimal Desconto, decimal Acrescimo, decimal Imposto, decimal Juros, IReadOnlyCollection<string> AmigosRateio, IReadOnlyCollection<string> TiposRateio, string? AnexoDocumento);
-public sealed record AtualizarDespesaRequest(string Descricao, string? Observacao, DateOnly DataLancamento, DateOnly DataVencimento, string TipoDespesa, string TipoPagamento, Recorrencia Recorrencia, decimal ValorTotal, decimal Desconto, decimal Acrescimo, decimal Imposto, decimal Juros, IReadOnlyCollection<string> AmigosRateio, IReadOnlyCollection<string> TiposRateio, string? AnexoDocumento);
-public sealed record EfetivarDespesaRequest(DateOnly DataEfetivacao, string TipoPagamento, decimal ValorTotal, decimal Desconto, decimal Acrescimo, decimal Imposto, decimal Juros, string? AnexoDocumento);
+public sealed record DespesaAreaRateioRequest(long AreaId, long SubAreaId, decimal? Valor);
+public sealed record CriarDespesaRequest(string Descricao, string? Observacao, DateOnly DataLancamento, DateOnly DataVencimento, string TipoDespesa, string TipoPagamento, Recorrencia Recorrencia, decimal ValorTotal, decimal Desconto, decimal Acrescimo, decimal Imposto, decimal Juros, IReadOnlyCollection<string> AmigosRateio, IReadOnlyCollection<string> TiposRateio, string? AnexoDocumento, IReadOnlyDictionary<string, decimal>? RateioAmigosValores = null, IReadOnlyCollection<DespesaAreaRateioRequest>? AreasRateio = null, int? QuantidadeRecorrencia = null);
+public sealed record AtualizarDespesaRequest(string Descricao, string? Observacao, DateOnly DataLancamento, DateOnly DataVencimento, string TipoDespesa, string TipoPagamento, Recorrencia Recorrencia, decimal ValorTotal, decimal Desconto, decimal Acrescimo, decimal Imposto, decimal Juros, IReadOnlyCollection<string> AmigosRateio, IReadOnlyCollection<string> TiposRateio, string? AnexoDocumento, IReadOnlyDictionary<string, decimal>? RateioAmigosValores = null, IReadOnlyCollection<DespesaAreaRateioRequest>? AreasRateio = null, int? QuantidadeRecorrencia = null);
+public sealed record EfetivarDespesaRequest(
+    DateOnly DataEfetivacao,
+    string TipoPagamento,
+    decimal ValorTotal,
+    decimal Desconto,
+    decimal Acrescimo,
+    decimal Imposto,
+    decimal Juros,
+    string? AnexoDocumento,
+    long? ContaBancariaId = null,
+    long? CartaoId = null);

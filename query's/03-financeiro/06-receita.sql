@@ -22,6 +22,7 @@ BEGIN
         TipoReceita NVARCHAR(50) NOT NULL,
         TipoRecebimento NVARCHAR(50) NOT NULL,
         Recorrencia NVARCHAR(20) NOT NULL CONSTRAINT DF_Receita_Recorrencia DEFAULT (N'Unica'),
+        QuantidadeRecorrencia INT NULL,
         ValorTotal DECIMAL(18,2) NOT NULL,
         ValorLiquido DECIMAL(18,2) NOT NULL,
         Desconto DECIMAL(18,2) NOT NULL CONSTRAINT DF_Receita_Desconto DEFAULT (0),
@@ -33,11 +34,18 @@ BEGIN
         ContaBancariaId BIGINT NULL,
         AnexoDocumento NVARCHAR(500) NULL,
         CONSTRAINT PK_Receita PRIMARY KEY CLUSTERED (Id),
-        CONSTRAINT CK_Receita_Recorrencia CHECK (Recorrencia IN (N'Unica', N'Semanal', N'Quinzenal', N'Mensal', N'Trimestral', N'Semestral', N'Anual', N'Fixa')),
+        CONSTRAINT CK_Receita_Recorrencia CHECK (Recorrencia IN (N'Unica', N'Diaria', N'Semanal', N'Quinzenal', N'Mensal', N'Trimestral', N'Semestral', N'Anual', N'Fixa')),
+        CONSTRAINT CK_Receita_QuantidadeRecorrencia CHECK (QuantidadeRecorrencia IS NULL OR QuantidadeRecorrencia > 0),
         CONSTRAINT CK_Receita_Status CHECK (Status IN (N'Pendente', N'Efetivada', N'Cancelada')),
         CONSTRAINT CK_Receita_TipoReceita CHECK (TipoReceita IN (N'salario', N'freelance', N'reembolso', N'investimento', N'bonus', N'outros')),
         CONSTRAINT CK_Receita_TipoRecebimento CHECK (TipoRecebimento IN (N'pix', N'transferencia', N'contaCorrente', N'dinheiro', N'boleto'))
     );
+END;
+GO
+
+IF COL_LENGTH('dbo.Receita', 'QuantidadeRecorrencia') IS NULL
+BEGIN
+    ALTER TABLE dbo.Receita ADD QuantidadeRecorrencia INT NULL;
 END;
 GO
 
