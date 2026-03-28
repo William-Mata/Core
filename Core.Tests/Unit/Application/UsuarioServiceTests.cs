@@ -496,6 +496,9 @@ public sealed class UsuarioServiceTests
         public Task<Usuario?> ObterPorEmailAsync(string email, CancellationToken cancellationToken = default) =>
             Task.FromResult(UsuarioPorEmail);
 
+        public Task<IReadOnlyCollection<Usuario>> ListarAtivosAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyCollection<Usuario>>(Array.Empty<Usuario>());
+
         public Task<IReadOnlyCollection<Modulo>> ListarModulosAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(ModulosAtivos);
 
