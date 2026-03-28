@@ -162,6 +162,20 @@ public sealed class UsuarioServiceTests
     }
 
     [Fact]
+    public async Task DeveImpedirCriacao_ComEmailDuplicadoMesmoQuandoUsuarioExistenteEstiverInativo()
+    {
+        var repository = new UsuarioRepositoryFake
+        {
+            UsuarioPorEmail = new Usuario { Id = 20, Nome = "Existente", Email = "existente@empresa.com", PerfilId = 1, Ativo = false }
+        };
+
+        var service = new UsuarioService(repository, new UsuarioAutenticadoProviderFake(1));
+        var ex = await Assert.ThrowsAsync<DomainException>(() => service.CriarAsync(new SalvarUsuarioRequest("Novo Usuario", "existente@empresa.com", "USER")));
+
+        Assert.Equal("email_em_uso", ex.Message);
+    }
+
+    [Fact]
     public async Task DeveImpedirCriacao_ComNomeVazio()
     {
         var repository = new UsuarioRepositoryFake();

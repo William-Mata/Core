@@ -8,6 +8,37 @@ namespace Core.Tests.Integration.Repositories;
 public sealed class UsuarioRepositoryTests
 {
     [Fact]
+    public async Task DeveEncontrarUsuarioPorEmailMesmoQuandoEstiverInativo()
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString("N"))
+            .Options;
+
+        await using var context = new AppDbContext(options);
+
+        context.Usuarios.Add(new Usuario
+        {
+            Id = 10,
+            UsuarioCadastroId = 1,
+            Nome = "Usuario Inativo",
+            Email = "inativo@empresa.com",
+            SenhaHash = "hash",
+            Ativo = false,
+            PrimeiroAcesso = false,
+            PerfilId = 2
+        });
+
+        await context.SaveChangesAsync();
+
+        var repository = new UsuarioRepository(context);
+        var usuario = await repository.ObterPorEmailAsync("inativo@empresa.com");
+
+        Assert.NotNull(usuario);
+        Assert.Equal(10, usuario.Id);
+        Assert.False(usuario.Ativo);
+    }
+
+    [Fact]
     public async Task DeveCriarUsuarioESalvarPermissoesSemInserirEntidadesRelacionadasVazias()
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()

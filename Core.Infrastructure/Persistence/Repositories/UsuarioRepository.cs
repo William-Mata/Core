@@ -50,7 +50,7 @@ public sealed class UsuarioRepository(AppDbContext dbContext) : IUsuarioReposito
             .FirstOrDefaultAsync(x => x.Id == id && x.Ativo, cancellationToken);
 
     public Task<Usuario?> ObterPorEmailAsync(string email, CancellationToken cancellationToken = default) =>
-        dbContext.Usuarios.FirstOrDefaultAsync(x => x.Email == email && x.Ativo, cancellationToken);
+        dbContext.Usuarios.FirstOrDefaultAsync(x => x.Email == email, cancellationToken);
 
     public async Task<IReadOnlyCollection<Modulo>> ListarModulosAsync(CancellationToken cancellationToken = default) =>
         await dbContext.Modulos
