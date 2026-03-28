@@ -1,0 +1,4 @@
+interface:
+  display_name: "Core Clean Architecture API"
+  short_description: "Orientar mudancas no backend Core .NET"
+  default_prompt: "Use $core-clean-architecture-api para implementar uma mudanca neste backend seguindo as camadas corretas."

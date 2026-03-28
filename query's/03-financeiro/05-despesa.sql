@@ -1,0 +1,172 @@
+/*
+Ordem sugerida: 05
+Objetivo: criar objetos de despesa, rateios e log.
+Banco alvo: Financeiro
+*/
+
+USE [Financeiro];
+GO
+
+IF OBJECT_ID(N'dbo.Despesa', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.Despesa
+    (
+        Id BIGINT IDENTITY(1,1) NOT NULL,
+        DataHoraCadastro DATETIME2(0) NOT NULL CONSTRAINT DF_Despesa_DataHoraCadastro DEFAULT (SYSUTCDATETIME()),
+        UsuarioCadastroId INT NOT NULL,
+        Descricao NVARCHAR(200) NOT NULL,
+        Observacao NVARCHAR(1000) NULL,
+        DataLancamento DATE NOT NULL,
+        DataVencimento DATE NOT NULL,
+        DataEfetivacao DATE NULL,
+        TipoDespesa NVARCHAR(50) NOT NULL,
+        TipoPagamento NVARCHAR(50) NOT NULL,
+        Recorrencia NVARCHAR(20) NOT NULL CONSTRAINT DF_Despesa_Recorrencia DEFAULT (N'Unica'),
+        ValorTotal DECIMAL(18,2) NOT NULL,
+        ValorLiquido DECIMAL(18,2) NOT NULL,
+        Desconto DECIMAL(18,2) NOT NULL CONSTRAINT DF_Despesa_Desconto DEFAULT (0),
+        Acrescimo DECIMAL(18,2) NOT NULL CONSTRAINT DF_Despesa_Acrescimo DEFAULT (0),
+        Imposto DECIMAL(18,2) NOT NULL CONSTRAINT DF_Despesa_Imposto DEFAULT (0),
+        Juros DECIMAL(18,2) NOT NULL CONSTRAINT DF_Despesa_Juros DEFAULT (0),
+        ValorEfetivacao DECIMAL(18,2) NULL,
+        Status NVARCHAR(20) NOT NULL CONSTRAINT DF_Despesa_Status DEFAULT (N'Pendente'),
+        AnexoDocumento NVARCHAR(500) NULL,
+        CONSTRAINT PK_Despesa PRIMARY KEY CLUSTERED (Id),
+        CONSTRAINT CK_Despesa_Recorrencia CHECK (Recorrencia IN (N'Unica', N'Semanal', N'Quinzenal', N'Mensal', N'Trimestral', N'Semestral', N'Anual', N'Fixa')),
+        CONSTRAINT CK_Despesa_Status CHECK (Status IN (N'Pendente', N'Efetivada', N'Cancelada')),
+        CONSTRAINT CK_Despesa_TipoDespesa CHECK (TipoDespesa IN (N'alimentacao', N'transporte', N'moradia', N'lazer', N'saude', N'educacao', N'servicos')),
+        CONSTRAINT CK_Despesa_TipoPagamento CHECK (TipoPagamento IN (N'pix', N'cartaoCredito', N'cartaoDebito', N'boleto', N'transferencia', N'dinheiro'))
+    );
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_Despesa_Usuario_UsuarioCadastroId')
+BEGIN
+    ALTER TABLE dbo.Despesa
+        WITH CHECK ADD CONSTRAINT FK_Despesa_Usuario_UsuarioCadastroId
+        FOREIGN KEY (UsuarioCadastroId) REFERENCES dbo.Usuario (Id);
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_Despesa_UsuarioCadastroId_Status_DataVencimento' AND object_id = OBJECT_ID(N'dbo.Despesa'))
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_Despesa_UsuarioCadastroId_Status_DataVencimento
+        ON dbo.Despesa (UsuarioCadastroId, Status, DataVencimento);
+END;
+GO
+
+IF OBJECT_ID(N'dbo.DespesaAmigoRateio', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.DespesaAmigoRateio
+    (
+        Id BIGINT IDENTITY(1,1) NOT NULL,
+        DataHoraCadastro DATETIME2(0) NOT NULL CONSTRAINT DF_DespesaAmigoRateio_DataHoraCadastro DEFAULT (SYSUTCDATETIME()),
+        UsuarioCadastroId INT NOT NULL,
+        DespesaId BIGINT NOT NULL,
+        AmigoNome NVARCHAR(150) NOT NULL,
+        CONSTRAINT PK_DespesaAmigoRateio PRIMARY KEY CLUSTERED (Id)
+    );
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_DespesaAmigoRateio_Despesa_DespesaId')
+BEGIN
+    ALTER TABLE dbo.DespesaAmigoRateio
+        WITH CHECK ADD CONSTRAINT FK_DespesaAmigoRateio_Despesa_DespesaId
+        FOREIGN KEY (DespesaId) REFERENCES dbo.Despesa (Id)
+        ON DELETE CASCADE;
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_DespesaAmigoRateio_Usuario_UsuarioCadastroId')
+BEGIN
+    ALTER TABLE dbo.DespesaAmigoRateio
+        WITH CHECK ADD CONSTRAINT FK_DespesaAmigoRateio_Usuario_UsuarioCadastroId
+        FOREIGN KEY (UsuarioCadastroId) REFERENCES dbo.Usuario (Id);
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_DespesaAmigoRateio_DespesaId' AND object_id = OBJECT_ID(N'dbo.DespesaAmigoRateio'))
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_DespesaAmigoRateio_DespesaId
+        ON dbo.DespesaAmigoRateio (DespesaId);
+END;
+GO
+
+IF OBJECT_ID(N'dbo.DespesaTipoRateio', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.DespesaTipoRateio
+    (
+        Id BIGINT IDENTITY(1,1) NOT NULL,
+        DataHoraCadastro DATETIME2(0) NOT NULL CONSTRAINT DF_DespesaTipoRateio_DataHoraCadastro DEFAULT (SYSUTCDATETIME()),
+        UsuarioCadastroId INT NOT NULL,
+        DespesaId BIGINT NOT NULL,
+        TipoRateio NVARCHAR(100) NOT NULL,
+        CONSTRAINT PK_DespesaTipoRateio PRIMARY KEY CLUSTERED (Id)
+    );
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_DespesaTipoRateio_Despesa_DespesaId')
+BEGIN
+    ALTER TABLE dbo.DespesaTipoRateio
+        WITH CHECK ADD CONSTRAINT FK_DespesaTipoRateio_Despesa_DespesaId
+        FOREIGN KEY (DespesaId) REFERENCES dbo.Despesa (Id)
+        ON DELETE CASCADE;
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_DespesaTipoRateio_Usuario_UsuarioCadastroId')
+BEGIN
+    ALTER TABLE dbo.DespesaTipoRateio
+        WITH CHECK ADD CONSTRAINT FK_DespesaTipoRateio_Usuario_UsuarioCadastroId
+        FOREIGN KEY (UsuarioCadastroId) REFERENCES dbo.Usuario (Id);
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_DespesaTipoRateio_DespesaId' AND object_id = OBJECT_ID(N'dbo.DespesaTipoRateio'))
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_DespesaTipoRateio_DespesaId
+        ON dbo.DespesaTipoRateio (DespesaId);
+END;
+GO
+
+IF OBJECT_ID(N'dbo.DespesaLog', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.DespesaLog
+    (
+        Id BIGINT IDENTITY(1,1) NOT NULL,
+        DataHoraCadastro DATETIME2(0) NOT NULL CONSTRAINT DF_DespesaLog_DataHoraCadastro DEFAULT (SYSUTCDATETIME()),
+        UsuarioCadastroId INT NOT NULL,
+        DespesaId BIGINT NOT NULL,
+        Acao NVARCHAR(20) NOT NULL,
+        Descricao NVARCHAR(500) NOT NULL,
+        CONSTRAINT PK_DespesaLog PRIMARY KEY CLUSTERED (Id),
+        CONSTRAINT CK_DespesaLog_Acao CHECK (Acao IN (N'Cadastro', N'Atualizacao', N'Exclusao'))
+    );
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_DespesaLog_Despesa_DespesaId')
+BEGIN
+    ALTER TABLE dbo.DespesaLog
+        WITH CHECK ADD CONSTRAINT FK_DespesaLog_Despesa_DespesaId
+        FOREIGN KEY (DespesaId) REFERENCES dbo.Despesa (Id)
+        ON DELETE CASCADE;
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_DespesaLog_Usuario_UsuarioCadastroId')
+BEGIN
+    ALTER TABLE dbo.DespesaLog
+        WITH CHECK ADD CONSTRAINT FK_DespesaLog_Usuario_UsuarioCadastroId
+        FOREIGN KEY (UsuarioCadastroId) REFERENCES dbo.Usuario (Id);
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_DespesaLog_DespesaId_DataHoraCadastro' AND object_id = OBJECT_ID(N'dbo.DespesaLog'))
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_DespesaLog_DespesaId_DataHoraCadastro
+        ON dbo.DespesaLog (DespesaId, DataHoraCadastro DESC);
+END;
+GO
