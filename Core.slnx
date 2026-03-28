@@ -3,5 +3,5 @@
   <Project Path="Core.Application/Core.Application.csproj" />
   <Project Path="Core.Domain/Core.Domain.csproj" />
   <Project Path="Core.Infrastructure/Core.Infrastructure.csproj" />
-  <Project Path="src/tests/Core.Tests/Core.Tests.csproj" />
+  <Project Path="Core.Tests/Core.Tests.csproj" />
 </Solution>

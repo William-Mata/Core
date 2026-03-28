@@ -83,6 +83,71 @@ public sealed class UsuarioServiceTests
     }
 
     [Fact]
+    public async Task DeveCriarUsuario_ResolvendoFuncionalidadesPelaTelaQuandoIdsDoPayloadForemRepetidos()
+    {
+        var repository = new UsuarioRepositoryFake
+        {
+            TelasAtivas =
+            [
+                new Tela { Id = 3, ModuloId = 1, Nome = "Lista de Amigos", Status = true },
+                new Tela { Id = 4, ModuloId = 1, Nome = "Convites", Status = true }
+            ],
+            FuncionalidadesAtivas =
+            [
+                new Funcionalidade { Id = 10, TelaId = 3, Nome = "Visualizar", Status = true },
+                new Funcionalidade { Id = 11, TelaId = 3, Nome = "Criar", Status = true },
+                new Funcionalidade { Id = 12, TelaId = 3, Nome = "Editar", Status = true },
+                new Funcionalidade { Id = 13, TelaId = 3, Nome = "Excluir", Status = true },
+                new Funcionalidade { Id = 20, TelaId = 4, Nome = "Visualizar", Status = true },
+                new Funcionalidade { Id = 21, TelaId = 4, Nome = "Criar", Status = true },
+                new Funcionalidade { Id = 22, TelaId = 4, Nome = "Editar", Status = true },
+                new Funcionalidade { Id = 23, TelaId = 4, Nome = "Excluir", Status = true }
+            ]
+        };
+
+        var request = new SalvarUsuarioRequest(
+            "Novo Usuario",
+            "novo@empresa.com",
+            "USER",
+            true,
+            [
+                new SalvarModuloUsuarioRequest(
+                    "1",
+                    "Geral",
+                    true,
+                    [
+                        new SalvarTelaUsuarioRequest(
+                            "3",
+                            "Lista de Amigos",
+                            true,
+                            [
+                                new SalvarFuncionalidadeUsuarioRequest("1", "Visualizar", true),
+                                new SalvarFuncionalidadeUsuarioRequest("2", "comum.acoes.criar", true),
+                                new SalvarFuncionalidadeUsuarioRequest("3", "Editar", true),
+                                new SalvarFuncionalidadeUsuarioRequest("4", "comum.acoes.excluir", true)
+                            ]),
+                        new SalvarTelaUsuarioRequest(
+                            "4",
+                            "Convites",
+                            true,
+                            [
+                                new SalvarFuncionalidadeUsuarioRequest("1", "Visualizar", true),
+                                new SalvarFuncionalidadeUsuarioRequest("2", "comum.acoes.criar", true),
+                                new SalvarFuncionalidadeUsuarioRequest("3", "Editar", true),
+                                new SalvarFuncionalidadeUsuarioRequest("4", "comum.acoes.excluir", true)
+                            ])
+                    ])
+            ]);
+
+        var service = new UsuarioService(repository, new UsuarioAutenticadoProviderFake(1));
+        var response = await service.CriarAsync(request);
+
+        Assert.True(response.Sucesso);
+        Assert.Equal([3, 4], repository.TelasAtivasIds);
+        Assert.Equal([10, 11, 12, 13, 20, 21, 22, 23], repository.FuncionalidadesAtivasIds);
+    }
+
+    [Fact]
     public async Task DeveImpedirCriacao_ComEmailDuplicado()
     {
         var repository = new UsuarioRepositoryFake
