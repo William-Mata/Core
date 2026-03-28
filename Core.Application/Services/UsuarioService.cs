@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text;
 using System.Text.RegularExpressions;
 using Core.Application.DTOs;
 using Core.Domain.Entities;
@@ -50,7 +52,7 @@ public sealed class UsuarioService(IUsuarioRepository repository, IUsuarioAutent
 
         if (request.ModulosAtivos is not null)
         {
-            var permissoes = MapearPermissoesAtivas(request.ModulosAtivos);
+            var permissoes = await MapearPermissoesAtivasAsync(request.ModulosAtivos, cancellationToken);
             await repository.SincronizarPermissoesAsync(
                 criado.Id,
                 usuarioAutenticadoId,
@@ -83,7 +85,7 @@ public sealed class UsuarioService(IUsuarioRepository repository, IUsuarioAutent
 
         if (request.ModulosAtivos is not null)
         {
-            var permissoes = MapearPermissoesAtivas(request.ModulosAtivos);
+            var permissoes = await MapearPermissoesAtivasAsync(request.ModulosAtivos, cancellationToken);
             await repository.SincronizarPermissoesAsync(
                 id,
                 usuarioAutenticadoId,
@@ -152,8 +154,13 @@ public sealed class UsuarioService(IUsuarioRepository repository, IUsuarioAutent
     private static int? ConverterId(string? valor) =>
         int.TryParse(valor?.Trim(), out var id) ? id : null;
 
-    private static PermissoesAtivas MapearPermissoesAtivas(IReadOnlyCollection<SalvarModuloUsuarioRequest> modulosAtivos)
+    private async Task<PermissoesAtivas> MapearPermissoesAtivasAsync(
+        IReadOnlyCollection<SalvarModuloUsuarioRequest> modulosAtivos,
+        CancellationToken cancellationToken)
     {
+        var telasDisponiveis = await repository.ListarTelasAsync(cancellationToken);
+        var funcionalidadesDisponiveis = await repository.ListarFuncionalidadesAsync(cancellationToken);
+
         var modulosAtivosIds = modulosAtivos
             .Where(x => x.Status)
             .Select(x => ConverterId(x.Id))
@@ -164,9 +171,9 @@ public sealed class UsuarioService(IUsuarioRepository repository, IUsuarioAutent
 
         var telasAtivasIds = modulosAtivos
             .Where(x => x.Status)
-            .SelectMany(x => x.Telas ?? [])
-            .Where(x => x.Status)
-            .Select(x => ConverterId(x.Id))
+            .SelectMany(modulo => (modulo.Telas ?? [])
+                .Where(tela => tela.Status)
+                .Select(tela => ResolverTelaId(modulo, tela, telasDisponiveis)))
             .Where(x => x.HasValue)
             .Select(x => x!.Value)
             .Distinct()
@@ -174,17 +181,116 @@ public sealed class UsuarioService(IUsuarioRepository repository, IUsuarioAutent
 
         var funcionalidadesAtivasIds = modulosAtivos
             .Where(x => x.Status)
-            .SelectMany(x => x.Telas ?? [])
-            .Where(x => x.Status)
-            .SelectMany(x => x.Funcionalidades ?? [])
-            .Where(x => x.Status)
-            .Select(x => ConverterId(x.Id))
-            .Where(x => x.HasValue)
-            .Select(x => x!.Value)
+            .SelectMany(modulo => (modulo.Telas ?? [])
+                .Where(tela => tela.Status)
+                .SelectMany(tela =>
+                {
+                    var telaId = ResolverTelaId(modulo, tela, telasDisponiveis);
+                    if (!telaId.HasValue)
+                    {
+                        return Array.Empty<int>();
+                    }
+
+                    return (tela.Funcionalidades ?? [])
+                        .Where(funcionalidade => funcionalidade.Status)
+                        .Select(funcionalidade => ResolverFuncionalidadeId(telaId.Value, funcionalidade, funcionalidadesDisponiveis))
+                        .Where(funcionalidadeId => funcionalidadeId.HasValue)
+                        .Select(funcionalidadeId => funcionalidadeId!.Value);
+                }))
             .Distinct()
             .ToArray();
 
         return new PermissoesAtivas(modulosAtivosIds, telasAtivasIds, funcionalidadesAtivasIds);
+    }
+
+    private static int? ResolverTelaId(
+        SalvarModuloUsuarioRequest modulo,
+        SalvarTelaUsuarioRequest tela,
+        IReadOnlyCollection<Tela> telasDisponiveis)
+    {
+        var telaId = ConverterId(tela.Id);
+        var moduloId = ConverterId(modulo.Id);
+
+        if (telaId.HasValue)
+        {
+            var telaEncontrada = telasDisponiveis.FirstOrDefault(x => x.Id == telaId.Value);
+            if (telaEncontrada is not null && (!moduloId.HasValue || telaEncontrada.ModuloId == moduloId.Value))
+            {
+                return telaEncontrada.Id;
+            }
+
+            if (!telasDisponiveis.Any())
+            {
+                return telaId.Value;
+            }
+        }
+
+        return telasDisponiveis
+            .FirstOrDefault(x =>
+                (!moduloId.HasValue || x.ModuloId == moduloId.Value) &&
+                NormalizarChavePermissao(x.Nome) == NormalizarChavePermissao(tela.Nome))
+            ?.Id;
+    }
+
+    private static int? ResolverFuncionalidadeId(
+        int telaId,
+        SalvarFuncionalidadeUsuarioRequest funcionalidade,
+        IReadOnlyCollection<Funcionalidade> funcionalidadesDisponiveis)
+    {
+        var funcionalidadeId = ConverterId(funcionalidade.Id);
+
+        if (funcionalidadeId.HasValue)
+        {
+            var funcionalidadeEncontrada = funcionalidadesDisponiveis.FirstOrDefault(x =>
+                x.Id == funcionalidadeId.Value &&
+                x.TelaId == telaId);
+
+            if (funcionalidadeEncontrada is not null)
+            {
+                return funcionalidadeEncontrada.Id;
+            }
+
+            if (!funcionalidadesDisponiveis.Any(x => x.TelaId == telaId))
+            {
+                return funcionalidadeId.Value;
+            }
+        }
+
+        var chaveFuncionalidade = NormalizarChavePermissao(funcionalidade.Nome);
+
+        return funcionalidadesDisponiveis
+            .FirstOrDefault(x =>
+                x.TelaId == telaId &&
+                NormalizarChavePermissao(x.Nome) == chaveFuncionalidade)
+            ?.Id;
+    }
+
+    private static string NormalizarChavePermissao(string? valor)
+    {
+        if (string.IsNullOrWhiteSpace(valor))
+        {
+            return string.Empty;
+        }
+
+        var texto = valor.Trim();
+        texto = texto.Replace("comum.acoes.", string.Empty, StringComparison.OrdinalIgnoreCase);
+        texto = texto.Normalize(NormalizationForm.FormD);
+
+        var builder = new StringBuilder(texto.Length);
+        foreach (var caractere in texto)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(caractere) == UnicodeCategory.NonSpacingMark)
+            {
+                continue;
+            }
+
+            if (char.IsLetterOrDigit(caractere))
+            {
+                builder.Append(char.ToLowerInvariant(caractere));
+            }
+        }
+
+        return builder.ToString();
     }
 
     private static int MapearPerfilId(string? perfil) =>
