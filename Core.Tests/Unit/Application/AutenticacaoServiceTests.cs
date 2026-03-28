@@ -1,8 +1,10 @@
 ﻿using Core.Application.DTOs;
 using Core.Application.Services;
 using Core.Domain.Entities;
+using Core.Domain.Entities.Administracao;
 using Core.Domain.Exceptions;
 using Core.Domain.Interfaces;
+using Core.Domain.Interfaces.Administracao;
 
 namespace Core.Tests.Unit.Application;
 
@@ -170,7 +172,7 @@ public sealed class AutenticacaoServiceTests
     }
 
     [Fact]
-    public async Task DeveMapearModulosTelasEFuncionalidades_NoLoginComCatalogoCompleto()
+    public async Task DeveMapearModulosTelasEFuncionalidades_NoLoginCompleto()
     {
         var modulo = new Modulo { Id = 1, Nome = "Geral", Status = true };
         var moduloInativo = new Modulo { Id = 2, Nome = "Administracao", Status = false };

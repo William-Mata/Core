@@ -10,6 +10,7 @@ public sealed class Reembolso
     public string Descricao { get; set; } = string.Empty;
     public string Solicitante { get; set; } = string.Empty;
     public DateOnly DataSolicitacao { get; set; }
+    public DateOnly? DataEfetivacao { get; set; }
     public decimal ValorTotal { get; set; }
     public StatusReembolso Status { get; set; } = StatusReembolso.Aguardando;
     public List<ReembolsoDespesa> Despesas { get; set; } = [];

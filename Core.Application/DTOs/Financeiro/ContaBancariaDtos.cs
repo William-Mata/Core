@@ -1,6 +1,6 @@
 using Core.Domain.Enums;
 
-namespace Core.Application.DTOs;
+namespace Core.Application.DTOs.Financeiro;
 
 public sealed record ContaBancariaExtratoDto(long Id, DateOnly Data, string Descricao, string Tipo, decimal Valor);
 public sealed record ContaBancariaLogDto(long Id, DateOnly Data, AcaoLogs Acao, string Descricao);

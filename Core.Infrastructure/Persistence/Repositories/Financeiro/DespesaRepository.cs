@@ -9,6 +9,10 @@ public sealed class DespesaRepository(AppDbContext dbContext) : IDespesaReposito
     public Task<List<Despesa>> ListarAsync(CancellationToken cancellationToken = default) =>
         dbContext.Despesas
             .Include(x => x.AmigosRateio)
+            .Include(x => x.AreasRateio)
+                .ThenInclude(x => x.Area)
+            .Include(x => x.AreasRateio)
+                .ThenInclude(x => x.SubArea)
             .Include(x => x.TiposRateio)
             .Include(x => x.Logs)
             .OrderByDescending(x => x.DataLancamento)
@@ -22,6 +26,10 @@ public sealed class DespesaRepository(AppDbContext dbContext) : IDespesaReposito
     public Task<Despesa?> ObterPorIdAsync(long id, CancellationToken cancellationToken = default) =>
         dbContext.Despesas
             .Include(x => x.AmigosRateio)
+            .Include(x => x.AreasRateio)
+                .ThenInclude(x => x.Area)
+            .Include(x => x.AreasRateio)
+                .ThenInclude(x => x.SubArea)
             .Include(x => x.TiposRateio)
             .Include(x => x.Logs)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);

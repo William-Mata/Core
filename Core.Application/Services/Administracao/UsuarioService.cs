@@ -1,12 +1,13 @@
 using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
-using Core.Application.DTOs;
-using Core.Domain.Entities;
+using Core.Application.DTOs.Administracao;
+using Core.Domain.Entities.Administracao;
 using Core.Domain.Exceptions;
 using Core.Domain.Interfaces;
+using Core.Domain.Interfaces.Administracao;
 
-namespace Core.Application.Services;
+namespace Core.Application.Services.Administracao;
 
 public sealed class UsuarioService(IUsuarioRepository repository, IUsuarioAutenticadoProvider usuarioAutenticadoProvider)
 {

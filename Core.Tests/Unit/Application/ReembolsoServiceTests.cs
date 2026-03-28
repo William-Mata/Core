@@ -1,7 +1,8 @@
 using System.Text.Json;
-using Core.Application.DTOs;
+using Core.Application.DTOs.Financeiro;
 using Core.Application.Services.Financeiro;
 using Core.Domain.Entities.Financeiro;
+using Core.Domain.Enums;
 using Core.Domain.Exceptions;
 using Core.Domain.Interfaces;
 using Core.Domain.Interfaces.Financeiro;
@@ -13,7 +14,7 @@ public sealed class ReembolsoServiceTests
     [Fact]
     public async Task DeveExigirUsuarioAutenticado_ParaCriarReembolso()
     {
-        var service = new ReembolsoService(new ReembolsoRepositoryFake(), new DespesaRepositoryFake(), new UsuarioAutenticadoProviderFake(null));
+        var service = CriarService(new ReembolsoRepositoryFake(), new DespesaRepositoryFake(), null);
 
         var ex = await Assert.ThrowsAsync<DomainException>(() => service.CriarAsync(CriarRequestPadrao()));
 
@@ -23,7 +24,7 @@ public sealed class ReembolsoServiceTests
     [Fact]
     public async Task DeveExigirPeloMenosUmaDespesaVinculada()
     {
-        var service = new ReembolsoService(new ReembolsoRepositoryFake(), new DespesaRepositoryFake(), new UsuarioAutenticadoProviderFake(1));
+        var service = CriarService(new ReembolsoRepositoryFake(), new DespesaRepositoryFake(), 1);
 
         var ex = await Assert.ThrowsAsync<DomainException>(() => service.CriarAsync(CriarRequestPadrao(despesasVinculadas: [])));
 
@@ -42,7 +43,8 @@ public sealed class ReembolsoServiceTests
                     new Despesa { Id = 1, Descricao = "Combustivel", ValorTotal = 100m }
                 ]
             },
-            new UsuarioAutenticadoProviderFake(1));
+            new UsuarioAutenticadoProviderFake(1),
+            new HistoricoTransacaoFinanceiraService(new HistoricoRepositoryFake()));
 
         var ex = await Assert.ThrowsAsync<DomainException>(() => service.CriarAsync(CriarRequestPadrao()));
 
@@ -53,7 +55,7 @@ public sealed class ReembolsoServiceTests
     public async Task DeveCriarReembolsoComValorTotalSomadoPelasDespesas()
     {
         var repository = new ReembolsoRepositoryFake();
-        var service = new ReembolsoService(
+        var service = CriarService(
             repository,
             new DespesaRepositoryFake
             {
@@ -63,7 +65,7 @@ public sealed class ReembolsoServiceTests
                     new Despesa { Id = 3, Descricao = "Pedagio", ValorTotal = 74.9m }
                 ]
             },
-            new UsuarioAutenticadoProviderFake(1));
+            1);
 
         var response = await service.CriarAsync(CriarRequestPadrao());
 
@@ -74,20 +76,135 @@ public sealed class ReembolsoServiceTests
         Assert.Equal(174.9m, repository.ReembolsoCriado!.ValorTotal);
     }
 
-    private static SalvarReembolsoRequest CriarRequestPadrao(IReadOnlyCollection<JsonElement>? despesasVinculadas = null) =>
+    [Fact]
+    public async Task DeveImpedirReembolsoPagoComDataEfetivacaoMenorQueDataSolicitacao()
+    {
+        var service = CriarService(
+            new ReembolsoRepositoryFake(),
+            new DespesaRepositoryFake
+            {
+                Despesas =
+                [
+                    new Despesa { Id = 1, Descricao = "Combustivel", ValorTotal = 100m }
+                ]
+            },
+            1);
+
+        var ex = await Assert.ThrowsAsync<DomainException>(() => service.CriarAsync(CriarRequestPadrao(status: "PAGO", dataEfetivacao: new DateOnly(2026, 3, 17))));
+
+        Assert.Equal("periodo_invalido", ex.Message);
+    }
+
+    [Fact]
+    public async Task DevePermitirReembolsoPagoComDataEfetivacaoIgualDataSolicitacao()
+    {
+        var service = CriarService(
+            new ReembolsoRepositoryFake(),
+            new DespesaRepositoryFake
+            {
+                Despesas =
+                [
+                    new Despesa { Id = 1, Descricao = "Combustivel", ValorTotal = 100m }
+                ]
+            },
+            1);
+
+        var response = await service.CriarAsync(CriarRequestPadrao(status: "PAGO", dataEfetivacao: new DateOnly(2026, 3, 18)));
+
+        Assert.Equal("PAGO", response.Status);
+        Assert.Equal(new DateOnly(2026, 3, 18), response.DataEfetivacao);
+    }
+
+    [Fact]
+    public async Task DeveEfetivarReembolso_QuandoDadosForemValidos()
+    {
+        var repository = new ReembolsoRepositoryFake
+        {
+            Reembolso = new Reembolso
+            {
+                Id = 10,
+                Descricao = "Reembolso",
+                Solicitante = "Joao",
+                DataSolicitacao = new DateOnly(2026, 3, 18),
+                ValorTotal = 150m,
+                Status = StatusReembolso.Aprovado
+            }
+        };
+        var service = CriarService(repository, new DespesaRepositoryFake(), 1);
+
+        var response = await service.EfetivarAsync(10, new EfetivarReembolsoRequest(new DateOnly(2026, 3, 18), contaBancariaId: 1));
+
+        Assert.Equal("PAGO", response.Status);
+        Assert.Equal(new DateOnly(2026, 3, 18), response.DataEfetivacao);
+    }
+
+    [Fact]
+    public async Task DeveImpedirEfetivacao_QuandoDataEfetivacaoForMenorQueDataSolicitacao()
+    {
+        var repository = new ReembolsoRepositoryFake
+        {
+            Reembolso = new Reembolso
+            {
+                Id = 10,
+                Descricao = "Reembolso",
+                Solicitante = "Joao",
+                DataSolicitacao = new DateOnly(2026, 3, 18),
+                ValorTotal = 150m,
+                Status = StatusReembolso.Aprovado
+            }
+        };
+        var service = CriarService(repository, new DespesaRepositoryFake(), 1);
+
+        var ex = await Assert.ThrowsAsync<DomainException>(() => service.EfetivarAsync(10, new EfetivarReembolsoRequest(new DateOnly(2026, 3, 17), contaBancariaId: 1)));
+
+        Assert.Equal("periodo_invalido", ex.Message);
+    }
+
+    [Fact]
+    public async Task DeveEstornarReembolsoPago()
+    {
+        var repository = new ReembolsoRepositoryFake
+        {
+            Reembolso = new Reembolso
+            {
+                Id = 10,
+                Descricao = "Reembolso",
+                Solicitante = "Joao",
+                DataSolicitacao = new DateOnly(2026, 3, 18),
+                DataEfetivacao = new DateOnly(2026, 3, 20),
+                ValorTotal = 150m,
+                Status = StatusReembolso.Pago
+            }
+        };
+        var service = CriarService(repository, new DespesaRepositoryFake(), 1);
+
+        var response = await service.EstornarAsync(10);
+
+        Assert.Equal("AGUARDANDO", response.Status);
+        Assert.Null(response.DataEfetivacao);
+    }
+
+    private static SalvarReembolsoRequest CriarRequestPadrao(
+        IReadOnlyCollection<JsonElement>? despesasVinculadas = null,
+        string? status = "AGUARDANDO",
+        DateOnly? dataEfetivacao = null) =>
         new(
             "Viagem comercial - semana 2",
             "Joao Silva",
             new DateOnly(2026, 3, 18),
+            dataEfetivacao,
             despesasVinculadas ?? [CriarJsonNumero(1), CriarJsonNumero(3)],
             999m,
-            "AGUARDANDO");
+            status);
 
     private static JsonElement CriarJsonNumero(long valor)
     {
         using var document = JsonDocument.Parse(valor.ToString());
         return document.RootElement.Clone();
     }
+
+    private static ReembolsoService CriarService(IReembolsoRepository repository, IDespesaRepository despesaRepository, int? usuarioId) =>
+        new(repository, despesaRepository, new UsuarioAutenticadoProviderFake(usuarioId), new HistoricoTransacaoFinanceiraService(new HistoricoRepositoryFake()));
 
     private sealed class UsuarioAutenticadoProviderFake(int? usuarioId) : IUsuarioAutenticadoProvider
     {
@@ -111,12 +228,13 @@ public sealed class ReembolsoServiceTests
     {
         public bool ExisteDespesaVinculada { get; set; }
         public Reembolso? ReembolsoCriado { get; private set; }
+        public Reembolso? Reembolso { get; set; }
 
         public Task<List<Reembolso>> ListarAsync(string? filtroId, string? descricao, DateOnly? dataInicio, DateOnly? dataFim, CancellationToken cancellationToken = default) =>
             Task.FromResult(new List<Reembolso>());
 
         public Task<Reembolso?> ObterPorIdAsync(long id, CancellationToken cancellationToken = default) =>
-            Task.FromResult<Reembolso?>(null);
+            Task.FromResult(Reembolso);
 
         public Task<Reembolso> CriarAsync(Reembolso reembolso, CancellationToken cancellationToken = default)
         {
@@ -133,5 +251,14 @@ public sealed class ReembolsoServiceTests
 
         public Task<bool> ExisteDespesaVinculadaEmOutroReembolsoAsync(IReadOnlyCollection<long> despesasIds, long? reembolsoIgnoradoId, CancellationToken cancellationToken = default) =>
             Task.FromResult(ExisteDespesaVinculada);
+    }
+
+    private sealed class HistoricoRepositoryFake : IHistoricoTransacaoFinanceiraRepository
+    {
+        public Task<HistoricoTransacaoFinanceira> CriarAsync(HistoricoTransacaoFinanceira historico, CancellationToken cancellationToken = default) =>
+            Task.FromResult(historico);
+
+        public Task<HistoricoTransacaoFinanceira?> ObterUltimoPorTransacaoAsync(TipoTransacaoFinanceira tipoTransacao, long transacaoId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<HistoricoTransacaoFinanceira?>(null);
     }
 }

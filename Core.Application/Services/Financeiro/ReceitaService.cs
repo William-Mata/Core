@@ -28,6 +28,7 @@ public sealed class ReceitaService(
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
         await ValidarComumAsync(req.Descricao, req.DataLancamento, req.DataVencimento, req.TipoReceita, req.TipoRecebimento, req.Recorrencia, req.QuantidadeRecorrencia, req.ValorTotal, req.ContaBancaria, cancellationToken);
         await ValidarAreasRateioAsync(req.AreasRateio, cancellationToken);
+        var amigos = NormalizarAmigos(req.Amigos, req.AmigosRateio, req.RateioAmigosValores);
         var contaId = await ResolverContaIdAsync(req.ContaBancaria, cancellationToken);
         var liquido = Liquido(req.ValorTotal, req.Desconto, req.Acrescimo, req.Imposto, req.Juros);
         var r = new Receita
@@ -38,7 +39,7 @@ public sealed class ReceitaService(
             ValorTotal = req.ValorTotal, ValorLiquido = liquido, Desconto = req.Desconto, Acrescimo = req.Acrescimo, Imposto = req.Imposto, Juros = req.Juros,
             UsuarioCadastroId = usuarioAutenticadoId,
             Status = StatusReceita.Pendente, ContaBancariaId = contaId, AnexoDocumento = req.AnexoDocumento,
-            AmigosRateio = req.AmigosRateio.Select(x => new ReceitaAmigoRateio { UsuarioCadastroId = usuarioAutenticadoId, AmigoNome = x, Valor = req.RateioAmigosValores.TryGetValue(x, out var v) ? v : null }).ToList(),
+            AmigosRateio = amigos.Select(x => new ReceitaAmigoRateio { UsuarioCadastroId = usuarioAutenticadoId, AmigoNome = x.Nome, Valor = x.Valor }).ToList(),
             AreasRateio = req.AreasRateio.Select(x => new ReceitaAreaRateio { UsuarioCadastroId = usuarioAutenticadoId, AreaId = x.AreaId, SubAreaId = x.SubAreaId, Valor = x.Valor }).ToList(),
             Logs = [new ReceitaLog { UsuarioCadastroId = usuarioAutenticadoId, Acao = AcaoLogs.Cadastro, Descricao = "Receita criada com status pendente." }]
         };
@@ -64,9 +65,7 @@ public sealed class ReceitaService(
                 req.Juros,
                 req.ContaBancaria,
                 req.AnexoDocumento,
-                req.AmigosRateio.Select(x => new RateioAmigoBackgroundMessage(
-                    x,
-                    req.RateioAmigosValores.TryGetValue(x, out var v) ? v : null)).ToArray(),
+                amigos.Select(x => new RateioAmigoBackgroundMessage(x.Nome, x.Valor)).ToArray(),
                 req.AreasRateio.Select(x => new RateioAreaBackgroundMessage(x.AreaId, x.SubAreaId, x.Valor)).ToArray());
 
             await recorrenciaBackgroundPublisher.PublicarReceitaAsync(mensagem, cancellationToken);
@@ -82,6 +81,7 @@ public sealed class ReceitaService(
         if (r.Status != StatusReceita.Pendente) throw new DomainException("status_invalido");
         await ValidarComumAsync(req.Descricao, req.DataLancamento, req.DataVencimento, req.TipoReceita, req.TipoRecebimento, req.Recorrencia, req.QuantidadeRecorrencia, req.ValorTotal, req.ContaBancaria, cancellationToken);
         await ValidarAreasRateioAsync(req.AreasRateio, cancellationToken);
+        var amigos = NormalizarAmigos(req.Amigos, req.AmigosRateio, req.RateioAmigosValores);
         var contaId = await ResolverContaIdAsync(req.ContaBancaria, cancellationToken);
         var liquido = Liquido(req.ValorTotal, req.Desconto, req.Acrescimo, req.Imposto, req.Juros);
 
@@ -89,7 +89,7 @@ public sealed class ReceitaService(
         r.TipoReceita = req.TipoReceita; r.TipoRecebimento = req.TipoRecebimento; r.Recorrencia = req.Recorrencia; r.QuantidadeRecorrencia = req.QuantidadeRecorrencia;
         r.ValorTotal = req.ValorTotal; r.ValorLiquido = liquido; r.Desconto = req.Desconto; r.Acrescimo = req.Acrescimo; r.Imposto = req.Imposto; r.Juros = req.Juros;
         r.ContaBancariaId = contaId; r.AnexoDocumento = req.AnexoDocumento;
-        r.AmigosRateio = req.AmigosRateio.Select(x => new ReceitaAmigoRateio { ReceitaId = r.Id, UsuarioCadastroId = usuarioAutenticadoId, AmigoNome = x, Valor = req.RateioAmigosValores.TryGetValue(x, out var v) ? v : null }).ToList();
+        r.AmigosRateio = amigos.Select(x => new ReceitaAmigoRateio { ReceitaId = r.Id, UsuarioCadastroId = usuarioAutenticadoId, AmigoNome = x.Nome, Valor = x.Valor }).ToList();
         r.AreasRateio = req.AreasRateio.Select(x => new ReceitaAreaRateio { ReceitaId = r.Id, UsuarioCadastroId = usuarioAutenticadoId, AreaId = x.AreaId, SubAreaId = x.SubAreaId, Valor = x.Valor }).ToList();
         r.Logs.Add(new ReceitaLog { ReceitaId = r.Id, UsuarioCadastroId = usuarioAutenticadoId, Acao = AcaoLogs.Atualizacao, Descricao = "Receita atualizada." });
         return Map(await repository.AtualizarAsync(r, cancellationToken));
@@ -193,11 +193,27 @@ public sealed class ReceitaService(
         {
             if (!subAreasById.TryGetValue(item.SubAreaId, out var subArea) || subArea.AreaId != item.AreaId)
                 throw new DomainException("relacao_area_subarea_invalida");
+
+            if (subArea.Area.Tipo != TipoAreaFinanceira.Receita)
+                throw new DomainException("area_subarea_invalida");
         }
     }
 
     private static bool ContaObrigatoria(string tipoRecebimento) => tipoRecebimento is "pix" or "transferencia";
     private static decimal Liquido(decimal valorTotal, decimal desconto, decimal acrescimo, decimal imposto, decimal juros) => valorTotal - desconto + acrescimo + imposto + juros;
+    private static IReadOnlyCollection<AmigoRateioRequest> NormalizarAmigos(
+        IReadOnlyCollection<AmigoRateioRequest>? amigosObjetos,
+        IReadOnlyCollection<string> amigosLegado,
+        IReadOnlyDictionary<string, decimal> rateioAmigosValoresLegado)
+    {
+        if (amigosObjetos is not null && amigosObjetos.Count > 0)
+            return amigosObjetos.Where(x => !string.IsNullOrWhiteSpace(x.Nome)).ToArray();
+
+        return amigosLegado
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => new AmigoRateioRequest(x, rateioAmigosValoresLegado.TryGetValue(x, out var valor) ? valor : null))
+            .ToArray();
+    }
 
     private async Task<long?> ResolverContaIdAsync(string? contaBancaria, CancellationToken cancellationToken)
     {
@@ -210,6 +226,7 @@ public sealed class ReceitaService(
     private static ReceitaDto Map(Receita r) =>
         new(r.Id, r.Descricao, r.Observacao, r.DataLancamento, r.DataVencimento, r.DataEfetivacao, r.TipoReceita, r.TipoRecebimento, r.Recorrencia, r.QuantidadeRecorrencia,
             r.ValorTotal, r.ValorLiquido, r.Desconto, r.Acrescimo, r.Imposto, r.Juros, r.ValorEfetivacao, r.Status.ToString().ToLowerInvariant(),
+            r.AmigosRateio.Select(x => new AmigoRateioDto(x.AmigoNome, x.Valor)).ToArray(),
             r.AmigosRateio.Select(x => x.AmigoNome).ToArray(),
             r.AmigosRateio.Where(x => x.Valor.HasValue).ToDictionary(x => x.AmigoNome, x => x.Valor!.Value),
             r.AreasRateio.Select(x => new ReceitaAreaRateioDto(

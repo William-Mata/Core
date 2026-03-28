@@ -1,4 +1,4 @@
-using Core.Application.DTOs;
+using Core.Application.DTOs.Financeiro;
 using Core.Application.Services.Financeiro;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -40,4 +40,12 @@ public sealed class ReembolsoController(ReembolsoService service) : ControllerBa
         await service.ExcluirAsync(id, cancellationToken);
         return NoContent();
     }
+
+    [HttpPost("{id:long}/efetivar")]
+    public async Task<IActionResult> Efetivar(long id, [FromBody] EfetivarReembolsoRequest request, CancellationToken cancellationToken) =>
+        Ok(await service.EfetivarAsync(id, request, cancellationToken));
+
+    [HttpPost("{id:long}/estornar")]
+    public async Task<IActionResult> Estornar(long id, CancellationToken cancellationToken) =>
+        Ok(await service.EstornarAsync(id, cancellationToken));
 }

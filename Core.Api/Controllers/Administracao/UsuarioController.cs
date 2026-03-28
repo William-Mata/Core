@@ -1,9 +1,9 @@
-using Core.Application.DTOs;
-using Core.Application.Services;
+using Core.Application.DTOs.Administracao;
+using Core.Application.Services.Administracao;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Core.Api.Controllers;
+namespace Core.Api.Controllers.Administracao;
 
 [ApiController]
 [Route("api/usuarios")]

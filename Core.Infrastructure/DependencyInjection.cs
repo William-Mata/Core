@@ -44,6 +44,8 @@ public static class DependencyInjection
         services.AddScoped<AutenticacaoService>();
         services.AddScoped<ContaBancariaService>();
         services.AddScoped<CartaoService>();
+        services.AddScoped<AreaSubAreaFinanceiroService>();
+        services.AddScoped<AmigoFinanceiroService>();
         services.AddScoped<DespesaService>();
         services.AddScoped<ReceitaService>();
         services.AddScoped<ReembolsoService>();

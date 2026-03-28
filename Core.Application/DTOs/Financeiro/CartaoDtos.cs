@@ -1,6 +1,6 @@
 using Core.Domain.Enums;
 
-namespace Core.Application.DTOs;
+namespace Core.Application.DTOs.Financeiro;
 
 public sealed record CartaoLancamentoDto(long Id, DateOnly Data, string Descricao, decimal Valor);
 public sealed record CartaoLogDto(long Id, DateOnly Data, AcaoLogs Acao, string Descricao);

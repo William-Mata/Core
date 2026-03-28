@@ -6,6 +6,13 @@ namespace Core.Infrastructure.Persistence.Repositories.Financeiro;
 
 public sealed class AreaRepository(AppDbContext dbContext) : IAreaRepository
 {
+    public Task<List<Area>> ListarComSubAreasAsync(CancellationToken cancellationToken = default) =>
+        dbContext.Areas
+            .Include(x => x.SubAreas)
+            .OrderBy(x => x.Tipo)
+            .ThenBy(x => x.Nome)
+            .ToListAsync(cancellationToken);
+
     public Task<List<SubArea>> ObterSubAreasPorIdsAsync(IReadOnlyCollection<long> subAreasIds, CancellationToken cancellationToken = default)
     {
         if (subAreasIds.Count == 0) return Task.FromResult(new List<SubArea>());
@@ -16,4 +23,3 @@ public sealed class AreaRepository(AppDbContext dbContext) : IAreaRepository
             .ToListAsync(cancellationToken);
     }
 }
-

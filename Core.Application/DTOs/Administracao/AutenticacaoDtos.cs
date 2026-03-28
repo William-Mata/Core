@@ -1,4 +1,4 @@
-﻿namespace Core.Application.DTOs;
+﻿namespace Core.Application.DTOs.Administracao;
 
 public sealed record EntrarRequest(string Email, string Senha);
 public sealed record EsqueciSenhaRequest(string Email);

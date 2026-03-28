@@ -1,4 +1,4 @@
-using Core.Application.DTOs;
+using Core.Application.DTOs.Financeiro;
 using Core.Application.Services.Financeiro;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

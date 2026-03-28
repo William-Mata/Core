@@ -1,10 +1,11 @@
-using Core.Domain.Entities;
+using Core.Domain.Entities.Administracao;
 
-namespace Core.Domain.Interfaces;
+namespace Core.Domain.Interfaces.Administracao;
 
 public interface IUsuarioRepository
 {
     Task<IReadOnlyCollection<Usuario>> ListarAsync(string? filtroId, string? descricao, DateOnly? dataInicio, DateOnly? dataFim, CancellationToken cancellationToken = default);
+    Task<IReadOnlyCollection<Usuario>> ListarAtivosAsync(CancellationToken cancellationToken = default);
     Task<Usuario?> ObterPorIdAsync(int id, CancellationToken cancellationToken = default);
     Task<Usuario?> ObterPorEmailAsync(string email, CancellationToken cancellationToken = default);
     Task<IReadOnlyCollection<Modulo>> ListarModulosAsync(CancellationToken cancellationToken = default);

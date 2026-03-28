@@ -1,9 +1,10 @@
 using Core.Domain.Entities;
-using Core.Domain.Interfaces;
+using Core.Domain.Entities.Administracao;
+using Core.Domain.Interfaces.Administracao;
 using Core.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
 
-namespace Core.Infrastructure.Persistence.Repositories;
+namespace Core.Infrastructure.Persistence.Repositories.Administracao;
 
 public sealed class AutenticacaoRepository(AppDbContext dbContext) : IAutenticacaoRepository
 {

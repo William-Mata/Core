@@ -1,4 +1,4 @@
-using Core.Domain.Entities;
+using Core.Domain.Entities.Administracao;
 
 namespace Core.Domain.Interfaces;
 

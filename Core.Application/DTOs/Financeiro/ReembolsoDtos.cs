@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace Core.Application.DTOs;
+namespace Core.Application.DTOs.Financeiro;
 
 public sealed record ListarReembolsosRequest(string? Id, string? Descricao, DateOnly? DataInicio, DateOnly? DataFim);
 
@@ -9,17 +9,23 @@ public sealed record ReembolsoDto(
     string Descricao,
     string Solicitante,
     DateOnly DataSolicitacao,
+    DateOnly? DataEfetivacao,
     IReadOnlyCollection<long> DespesasVinculadas,
     decimal ValorTotal,
-    string Status)
-{
-    public string SolicitanteName => Solicitante;
-}
+    string Status);
 
 public sealed record SalvarReembolsoRequest(
     string Descricao,
     string Solicitante,
     DateOnly DataSolicitacao,
+    DateOnly? DataEfetivacao,
     IReadOnlyCollection<JsonElement> DespesasVinculadas,
     decimal? ValorTotal,
-    string? Status);
+    string? Status,
+    long? ContaBancariaId = null,
+    long? CartaoId = null);
+
+public sealed record EfetivarReembolsoRequest(
+    DateOnly DataEfetivacao,
+    long? ContaBancariaId = null,
+    long? CartaoId = null);

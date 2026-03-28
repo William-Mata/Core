@@ -1,4 +1,4 @@
-namespace Core.Application.DTOs;
+namespace Core.Application.DTOs.Administracao;
 
 public sealed record ListarUsuariosRequest(string? Id, string? Descricao, DateOnly? DataInicio, DateOnly? DataFim);
 public sealed record SalvarFuncionalidadeUsuarioRequest(string Id, string Nome, bool Status);

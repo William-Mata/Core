@@ -1,9 +1,10 @@
 using Core.Domain.Entities;
-using Core.Domain.Interfaces;
+using Core.Domain.Entities.Administracao;
+using Core.Domain.Interfaces.Administracao;
 using Core.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
 
-namespace Core.Infrastructure.Persistence.Repositories;
+namespace Core.Infrastructure.Persistence.Repositories.Administracao;
 
 public sealed class UsuarioRepository(AppDbContext dbContext) : IUsuarioRepository
 {
@@ -48,6 +49,13 @@ public sealed class UsuarioRepository(AppDbContext dbContext) : IUsuarioReposito
             .Include(x => x.Telas)
             .Include(x => x.Funcionalidades)
             .FirstOrDefaultAsync(x => x.Id == id && x.Ativo, cancellationToken);
+
+    public async Task<IReadOnlyCollection<Usuario>> ListarAtivosAsync(CancellationToken cancellationToken = default) =>
+        await dbContext.Usuarios
+            .AsNoTracking()
+            .Where(x => x.Ativo)
+            .OrderBy(x => x.Nome)
+            .ToArrayAsync(cancellationToken);
 
     public Task<Usuario?> ObterPorEmailAsync(string email, CancellationToken cancellationToken = default) =>
         dbContext.Usuarios.FirstOrDefaultAsync(x => x.Email == email, cancellationToken);

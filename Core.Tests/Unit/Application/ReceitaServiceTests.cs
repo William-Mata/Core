@@ -221,7 +221,11 @@ public sealed class ReceitaServiceTests
 
     private sealed class AreaRepoFake : IAreaRepository
     {
+        public List<Area> Areas { get; set; } = [];
         public List<SubArea> SubAreas { get; set; } = [];
+
+        public Task<List<Area>> ListarComSubAreasAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(Areas);
 
         public Task<List<SubArea>> ObterSubAreasPorIdsAsync(IReadOnlyCollection<long> subAreasIds, CancellationToken cancellationToken = default) =>
             Task.FromResult(SubAreas.Where(x => subAreasIds.Contains(x.Id)).ToList());

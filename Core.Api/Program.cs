@@ -2,6 +2,7 @@ using System.Text;
 using Core.Api.Extensions;
 using Core.Api.Middlewares;
 using Core.Api.Security;
+using Core.Application.Validators.Administracao;
 using Core.Domain.Interfaces;
 using Core.Infrastructure;
 using FluentValidation;
@@ -75,7 +76,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 builder.Services.AddAuthorization();
 builder.Services.AddFluentValidationAutoValidation();
-builder.Services.AddValidatorsFromAssemblyContaining<Core.Application.Validators.EntrarRequestValidator>();
+builder.Services.AddValidatorsFromAssemblyContaining<EntrarRequestValidator>();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddOpenApi();
 

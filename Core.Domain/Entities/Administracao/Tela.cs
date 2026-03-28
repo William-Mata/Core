@@ -1,4 +1,4 @@
-namespace Core.Domain.Entities;
+namespace Core.Domain.Entities.Administracao;
 
 public sealed class Tela
 {

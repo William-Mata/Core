@@ -1,5 +1,5 @@
 using Core.Application.DTOs;
-using Core.Application.Validators;
+using Core.Application.Validators.Administracao;
 
 namespace Core.Tests.Unit.Application;
 

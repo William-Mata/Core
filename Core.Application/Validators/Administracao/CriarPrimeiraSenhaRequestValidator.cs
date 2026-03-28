@@ -1,7 +1,7 @@
-using Core.Application.DTOs;
+using Core.Application.DTOs.Administracao;
 using FluentValidation;
 
-namespace Core.Application.Validators.Financeiro;
+namespace Core.Application.Validators.Administracao;
 
 public sealed class CriarPrimeiraSenhaRequestValidator : AbstractValidator<CriarPrimeiraSenhaRequest>
 {

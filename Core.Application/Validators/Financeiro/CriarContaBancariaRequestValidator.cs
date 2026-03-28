@@ -1,4 +1,4 @@
-using Core.Application.DTOs;
+using Core.Application.DTOs.Financeiro;
 using FluentValidation;
 
 namespace Core.Application.Validators.Financeiro;

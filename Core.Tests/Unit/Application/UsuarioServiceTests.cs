@@ -1,8 +1,10 @@
 using Core.Application.DTOs;
 using Core.Application.Services;
 using Core.Domain.Entities;
+using Core.Domain.Entities.Administracao;
 using Core.Domain.Exceptions;
 using Core.Domain.Interfaces;
+using Core.Domain.Interfaces.Administracao;
 
 namespace Core.Tests.Unit.Application;
 

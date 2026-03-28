@@ -1,5 +1,5 @@
 using System.Text.Json;
-using Core.Application.DTOs;
+using Core.Application.DTOs.Financeiro;
 using Core.Domain.Entities.Financeiro;
 using Core.Domain.Enums;
 using Core.Domain.Exceptions;
@@ -11,7 +11,8 @@ namespace Core.Application.Services.Financeiro;
 public sealed class ReembolsoService(
     IReembolsoRepository repository,
     IDespesaRepository despesaRepository,
-    IUsuarioAutenticadoProvider usuarioAutenticadoProvider)
+    IUsuarioAutenticadoProvider usuarioAutenticadoProvider,
+    HistoricoTransacaoFinanceiraService historicoTransacaoFinanceiraService)
 {
     public async Task<IReadOnlyCollection<ReembolsoDto>> ListarAsync(ListarReembolsosRequest request, CancellationToken cancellationToken = default) =>
         (await repository.ListarAsync(request.Id, request.Descricao, request.DataInicio, request.DataFim, cancellationToken))
@@ -24,10 +25,13 @@ public sealed class ReembolsoService(
     public async Task<ReembolsoDto> CriarAsync(SalvarReembolsoRequest request, CancellationToken cancellationToken = default)
     {
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
+        ValidarContaOuCartao(request.ContaBancariaId, request.CartaoId);
         var descricao = ValidarDescricao(request.Descricao);
         var solicitante = ValidarSolicitante(request.Solicitante);
         var despesasIds = ExtrairDespesasIds(request.DespesasVinculadas);
         var despesas = await ObterDespesasValidasAsync(despesasIds, cancellationToken);
+        var status = NormalizarStatus(request.Status);
+        ValidarPeriodoEfetivacao(request.DataSolicitacao, request.DataEfetivacao, status);
 
         await ValidarDespesasVinculadasAsync(despesasIds, null, cancellationToken);
 
@@ -36,8 +40,9 @@ public sealed class ReembolsoService(
             Descricao = descricao,
             Solicitante = solicitante,
             DataSolicitacao = request.DataSolicitacao,
+            DataEfetivacao = request.DataEfetivacao,
             ValorTotal = despesas.Sum(x => x.ValorTotal),
-            Status = NormalizarStatus(request.Status),
+            Status = status,
             UsuarioCadastroId = usuarioAutenticadoId,
             Despesas = despesasIds
                 .Select(id => new ReembolsoDespesa
@@ -54,19 +59,24 @@ public sealed class ReembolsoService(
     public async Task<ReembolsoDto> AtualizarAsync(long id, SalvarReembolsoRequest request, CancellationToken cancellationToken = default)
     {
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
+        ValidarContaOuCartao(request.ContaBancariaId, request.CartaoId);
         var reembolso = await repository.ObterPorIdAsync(id, cancellationToken) ?? throw new NotFoundException("reembolso_nao_encontrado");
+        var statusAnterior = reembolso.Status;
         var descricao = ValidarDescricao(request.Descricao);
         var solicitante = ValidarSolicitante(request.Solicitante);
         var despesasIds = ExtrairDespesasIds(request.DespesasVinculadas);
         var despesas = await ObterDespesasValidasAsync(despesasIds, cancellationToken);
+        var status = NormalizarStatus(request.Status);
+        ValidarPeriodoEfetivacao(request.DataSolicitacao, request.DataEfetivacao, status);
 
         await ValidarDespesasVinculadasAsync(despesasIds, id, cancellationToken);
 
         reembolso.Descricao = descricao;
         reembolso.Solicitante = solicitante;
         reembolso.DataSolicitacao = request.DataSolicitacao;
+        reembolso.DataEfetivacao = request.DataEfetivacao;
         reembolso.ValorTotal = despesas.Sum(x => x.ValorTotal);
-        reembolso.Status = NormalizarStatus(request.Status);
+        reembolso.Status = status;
         reembolso.Despesas = despesasIds
             .Select(despesaId => new ReembolsoDespesa
             {
@@ -76,13 +86,110 @@ public sealed class ReembolsoService(
             })
             .ToList();
 
-        return Map(await repository.AtualizarAsync(reembolso, cancellationToken));
+        if (statusAnterior != StatusReembolso.Pago && reembolso.Status == StatusReembolso.Pago)
+        {
+            ValidarDestinoParaPagamento(request.ContaBancariaId, request.CartaoId);
+        }
+
+        var reembolsoAtualizado = await repository.AtualizarAsync(reembolso, cancellationToken);
+
+        if (statusAnterior != StatusReembolso.Pago && reembolsoAtualizado.Status == StatusReembolso.Pago)
+        {
+            await historicoTransacaoFinanceiraService.RegistrarEfetivacaoAsync(
+                TipoTransacaoFinanceira.Reembolso,
+                reembolsoAtualizado.Id,
+                usuarioAutenticadoId,
+                reembolsoAtualizado.DataEfetivacao ?? DateOnly.FromDateTime(DateTime.UtcNow),
+                0m,
+                reembolsoAtualizado.ValorTotal,
+                reembolsoAtualizado.ValorTotal,
+                "Efetivacao de reembolso",
+                "reembolso",
+                request.ContaBancariaId,
+                request.CartaoId,
+                cancellationToken);
+        }
+        else if (statusAnterior == StatusReembolso.Pago && reembolsoAtualizado.Status != StatusReembolso.Pago)
+        {
+            await historicoTransacaoFinanceiraService.RegistrarEstornoAsync(
+                TipoTransacaoFinanceira.Reembolso,
+                reembolsoAtualizado.Id,
+                usuarioAutenticadoId,
+                DateOnly.FromDateTime(DateTime.UtcNow),
+                reembolsoAtualizado.ValorTotal,
+                reembolsoAtualizado.ValorTotal,
+                0m,
+                "Estorno de reembolso",
+                "reembolso",
+                request.ContaBancariaId,
+                request.CartaoId,
+                cancellationToken);
+        }
+
+        return Map(reembolsoAtualizado);
     }
 
     public async Task ExcluirAsync(long id, CancellationToken cancellationToken = default)
     {
         var reembolso = await repository.ObterPorIdAsync(id, cancellationToken) ?? throw new NotFoundException("reembolso_nao_encontrado");
         await repository.ExcluirAsync(reembolso, cancellationToken);
+    }
+
+    public async Task<ReembolsoDto> EfetivarAsync(long id, EfetivarReembolsoRequest request, CancellationToken cancellationToken = default)
+    {
+        var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
+        ValidarContaOuCartao(request.ContaBancariaId, request.CartaoId);
+        ValidarDestinoParaPagamento(request.ContaBancariaId, request.CartaoId);
+
+        var reembolso = await repository.ObterPorIdAsync(id, cancellationToken) ?? throw new NotFoundException("reembolso_nao_encontrado");
+        if (reembolso.Status == StatusReembolso.Pago) throw new DomainException("status_invalido");
+        if (request.DataEfetivacao < reembolso.DataSolicitacao) throw new DomainException("periodo_invalido");
+
+        reembolso.Status = StatusReembolso.Pago;
+        reembolso.DataEfetivacao = request.DataEfetivacao;
+
+        var reembolsoAtualizado = await repository.AtualizarAsync(reembolso, cancellationToken);
+        await historicoTransacaoFinanceiraService.RegistrarEfetivacaoAsync(
+            TipoTransacaoFinanceira.Reembolso,
+            reembolsoAtualizado.Id,
+            usuarioAutenticadoId,
+            request.DataEfetivacao,
+            0m,
+            reembolsoAtualizado.ValorTotal,
+            reembolsoAtualizado.ValorTotal,
+            "Efetivacao de reembolso",
+            "reembolso",
+            request.ContaBancariaId,
+            request.CartaoId,
+            cancellationToken);
+
+        return Map(reembolsoAtualizado);
+    }
+
+    public async Task<ReembolsoDto> EstornarAsync(long id, CancellationToken cancellationToken = default)
+    {
+        var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
+        var reembolso = await repository.ObterPorIdAsync(id, cancellationToken) ?? throw new NotFoundException("reembolso_nao_encontrado");
+        if (reembolso.Status != StatusReembolso.Pago) throw new DomainException("status_invalido");
+
+        var valorAntesTransacao = reembolso.ValorTotal;
+        reembolso.Status = StatusReembolso.Aguardando;
+        reembolso.DataEfetivacao = null;
+
+        var reembolsoAtualizado = await repository.AtualizarAsync(reembolso, cancellationToken);
+        await historicoTransacaoFinanceiraService.RegistrarEstornoAsync(
+            TipoTransacaoFinanceira.Reembolso,
+            reembolsoAtualizado.Id,
+            usuarioAutenticadoId,
+            DateOnly.FromDateTime(DateTime.UtcNow),
+            valorAntesTransacao,
+            valorAntesTransacao,
+            0m,
+            "Estorno de reembolso",
+            "reembolso",
+            cancellationToken: cancellationToken);
+
+        return Map(reembolsoAtualizado);
     }
 
     private int ObterUsuarioAutenticadoId() =>
@@ -185,7 +292,42 @@ public sealed class ReembolsoService(
             reembolso.Descricao,
             reembolso.Solicitante,
             reembolso.DataSolicitacao,
+            reembolso.DataEfetivacao,
             reembolso.Despesas.Select(x => x.DespesaId).ToArray(),
             reembolso.ValorTotal,
             reembolso.Status.ToString().ToUpperInvariant());
+
+    private static void ValidarContaOuCartao(long? contaBancariaId, long? cartaoId)
+    {
+        if (contaBancariaId.HasValue && cartaoId.HasValue)
+        {
+            throw new DomainException("forma_pagamento_invalida");
+        }
+    }
+
+    private static void ValidarDestinoParaPagamento(long? contaBancariaId, long? cartaoId)
+    {
+        if (!contaBancariaId.HasValue && !cartaoId.HasValue)
+        {
+            throw new DomainException("conta_ou_cartao_obrigatorio");
+        }
+    }
+
+    private static void ValidarPeriodoEfetivacao(DateOnly dataSolicitacao, DateOnly? dataEfetivacao, StatusReembolso status)
+    {
+        if (!dataEfetivacao.HasValue)
+        {
+            if (status == StatusReembolso.Pago)
+            {
+                throw new DomainException("data_efetivacao_obrigatoria");
+            }
+
+            return;
+        }
+
+        if (dataEfetivacao.Value < dataSolicitacao)
+        {
+            throw new DomainException("periodo_invalido");
+        }
+    }
 }
