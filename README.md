@@ -1,51 +1,46 @@
 # Core
 
-API .NET para o domínio Financeiro, organizada em camadas e com solução separada por responsabilidade.
+Backend .NET organizado em camadas, com separacao entre API, aplicacao, dominio, infraestrutura e testes.
 
 ## Estrutura
 
-- `Core.Api`: camada HTTP, autenticação, middlewares e configuração da aplicação
-- `Core.Application`: serviços, DTOs e regras de orquestração
-- `Core.Domain`: entidades, interfaces e exceções de domínio
-- `Core.Infrastructure`: persistência, repositórios e infraestrutura técnica
-- `src/tests/Core.Tests`: testes unitários e de integração
-- `query's`: scripts SQL do banco `Financeiro`
+- `Core.Api`: entrada HTTP, autenticacao, middlewares e composicao da aplicacao
+- `Core.Application`: casos de uso, servicos, DTOs e validacoes
+- `Core.Domain`: entidades, contratos e excecoes de dominio
+- `Core.Infrastructure`: persistencia, repositorios e integracoes tecnicas
+- `Core.Tests`: testes unitarios e de integracao
+- `documentacao tecnica`: documentacao funcional e tecnica de apoio
+- `query's`: scripts SQL de referencia para ambiente local
 
-## Solução
+## Solucao
 
 Arquivos principais:
 
 - `Core.sln`
 - `Core.slnx`
 
-O projeto de testes referenciado pela solução está em:
+Projeto de testes:
 
-- `src/tests/Core.Tests/Core.Tests.csproj`
+- `Core.Tests/Core.Tests.csproj`
 
 ## Requisitos
 
 - .NET SDK 10
-- SQL Server local
+- SQL Server disponivel no ambiente de desenvolvimento
 
-## Configuração local
+## Configuracao local
 
-A API usa a connection string definida em `Core.Api/appsettings.json`:
+As configuracoes de ambiente da API devem ser fornecidas localmente por arquivos de configuracao nao sensiveis, variaveis de ambiente ou secrets do ambiente de desenvolvimento.
 
-```json
-"ConnectionStrings": {
-  "DefaultConnection": "Server=localhost;Database=Financeiro;Trusted_Connection=True;TrustServerCertificate=True"
-}
-```
-
-JWT de desenvolvimento também é configurado no mesmo arquivo.
+Nao versionar credenciais, chaves, tokens, connection strings reais ou dados internos da aplicacao no repositorio.
 
 ## Banco de dados
 
-Script principal:
+Script principal de apoio:
 
 - `query's/00-script-mestre.sql`
 
-Esse script cria a base `Financeiro`, tabelas, constraints, índices e seeds principais.
+Use esse material apenas como referencia para criacao ou sincronizacao do ambiente local.
 
 ## Executar a API
 
@@ -53,21 +48,13 @@ Esse script cria a base `Financeiro`, tabelas, constraints, índices e seeds prin
 dotnet run --project .\Core.Api\Core.Api.csproj
 ```
 
-A API roda em ambiente local e expõe endpoints como:
-
-- `https://localhost:5001/api/autenticacao/*`
-- `https://localhost:5001/api/usuarios/*`
-- `https://localhost:5001/api/financeiro/*`
-
 ## Testes
 
-Executar a suíte:
-
 ```powershell
-dotnet test .\src\tests\Core.Tests\Core.Tests.csproj
+dotnet test .\Core.Tests\Core.Tests.csproj
 ```
 
-## Observações
+## Observacoes
 
-- O repositório usa `.gitignore` ajustado para artefatos locais de build, teste e tooling.
-- A estrutura de testes válida fica em `src/tests`; a pasta `tests` legada foi removida da solução.
+- O `.gitignore` ja cobre artefatos comuns de build, teste e tooling local.
+- Antes de subir mudancas maiores, valide pelo menos build e testes do projeto afetado.
