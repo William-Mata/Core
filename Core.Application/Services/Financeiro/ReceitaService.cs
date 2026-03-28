@@ -1,4 +1,5 @@
-using Core.Application.DTOs;
+using Core.Application.DTOs.Financeiro;
+using Core.Application.Contracts.Financeiro;
 using Core.Domain.Entities;
 using Core.Domain.Entities.Financeiro;
 using Core.Domain.Enums;
@@ -12,7 +13,9 @@ public sealed class ReceitaService(
     IReceitaRepository repository,
     IContaBancariaRepository contaRepository,
     IAreaRepository areaRepository,
-    IUsuarioAutenticadoProvider usuarioAutenticadoProvider)
+    IUsuarioAutenticadoProvider usuarioAutenticadoProvider,
+    HistoricoTransacaoFinanceiraService historicoTransacaoFinanceiraService,
+    IRecorrenciaBackgroundPublisher recorrenciaBackgroundPublisher)
 {
     private static readonly HashSet<string> TiposReceita = ["salario","freelance","reembolso","investimento","bonus","outros"];
     private static readonly HashSet<string> TiposRecebimento = ["pix","transferencia","contaCorrente","dinheiro","boleto"];
@@ -23,7 +26,7 @@ public sealed class ReceitaService(
     public async Task<ReceitaDto> CriarAsync(CriarReceitaRequest req, CancellationToken cancellationToken = default)
     {
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
-        await ValidarComumAsync(req.Descricao, req.DataLancamento, req.DataVencimento, req.TipoReceita, req.TipoRecebimento, req.Recorrencia, req.ValorTotal, req.ContaBancaria, cancellationToken);
+        await ValidarComumAsync(req.Descricao, req.DataLancamento, req.DataVencimento, req.TipoReceita, req.TipoRecebimento, req.Recorrencia, req.QuantidadeRecorrencia, req.ValorTotal, req.ContaBancaria, cancellationToken);
         await ValidarAreasRateioAsync(req.AreasRateio, cancellationToken);
         var contaId = await ResolverContaIdAsync(req.ContaBancaria, cancellationToken);
         var liquido = Liquido(req.ValorTotal, req.Desconto, req.Acrescimo, req.Imposto, req.Juros);
@@ -31,6 +34,7 @@ public sealed class ReceitaService(
         {
             Descricao = req.Descricao.Trim(), Observacao = req.Observacao, DataLancamento = req.DataLancamento, DataVencimento = req.DataVencimento,
             TipoReceita = req.TipoReceita, TipoRecebimento = req.TipoRecebimento, Recorrencia = req.Recorrencia,
+            QuantidadeRecorrencia = req.QuantidadeRecorrencia,
             ValorTotal = req.ValorTotal, ValorLiquido = liquido, Desconto = req.Desconto, Acrescimo = req.Acrescimo, Imposto = req.Imposto, Juros = req.Juros,
             UsuarioCadastroId = usuarioAutenticadoId,
             Status = StatusReceita.Pendente, ContaBancariaId = contaId, AnexoDocumento = req.AnexoDocumento,
@@ -38,7 +42,37 @@ public sealed class ReceitaService(
             AreasRateio = req.AreasRateio.Select(x => new ReceitaAreaRateio { UsuarioCadastroId = usuarioAutenticadoId, AreaId = x.AreaId, SubAreaId = x.SubAreaId, Valor = x.Valor }).ToList(),
             Logs = [new ReceitaLog { UsuarioCadastroId = usuarioAutenticadoId, Acao = AcaoLogs.Cadastro, Descricao = "Receita criada com status pendente." }]
         };
-        return Map(await repository.CriarAsync(r, cancellationToken));
+        var receitaCriada = await repository.CriarAsync(r, cancellationToken);
+
+        var alvo = req.Recorrencia == Recorrencia.Fixa ? 100 : req.QuantidadeRecorrencia.GetValueOrDefault(1);
+        if (alvo > 1)
+        {
+            var mensagem = new ReceitaRecorrenciaBackgroundMessage(
+                usuarioAutenticadoId,
+                req.Descricao.Trim(),
+                req.Observacao,
+                req.DataLancamento,
+                req.DataVencimento,
+                req.TipoReceita,
+                req.TipoRecebimento,
+                req.Recorrencia,
+                req.Recorrencia == Recorrencia.Fixa ? 100 : req.QuantidadeRecorrencia,
+                req.ValorTotal,
+                req.Desconto,
+                req.Acrescimo,
+                req.Imposto,
+                req.Juros,
+                req.ContaBancaria,
+                req.AnexoDocumento,
+                req.AmigosRateio.Select(x => new RateioAmigoBackgroundMessage(
+                    x,
+                    req.RateioAmigosValores.TryGetValue(x, out var v) ? v : null)).ToArray(),
+                req.AreasRateio.Select(x => new RateioAreaBackgroundMessage(x.AreaId, x.SubAreaId, x.Valor)).ToArray());
+
+            await recorrenciaBackgroundPublisher.PublicarReceitaAsync(mensagem, cancellationToken);
+        }
+
+        return Map(receitaCriada);
     }
 
     public async Task<ReceitaDto> AtualizarAsync(long id, AtualizarReceitaRequest req, CancellationToken cancellationToken = default)
@@ -46,13 +80,13 @@ public sealed class ReceitaService(
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
         var r = await repository.ObterPorIdAsync(id, cancellationToken) ?? throw new NotFoundException("receita_nao_encontrada");
         if (r.Status != StatusReceita.Pendente) throw new DomainException("status_invalido");
-        await ValidarComumAsync(req.Descricao, req.DataLancamento, req.DataVencimento, req.TipoReceita, req.TipoRecebimento, req.Recorrencia, req.ValorTotal, req.ContaBancaria, cancellationToken);
+        await ValidarComumAsync(req.Descricao, req.DataLancamento, req.DataVencimento, req.TipoReceita, req.TipoRecebimento, req.Recorrencia, req.QuantidadeRecorrencia, req.ValorTotal, req.ContaBancaria, cancellationToken);
         await ValidarAreasRateioAsync(req.AreasRateio, cancellationToken);
         var contaId = await ResolverContaIdAsync(req.ContaBancaria, cancellationToken);
         var liquido = Liquido(req.ValorTotal, req.Desconto, req.Acrescimo, req.Imposto, req.Juros);
 
         r.Descricao = req.Descricao.Trim(); r.Observacao = req.Observacao; r.DataLancamento = req.DataLancamento; r.DataVencimento = req.DataVencimento;
-        r.TipoReceita = req.TipoReceita; r.TipoRecebimento = req.TipoRecebimento; r.Recorrencia = req.Recorrencia;
+        r.TipoReceita = req.TipoReceita; r.TipoRecebimento = req.TipoRecebimento; r.Recorrencia = req.Recorrencia; r.QuantidadeRecorrencia = req.QuantidadeRecorrencia;
         r.ValorTotal = req.ValorTotal; r.ValorLiquido = liquido; r.Desconto = req.Desconto; r.Acrescimo = req.Acrescimo; r.Imposto = req.Imposto; r.Juros = req.Juros;
         r.ContaBancariaId = contaId; r.AnexoDocumento = req.AnexoDocumento;
         r.AmigosRateio = req.AmigosRateio.Select(x => new ReceitaAmigoRateio { ReceitaId = r.Id, UsuarioCadastroId = usuarioAutenticadoId, AmigoNome = x, Valor = req.RateioAmigosValores.TryGetValue(x, out var v) ? v : null }).ToList();
@@ -67,15 +101,31 @@ public sealed class ReceitaService(
         var r = await repository.ObterPorIdAsync(id, cancellationToken) ?? throw new NotFoundException("receita_nao_encontrada");
         if (r.Status != StatusReceita.Pendente) throw new DomainException("status_invalido");
         if (string.IsNullOrWhiteSpace(req.TipoRecebimento) || req.ValorTotal <= 0) throw new DomainException("dados_invalidos");
+        if (req.DataEfetivacao < r.DataLancamento) throw new DomainException("periodo_invalido");
         if (ContaObrigatoria(req.TipoRecebimento) && string.IsNullOrWhiteSpace(req.ContaBancaria)) throw new DomainException("conta_bancaria_obrigatoria");
 
         var contaId = await ResolverContaIdAsync(req.ContaBancaria, cancellationToken);
         var liquido = Liquido(req.ValorTotal, req.Desconto, req.Acrescimo, req.Imposto, req.Juros);
+        var valorAntesTransacao = r.ValorEfetivacao ?? 0m;
         r.DataEfetivacao = req.DataEfetivacao; r.TipoRecebimento = req.TipoRecebimento; r.ContaBancariaId = contaId;
         r.ValorTotal = req.ValorTotal; r.Desconto = req.Desconto; r.Acrescimo = req.Acrescimo; r.Imposto = req.Imposto; r.Juros = req.Juros;
         r.ValorLiquido = liquido; r.ValorEfetivacao = liquido; r.Status = StatusReceita.Efetivada; r.AnexoDocumento = req.AnexoDocumento;
         r.Logs.Add(new ReceitaLog { ReceitaId = r.Id, UsuarioCadastroId = usuarioAutenticadoId, Acao = AcaoLogs.Atualizacao, Descricao = "Receita efetivada." });
-        return Map(await repository.AtualizarAsync(r, cancellationToken));
+        var receitaAtualizada = await repository.AtualizarAsync(r, cancellationToken);
+        await historicoTransacaoFinanceiraService.RegistrarEfetivacaoAsync(
+            TipoTransacaoFinanceira.Receita,
+            receitaAtualizada.Id,
+            usuarioAutenticadoId,
+            req.DataEfetivacao,
+            valorAntesTransacao,
+            receitaAtualizada.ValorEfetivacao ?? receitaAtualizada.ValorLiquido,
+            receitaAtualizada.ValorEfetivacao ?? receitaAtualizada.ValorLiquido,
+            "Efetivacao de receita",
+            receitaAtualizada.TipoRecebimento,
+            receitaAtualizada.ContaBancariaId,
+            cancellationToken: cancellationToken);
+
+        return Map(receitaAtualizada);
     }
 
     public async Task<ReceitaDto> CancelarAsync(long id, CancellationToken cancellationToken = default)
@@ -93,20 +143,38 @@ public sealed class ReceitaService(
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
         var r = await repository.ObterPorIdAsync(id, cancellationToken) ?? throw new NotFoundException("receita_nao_encontrada");
         if (r.Status != StatusReceita.Efetivada) throw new DomainException("status_invalido");
+        var valorAntesTransacao = r.ValorEfetivacao ?? r.ValorLiquido;
         r.Status = StatusReceita.Pendente; r.DataEfetivacao = null; r.ValorEfetivacao = null;
         r.Logs.Add(new ReceitaLog { ReceitaId = r.Id, UsuarioCadastroId = usuarioAutenticadoId, Acao = AcaoLogs.Atualizacao, Descricao = "Receita estornada." });
-        return Map(await repository.AtualizarAsync(r, cancellationToken));
+        var receitaAtualizada = await repository.AtualizarAsync(r, cancellationToken);
+        await historicoTransacaoFinanceiraService.RegistrarEstornoAsync(
+            TipoTransacaoFinanceira.Receita,
+            receitaAtualizada.Id,
+            usuarioAutenticadoId,
+            DateOnly.FromDateTime(DateTime.UtcNow),
+            valorAntesTransacao,
+            valorAntesTransacao,
+            0m,
+            "Estorno de receita",
+            r.TipoRecebimento,
+            r.ContaBancariaId,
+            cancellationToken: cancellationToken);
+
+        return Map(receitaAtualizada);
     }
 
     private int ObterUsuarioAutenticadoId() =>
         usuarioAutenticadoProvider.ObterUsuarioId() ?? throw new DomainException("usuario_nao_autenticado");
 
-    private async Task ValidarComumAsync(string descricao, DateOnly dataLanc, DateOnly dataVenc, string tipoReceita, string tipoRecebimento, Recorrencia recorrencia, decimal valorTotal, string? contaBancaria, CancellationToken cancellationToken)
+    private async Task ValidarComumAsync(string descricao, DateOnly dataLanc, DateOnly dataVenc, string tipoReceita, string tipoRecebimento, Recorrencia recorrencia, int? quantidadeRecorrencia, decimal valorTotal, string? contaBancaria, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(descricao)) throw new DomainException("descricao_obrigatoria");
         if (valorTotal <= 0) throw new DomainException("valor_total_invalido");
         if (dataVenc < dataLanc) throw new DomainException("periodo_invalido");
         if (!TiposReceita.Contains(tipoReceita) || !TiposRecebimento.Contains(tipoRecebimento) || !Enum.IsDefined(recorrencia)) throw new DomainException("enum_invalida");
+        if (recorrencia == Recorrencia.Fixa && quantidadeRecorrencia.HasValue) throw new DomainException("quantidade_recorrencia_invalida");
+        if (recorrencia is not Recorrencia.Unica and not Recorrencia.Fixa && (!quantidadeRecorrencia.HasValue || quantidadeRecorrencia <= 0))
+            throw new DomainException("quantidade_recorrencia_invalida");
         if (ContaObrigatoria(tipoRecebimento) && string.IsNullOrWhiteSpace(contaBancaria)) throw new DomainException("conta_bancaria_obrigatoria");
         if (!string.IsNullOrWhiteSpace(contaBancaria) && await ResolverContaIdAsync(contaBancaria, cancellationToken) is null) throw new DomainException("conta_bancaria_invalida");
     }
@@ -140,7 +208,7 @@ public sealed class ReceitaService(
     }
 
     private static ReceitaDto Map(Receita r) =>
-        new(r.Id, r.Descricao, r.Observacao, r.DataLancamento, r.DataVencimento, r.DataEfetivacao, r.TipoReceita, r.TipoRecebimento, r.Recorrencia,
+        new(r.Id, r.Descricao, r.Observacao, r.DataLancamento, r.DataVencimento, r.DataEfetivacao, r.TipoReceita, r.TipoRecebimento, r.Recorrencia, r.QuantidadeRecorrencia,
             r.ValorTotal, r.ValorLiquido, r.Desconto, r.Acrescimo, r.Imposto, r.Juros, r.ValorEfetivacao, r.Status.ToString().ToLowerInvariant(),
             r.AmigosRateio.Select(x => x.AmigoNome).ToArray(),
             r.AmigosRateio.Where(x => x.Valor.HasValue).ToDictionary(x => x.AmigoNome, x => x.Valor!.Value),

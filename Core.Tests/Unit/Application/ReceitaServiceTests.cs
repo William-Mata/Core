@@ -1,9 +1,12 @@
-using Core.Application.DTOs;
+using Core.Application.DTOs.Financeiro;
+using Core.Application.Contracts.Financeiro;
 using Core.Application.Services.Financeiro;
 using Core.Domain.Entities;
+using Core.Domain.Entities.Financeiro;
 using Core.Domain.Enums;
 using Core.Domain.Exceptions;
 using Core.Domain.Interfaces;
+using Core.Domain.Interfaces.Financeiro;
 
 namespace Core.Tests.Unit.Application;
 
@@ -12,7 +15,7 @@ public sealed class ReceitaServiceTests
     [Fact]
     public async Task DeveExigirUsuarioAutenticado_ParaCriarReceita()
     {
-        var service = new ReceitaService(new ReceitaRepoFake(), new ContaRepoFake(), new AreaRepoFake(), new UsuarioAutenticadoProviderFake(null));
+        var service = CriarService(new ReceitaRepoFake(), new ContaRepoFake(), new AreaRepoFake(), null);
 
         var request = CriarRequestPadrao();
         var ex = await Assert.ThrowsAsync<DomainException>(() => service.CriarAsync(request));
@@ -23,7 +26,7 @@ public sealed class ReceitaServiceTests
     [Fact]
     public async Task DeveExigirContaBancaria_QuandoTipoRecebimentoForPix()
     {
-        var service = new ReceitaService(new ReceitaRepoFake(), new ContaRepoFake(), new AreaRepoFake(), new UsuarioAutenticadoProviderFake(99));
+        var service = CriarService(new ReceitaRepoFake(), new ContaRepoFake(), new AreaRepoFake(), 99);
 
         var request = CriarRequestPadrao(tipoRecebimento: "pix", contaBancaria: null);
         var ex = await Assert.ThrowsAsync<DomainException>(() => service.CriarAsync(request));
@@ -34,7 +37,7 @@ public sealed class ReceitaServiceTests
     [Fact]
     public async Task DeveValidarContaBancariaInformada()
     {
-        var service = new ReceitaService(new ReceitaRepoFake(), new ContaRepoFake(), new AreaRepoFake(), new UsuarioAutenticadoProviderFake(99));
+        var service = CriarService(new ReceitaRepoFake(), new ContaRepoFake(), new AreaRepoFake(), 99);
 
         var request = CriarRequestPadrao(tipoRecebimento: "dinheiro", contaBancaria: "Conta Inexistente");
         var ex = await Assert.ThrowsAsync<DomainException>(() => service.CriarAsync(request));
@@ -49,7 +52,7 @@ public sealed class ReceitaServiceTests
         {
             SubAreas = [new SubArea { Id = 2, AreaId = 99, Nome = "SubArea" }]
         };
-        var service = new ReceitaService(new ReceitaRepoFake(), new ContaRepoFake(), areaRepository, new UsuarioAutenticadoProviderFake(99));
+        var service = CriarService(new ReceitaRepoFake(), new ContaRepoFake(), areaRepository, 99);
 
         var request = CriarRequestPadrao(areasRateio: [new ReceitaAreaRateioRequest(1, 2, 100m)]);
         var ex = await Assert.ThrowsAsync<DomainException>(() => service.CriarAsync(request));
@@ -60,17 +63,106 @@ public sealed class ReceitaServiceTests
     [Fact]
     public async Task DeveRetornarErro_QuandoReceitaNaoForEncontradaAoEfetivar()
     {
-        var service = new ReceitaService(new ReceitaRepoFake(), new ContaRepoFake(), new AreaRepoFake(), new UsuarioAutenticadoProviderFake(99));
+        var service = CriarService(new ReceitaRepoFake(), new ContaRepoFake(), new AreaRepoFake(), 99);
 
         var ex = await Assert.ThrowsAsync<NotFoundException>(() => service.EfetivarAsync(10, new EfetivarReceitaRequest(new DateOnly(2026, 3, 5), "dinheiro", null, 100m, 0m, 0m, 0m, 0m, null)));
 
         Assert.Equal("receita_nao_encontrada", ex.Message);
     }
 
+    [Fact]
+    public async Task DeveImpedirEfetivacao_QuandoDataEfetivacaoForMenorQueDataLancamento()
+    {
+        var service = CriarService(
+            new ReceitaRepoFake
+            {
+                Receita = new Receita
+                {
+                    Id = 1,
+                    Descricao = "Receita",
+                    DataLancamento = new DateOnly(2026, 3, 10),
+                    DataVencimento = new DateOnly(2026, 3, 15),
+                    TipoReceita = "freelance",
+                    TipoRecebimento = "dinheiro",
+                    Recorrencia = Recorrencia.Unica,
+                    ValorTotal = 100m,
+                    ValorLiquido = 100m,
+                    Status = StatusReceita.Pendente
+                }
+            },
+            new ContaRepoFake(),
+            new AreaRepoFake(),
+            99);
+
+        var ex = await Assert.ThrowsAsync<DomainException>(() =>
+            service.EfetivarAsync(1, new EfetivarReceitaRequest(new DateOnly(2026, 3, 9), "dinheiro", null, 100m, 0m, 0m, 0m, 0m, null)));
+
+        Assert.Equal("periodo_invalido", ex.Message);
+    }
+
+    [Fact]
+    public async Task DevePermitirEfetivacao_QuandoDataEfetivacaoForIgualDataLancamento()
+    {
+        var service = CriarService(
+            new ReceitaRepoFake
+            {
+                Receita = new Receita
+                {
+                    Id = 1,
+                    Descricao = "Receita",
+                    DataLancamento = new DateOnly(2026, 3, 10),
+                    DataVencimento = new DateOnly(2026, 3, 15),
+                    TipoReceita = "freelance",
+                    TipoRecebimento = "dinheiro",
+                    Recorrencia = Recorrencia.Unica,
+                    ValorTotal = 100m,
+                    ValorLiquido = 100m,
+                    Status = StatusReceita.Pendente
+                }
+            },
+            new ContaRepoFake(),
+            new AreaRepoFake(),
+            99);
+
+        var result = await service.EfetivarAsync(1, new EfetivarReceitaRequest(new DateOnly(2026, 3, 10), "dinheiro", null, 100m, 0m, 0m, 0m, 0m, null));
+
+        Assert.Equal("efetivada", result.Status);
+    }
+
+    [Fact]
+    public async Task DevePublicarMensagemDeRecorrencia_AoCriarReceitaRecorrente()
+    {
+        var repository = new ReceitaRepoFake();
+        var publisher = new RecorrenciaPublisherFake();
+        var service = CriarService(repository, new ContaRepoFake(), new AreaRepoFake(), publisher, 99);
+
+        await service.CriarAsync(CriarRequestPadrao(recorrencia: Recorrencia.Semanal, quantidadeRecorrencia: 2));
+
+        Assert.Single(repository.ReceitasCriadas);
+        Assert.NotNull(publisher.ReceitaMessage);
+        Assert.Equal(2, publisher.ReceitaMessage!.QuantidadeRecorrencia);
+    }
+
+    [Fact]
+    public async Task DevePublicarMensagemComAlvo100_AoCriarReceitaFixa()
+    {
+        var repository = new ReceitaRepoFake();
+        var publisher = new RecorrenciaPublisherFake();
+        var service = CriarService(repository, new ContaRepoFake(), new AreaRepoFake(), publisher, 99);
+
+        await service.CriarAsync(CriarRequestPadrao(recorrencia: Recorrencia.Fixa, quantidadeRecorrencia: null));
+
+        Assert.Single(repository.ReceitasCriadas);
+        Assert.NotNull(publisher.ReceitaMessage);
+        Assert.Equal(100, publisher.ReceitaMessage!.QuantidadeRecorrencia);
+    }
+
     private static CriarReceitaRequest CriarRequestPadrao(
         string tipoRecebimento = "dinheiro",
         string? contaBancaria = null,
-        IReadOnlyCollection<ReceitaAreaRateioRequest>? areasRateio = null) =>
+        IReadOnlyCollection<ReceitaAreaRateioRequest>? areasRateio = null,
+        Recorrencia recorrencia = Recorrencia.Unica,
+        int? quantidadeRecorrencia = null) =>
         new(
             "Freelance",
             null,
@@ -78,7 +170,7 @@ public sealed class ReceitaServiceTests
             new DateOnly(2026, 3, 2),
             "freelance",
             tipoRecebimento,
-            Recorrencia.Unica,
+            recorrencia,
             1000m,
             0m,
             0m,
@@ -88,7 +180,14 @@ public sealed class ReceitaServiceTests
             new Dictionary<string, decimal>(),
             areasRateio ?? [],
             contaBancaria,
-            null);
+            null,
+            quantidadeRecorrencia);
+
+    private static ReceitaService CriarService(IReceitaRepository receitaRepository, IContaBancariaRepository contaRepository, IAreaRepository areaRepository, int? usuarioId) =>
+        CriarService(receitaRepository, contaRepository, areaRepository, new RecorrenciaPublisherFake(), usuarioId);
+
+    private static ReceitaService CriarService(IReceitaRepository receitaRepository, IContaBancariaRepository contaRepository, IAreaRepository areaRepository, IRecorrenciaBackgroundPublisher publisher, int? usuarioId) =>
+        new(receitaRepository, contaRepository, areaRepository, new UsuarioAutenticadoProviderFake(usuarioId), new HistoricoTransacaoFinanceiraService(new HistoricoRepositoryFake()), publisher);
 
     private sealed class UsuarioAutenticadoProviderFake(int? usuarioId) : IUsuarioAutenticadoProvider
     {
@@ -97,9 +196,16 @@ public sealed class ReceitaServiceTests
 
     private sealed class ReceitaRepoFake : IReceitaRepository
     {
+        public Receita? Receita { get; set; }
+        public List<Receita> ReceitasCriadas { get; } = [];
+
         public Task<List<Receita>> ListarAsync(CancellationToken cancellationToken = default) => Task.FromResult(new List<Receita>());
-        public Task<Receita?> ObterPorIdAsync(long id, CancellationToken cancellationToken = default) => Task.FromResult<Receita?>(null);
-        public Task<Receita> CriarAsync(Receita receita, CancellationToken cancellationToken = default) => Task.FromResult(receita);
+        public Task<Receita?> ObterPorIdAsync(long id, CancellationToken cancellationToken = default) => Task.FromResult(Receita);
+        public Task<Receita> CriarAsync(Receita receita, CancellationToken cancellationToken = default)
+        {
+            ReceitasCriadas.Add(receita);
+            return Task.FromResult(receita);
+        }
         public Task<Receita> AtualizarAsync(Receita receita, CancellationToken cancellationToken = default) => Task.FromResult(receita);
     }
 
@@ -119,5 +225,28 @@ public sealed class ReceitaServiceTests
 
         public Task<List<SubArea>> ObterSubAreasPorIdsAsync(IReadOnlyCollection<long> subAreasIds, CancellationToken cancellationToken = default) =>
             Task.FromResult(SubAreas.Where(x => subAreasIds.Contains(x.Id)).ToList());
+    }
+
+    private sealed class HistoricoRepositoryFake : IHistoricoTransacaoFinanceiraRepository
+    {
+        public Task<HistoricoTransacaoFinanceira> CriarAsync(HistoricoTransacaoFinanceira historico, CancellationToken cancellationToken = default) =>
+            Task.FromResult(historico);
+
+        public Task<HistoricoTransacaoFinanceira?> ObterUltimoPorTransacaoAsync(TipoTransacaoFinanceira tipoTransacao, long transacaoId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<HistoricoTransacaoFinanceira?>(null);
+    }
+
+    private sealed class RecorrenciaPublisherFake : IRecorrenciaBackgroundPublisher
+    {
+        public ReceitaRecorrenciaBackgroundMessage? ReceitaMessage { get; private set; }
+
+        public Task PublicarDespesaAsync(DespesaRecorrenciaBackgroundMessage message, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
+        public Task PublicarReceitaAsync(ReceitaRecorrenciaBackgroundMessage message, CancellationToken cancellationToken = default)
+        {
+            ReceitaMessage = message;
+            return Task.CompletedTask;
+        }
     }
 }
