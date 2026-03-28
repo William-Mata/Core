@@ -76,12 +76,12 @@ public sealed class AutenticacaoRepository(AppDbContext dbContext) : IAutenticac
     private IQueryable<Usuario> QueryUsuarioCompleto() =>
         dbContext.Usuarios
             .Include(x => x.Modulos)
-                .ThenInclude(x => x.Modulo)
+                .ThenInclude(x => x.Modulo!)
             .Include(x => x.Telas)
-                .ThenInclude(x => x.Tela)
-                    .ThenInclude(x => x.Modulo)
+                .ThenInclude(x => x.Tela!)
+                    .ThenInclude(x => x.Modulo!)
             .Include(x => x.Funcionalidades)
-                .ThenInclude(x => x.Funcionalidade)
-                    .ThenInclude(x => x.Tela)
-                        .ThenInclude(x => x.Modulo);
+                .ThenInclude(x => x.Funcionalidade!)
+                    .ThenInclude(x => x.Tela!)
+                        .ThenInclude(x => x.Modulo!);
 }
