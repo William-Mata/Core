@@ -74,6 +74,9 @@ artifacts/
 # Local diagnostic logs generated during troubleshooting
 *.log
 
+# Local operational notes
+documentação tecnica/resumo-operacional-sessao.md
+
 # ASP.NET Scaffolding
 ScaffoldingReadMe.txt
 
