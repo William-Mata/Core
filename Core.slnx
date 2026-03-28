@@ -1,7 +1,7 @@
-﻿<Solution>
-  <Project Path="src/presentation/Core.API/Core.API.csproj" />
-  <Project Path="src/application/Core.Application/Core.Application.csproj" />
-  <Project Path="src/domain/Core.Domain/Core.Domain.csproj" />
-  <Project Path="src/infrastructure/Core.Infrastructure/Core.Infrastructure.csproj" />
+<Solution>
+  <Project Path="Core.Api/Core.Api.csproj" />
+  <Project Path="Core.Application/Core.Application.csproj" />
+  <Project Path="Core.Domain/Core.Domain.csproj" />
+  <Project Path="Core.Infrastructure/Core.Infrastructure.csproj" />
   <Project Path="src/tests/Core.Tests/Core.Tests.csproj" />
 </Solution>
