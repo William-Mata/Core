@@ -224,7 +224,7 @@ public sealed class ReceitaServiceTests
         public List<Area> Areas { get; set; } = [];
         public List<SubArea> SubAreas { get; set; } = [];
 
-        public Task<List<Area>> ListarComSubAreasAsync(CancellationToken cancellationToken = default) =>
+        public Task<List<Area>> ListarComSubAreasAsync(TipoAreaFinanceira? tipo = null, CancellationToken cancellationToken = default) =>
             Task.FromResult(Areas);
 
         public Task<List<SubArea>> ObterSubAreasPorIdsAsync(IReadOnlyCollection<long> subAreasIds, CancellationToken cancellationToken = default) =>

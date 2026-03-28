@@ -1,13 +1,24 @@
 using Core.Application.DTOs.Financeiro;
+using Core.Domain.Enums;
+using Core.Domain.Exceptions;
 using Core.Domain.Interfaces.Financeiro;
 
 namespace Core.Application.Services.Financeiro;
 
 public sealed class AreaSubAreaFinanceiroService(IAreaRepository areaRepository)
 {
-    public async Task<IReadOnlyCollection<AreaListaDto>> ListarAreasComSubAreasAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyCollection<AreaListaDto>> ListarAreasComSubAreasAsync(string? tipo = null, CancellationToken cancellationToken = default)
     {
-        var areas = await areaRepository.ListarComSubAreasAsync(cancellationToken);
+        TipoAreaFinanceira? tipoArea = null;
+        if (!string.IsNullOrWhiteSpace(tipo))
+        {
+            if (!Enum.TryParse<TipoAreaFinanceira>(tipo, true, out var tipoParseado))
+                throw new DomainException("tipo_area_invalido");
+
+            tipoArea = tipoParseado;
+        }
+
+        var areas = await areaRepository.ListarComSubAreasAsync(tipoArea, cancellationToken);
         return areas
             .Select(x => new AreaListaDto(
                 x.Id,

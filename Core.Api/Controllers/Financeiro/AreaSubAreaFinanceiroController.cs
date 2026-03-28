@@ -10,6 +10,6 @@ namespace Core.Api.Controllers.Financeiro;
 public sealed class AreaSubAreaFinanceiroController(AreaSubAreaFinanceiroService service) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> Listar(CancellationToken cancellationToken) =>
-        Ok(await service.ListarAreasComSubAreasAsync(cancellationToken));
+    public async Task<IActionResult> Listar([FromQuery] string? tipo, CancellationToken cancellationToken) =>
+        Ok(await service.ListarAreasComSubAreasAsync(tipo, cancellationToken));
 }
