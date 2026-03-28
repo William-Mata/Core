@@ -27,6 +27,7 @@ public static class DependencyInjection
         services.AddScoped<ICartaoRepository, CartaoRepository>();
         services.AddScoped<IDespesaRepository, DespesaRepository>();
         services.AddScoped<IReceitaRepository, ReceitaRepository>();
+        services.AddScoped<IReembolsoRepository, ReembolsoRepository>();
         services.AddScoped<IAreaRepository, AreaRepository>();
         services.AddScoped<IUsuarioRepository, UsuarioRepository>();
         services.AddScoped<ITokenService, JwtTokenService>();
@@ -36,6 +37,7 @@ public static class DependencyInjection
         services.AddScoped<CartaoService>();
         services.AddScoped<DespesaService>();
         services.AddScoped<ReceitaService>();
+        services.AddScoped<ReembolsoService>();
         services.AddScoped<DashboardService>();
         services.AddScoped<UsuarioService>();
 

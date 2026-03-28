@@ -25,6 +25,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<DespesaAmigoRateio> DespesasAmigosRateio => Set<DespesaAmigoRateio>();
     public DbSet<DespesaTipoRateio> DespesasTiposRateio => Set<DespesaTipoRateio>();
     public DbSet<DespesaLog> DespesasLogs => Set<DespesaLog>();
+    public DbSet<Reembolso> Reembolsos => Set<Reembolso>();
+    public DbSet<ReembolsoDespesa> ReembolsosDespesas => Set<ReembolsoDespesa>();
     public DbSet<Receita> Receitas => Set<Receita>();
     public DbSet<ReceitaAmigoRateio> ReceitasAmigosRateio => Set<ReceitaAmigoRateio>();
     public DbSet<ReceitaAreaRateio> ReceitasAreasRateio => Set<ReceitaAreaRateio>();
@@ -158,6 +160,16 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         modelBuilder.Entity<Despesa>().HasMany(x => x.AmigosRateio).WithOne().HasForeignKey(x => x.DespesaId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<Despesa>().HasMany(x => x.TiposRateio).WithOne().HasForeignKey(x => x.DespesaId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<Despesa>().HasMany(x => x.Logs).WithOne().HasForeignKey(x => x.DespesaId).OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Reembolso>().ToTable("Reembolso");
+        modelBuilder.Entity<Reembolso>().HasKey(x => x.Id);
+        modelBuilder.Entity<Reembolso>().Property(x => x.Status).HasConversion<string>();
+        modelBuilder.Entity<Reembolso>().HasMany(x => x.Despesas).WithOne().HasForeignKey(x => x.ReembolsoId).OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ReembolsoDespesa>().ToTable("ReembolsoDespesa");
+        modelBuilder.Entity<ReembolsoDespesa>().HasKey(x => x.Id);
+        modelBuilder.Entity<ReembolsoDespesa>().HasIndex(x => x.DespesaId).IsUnique();
+        modelBuilder.Entity<ReembolsoDespesa>().HasOne(x => x.Despesa).WithMany().HasForeignKey(x => x.DespesaId).OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<Receita>().ToTable("Receita");
         modelBuilder.Entity<Receita>().HasKey(x => x.Id);

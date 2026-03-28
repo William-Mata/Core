@@ -14,6 +14,11 @@ public sealed class DespesaRepository(AppDbContext dbContext) : IDespesaReposito
             .OrderByDescending(x => x.DataLancamento)
             .ToListAsync(cancellationToken);
 
+    public Task<List<Despesa>> ObterPorIdsAsync(IReadOnlyCollection<long> ids, CancellationToken cancellationToken = default) =>
+        dbContext.Despesas
+            .Where(x => ids.Contains(x.Id))
+            .ToListAsync(cancellationToken);
+
     public Task<Despesa?> ObterPorIdAsync(long id, CancellationToken cancellationToken = default) =>
         dbContext.Despesas
             .Include(x => x.AmigosRateio)
