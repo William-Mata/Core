@@ -29,6 +29,8 @@ public sealed class ReceitaService(
         await ValidarComumAsync(req.Descricao, req.DataLancamento, req.DataVencimento, req.TipoReceita, req.TipoRecebimento, req.Recorrencia, req.RecorrenciaFixa, req.QuantidadeRecorrencia, req.ValorTotal, req.ContaBancaria, cancellationToken);
         await ValidarAreasRateioAsync(req.AreasRateio, cancellationToken);
         var amigos = NormalizarAmigos(req.Amigos, req.AmigosRateio, req.RateioAmigosValores);
+        ValidarRateioAmigos(amigos, req.ValorTotal);
+        ValidarRateioAreas(req.AreasRateio, req.ValorTotal);
         var contaId = await ResolverContaIdAsync(req.ContaBancaria, cancellationToken);
         var liquido = Liquido(req.ValorTotal, req.Desconto, req.Acrescimo, req.Imposto, req.Juros);
         var r = new Receita
@@ -84,6 +86,8 @@ public sealed class ReceitaService(
         await ValidarComumAsync(req.Descricao, req.DataLancamento, req.DataVencimento, req.TipoReceita, req.TipoRecebimento, req.Recorrencia, req.RecorrenciaFixa, req.QuantidadeRecorrencia, req.ValorTotal, req.ContaBancaria, cancellationToken);
         await ValidarAreasRateioAsync(req.AreasRateio, cancellationToken);
         var amigos = NormalizarAmigos(req.Amigos, req.AmigosRateio, req.RateioAmigosValores);
+        ValidarRateioAmigos(amigos, req.ValorTotal);
+        ValidarRateioAreas(req.AreasRateio, req.ValorTotal);
         var contaId = await ResolverContaIdAsync(req.ContaBancaria, cancellationToken);
         var liquido = Liquido(req.ValorTotal, req.Desconto, req.Acrescimo, req.Imposto, req.Juros);
 
@@ -201,6 +205,28 @@ public sealed class ReceitaService(
             if (subArea.Area.Tipo != TipoAreaFinanceira.Receita)
                 throw new DomainException("area_subarea_invalida");
         }
+    }
+
+    private static void ValidarRateioAmigos(IReadOnlyCollection<AmigoRateioRequest> amigos, decimal valorTotal)
+    {
+        if (amigos.Count == 0) return;
+
+        if (amigos.Any(x => !x.Valor.HasValue || x.Valor <= 0))
+            throw new DomainException("rateio_amigos_invalido");
+
+        if (amigos.Sum(x => x.Valor!.Value) != valorTotal)
+            throw new DomainException("rateio_amigos_invalido");
+    }
+
+    private static void ValidarRateioAreas(IReadOnlyCollection<ReceitaAreaRateioRequest> areasRateio, decimal valorTotal)
+    {
+        if (areasRateio.Count == 0) return;
+
+        if (areasRateio.Any(x => !x.Valor.HasValue || x.Valor <= 0))
+            throw new DomainException("rateio_area_invalido");
+
+        if (areasRateio.Sum(x => x.Valor!.Value) != valorTotal)
+            throw new DomainException("rateio_area_invalido");
     }
 
     private static bool ContaObrigatoria(string tipoRecebimento) => tipoRecebimento is "pix" or "transferencia";

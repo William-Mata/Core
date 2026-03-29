@@ -61,6 +61,46 @@ public sealed class ReceitaServiceTests
     }
 
     [Fact]
+    public async Task DeveRejeitarRateioDeAmigosQuandoSomaForDiferenteDoValorTotal()
+    {
+        var service = CriarService(new ReceitaRepoFake(), new ContaRepoFake(), new AreaRepoFake(), 99);
+
+        var request = CriarRequestPadrao(amigos: [new AmigoRateioRequest("Amigo 1", 600m), new AmigoRateioRequest("Amigo 2", 300m)]);
+        var ex = await Assert.ThrowsAsync<DomainException>(() => service.CriarAsync(request));
+
+        Assert.Equal("rateio_amigos_invalido", ex.Message);
+    }
+
+    [Fact]
+    public async Task DeveRejeitarRateioDeAreaQuandoSomaForDiferenteDoValorTotal()
+    {
+        var areaRepository = CriarAreaRepoValida(TipoAreaFinanceira.Receita);
+        var service = CriarService(new ReceitaRepoFake(), new ContaRepoFake(), areaRepository, 99);
+
+        var request = CriarRequestPadrao(areasRateio: [new ReceitaAreaRateioRequest(1, 2, 600m)]);
+        var ex = await Assert.ThrowsAsync<DomainException>(() => service.CriarAsync(request));
+
+        Assert.Equal("rateio_area_invalido", ex.Message);
+    }
+
+    [Fact]
+    public async Task DevePermitirCriacao_QuandoRateiosSomamValorTotal()
+    {
+        var areaRepository = CriarAreaRepoValida(TipoAreaFinanceira.Receita);
+        var service = CriarService(new ReceitaRepoFake(), new ContaRepoFake(), areaRepository, 99);
+
+        var result = await service.CriarAsync(
+            CriarRequestPadrao(
+                amigos: [new AmigoRateioRequest("Amigo 1", 400m), new AmigoRateioRequest("Amigo 2", 600m)],
+                areasRateio: [new ReceitaAreaRateioRequest(1, 2, 1000m)]));
+
+        Assert.Equal("Freelance", result.Descricao);
+        Assert.Equal(1000m, result.ValorTotal);
+        Assert.Equal(2, result.Amigos.Count);
+        Assert.Single(result.AreasRateio);
+    }
+
+    [Fact]
     public async Task DeveRetornarErro_QuandoReceitaNaoForEncontradaAoEfetivar()
     {
         var service = CriarService(new ReceitaRepoFake(), new ContaRepoFake(), new AreaRepoFake(), 99);
@@ -184,6 +224,7 @@ public sealed class ReceitaServiceTests
         string tipoRecebimento = "dinheiro",
         string? contaBancaria = null,
         IReadOnlyCollection<ReceitaAreaRateioRequest>? areasRateio = null,
+        IReadOnlyCollection<AmigoRateioRequest>? amigos = null,
         Recorrencia recorrencia = Recorrencia.Unica,
         int? quantidadeRecorrencia = null,
         bool recorrenciaFixa = false) =>
@@ -206,7 +247,7 @@ public sealed class ReceitaServiceTests
             contaBancaria,
             null,
             quantidadeRecorrencia,
-            null,
+            amigos,
             recorrenciaFixa);
 
     private static ReceitaService CriarService(IReceitaRepository receitaRepository, IContaBancariaRepository contaRepository, IAreaRepository areaRepository, int? usuarioId) =>
@@ -255,6 +296,18 @@ public sealed class ReceitaServiceTests
 
         public Task<List<SubArea>> ObterSubAreasPorIdsAsync(IReadOnlyCollection<long> subAreasIds, CancellationToken cancellationToken = default) =>
             Task.FromResult(SubAreas.Where(x => subAreasIds.Contains(x.Id)).ToList());
+    }
+
+    private static AreaRepoFake CriarAreaRepoValida(TipoAreaFinanceira tipoArea)
+    {
+        var area = new Area { Id = 1, Nome = "Area", Tipo = tipoArea };
+        return new AreaRepoFake
+        {
+            SubAreas =
+            [
+                new SubArea { Id = 2, AreaId = area.Id, Area = area, Nome = "SubArea" }
+            ]
+        };
     }
 
     private sealed class HistoricoRepositoryFake : IHistoricoTransacaoFinanceiraRepository

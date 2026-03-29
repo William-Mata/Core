@@ -21,6 +21,8 @@ internal static class ErroMensagemExtensions
         ["conta_bancaria_invalida"] = "A conta bancaria informada e invalida.",
         ["area_subarea_invalida"] = "Area ou subarea informada e invalida.",
         ["relacao_area_subarea_invalida"] = "A subarea informada nao pertence a area selecionada.",
+        ["rateio_amigos_invalido"] = "O rateio de amigos informado e invalido.",
+        ["rateio_area_invalido"] = "O rateio de area/subarea informado e invalido.",
         ["tipo_area_invalido"] = "O tipo de area informado e invalido. Use despesa ou receita.",
         ["campo_obrigatorio"] = "Preencha todos os campos obrigatorios.",
         ["saldo_inicial_invalido"] = "O saldo inicial deve ser maior que zero.",

@@ -34,6 +34,8 @@ public sealed class DespesaService(
         ValidarComum(req.Descricao, req.DataLancamento, req.DataVencimento, req.TipoDespesa, req.TipoPagamento, recorrencia, recorrenciaFixa, quantidadeRecorrencia, req.ValorTotal);
         await ValidarAreasRateioAsync(req.AreasRateio ?? [], cancellationToken);
         var amigos = NormalizarAmigos(req.Amigos, req.AmigosRateio, req.RateioAmigosValores);
+        ValidarRateioAmigos(amigos, req.ValorTotal);
+        ValidarRateioAreas(req.AreasRateio ?? [], req.ValorTotal);
         var liquido = Liquido(req.ValorTotal, req.Desconto, req.Acrescimo, req.Imposto, req.Juros);
 
         var d = new Despesa
@@ -95,6 +97,8 @@ public sealed class DespesaService(
         ValidarComum(req.Descricao, req.DataLancamento, req.DataVencimento, req.TipoDespesa, req.TipoPagamento, recorrencia, recorrenciaFixa, quantidadeRecorrencia, req.ValorTotal);
         await ValidarAreasRateioAsync(req.AreasRateio ?? [], cancellationToken);
         var amigos = NormalizarAmigos(req.Amigos, req.AmigosRateio, req.RateioAmigosValores);
+        ValidarRateioAmigos(amigos, req.ValorTotal);
+        ValidarRateioAreas(req.AreasRateio ?? [], req.ValorTotal);
         var liquido = Liquido(req.ValorTotal, req.Desconto, req.Acrescimo, req.Imposto, req.Juros);
 
         d.Descricao = req.Descricao.Trim(); d.Observacao = req.Observacao; d.DataLancamento = req.DataLancamento; d.DataVencimento = req.DataVencimento;
@@ -234,6 +238,28 @@ public sealed class DespesaService(
             if (subArea.Area.Tipo != TipoAreaFinanceira.Despesa)
                 throw new DomainException("area_subarea_invalida");
         }
+    }
+
+    private static void ValidarRateioAmigos(IReadOnlyCollection<AmigoRateioRequest> amigos, decimal valorTotal)
+    {
+        if (amigos.Count == 0) return;
+
+        if (amigos.Any(x => !x.Valor.HasValue || x.Valor <= 0))
+            throw new DomainException("rateio_amigos_invalido");
+
+        if (amigos.Sum(x => x.Valor!.Value) != valorTotal)
+            throw new DomainException("rateio_amigos_invalido");
+    }
+
+    private static void ValidarRateioAreas(IReadOnlyCollection<DespesaAreaRateioRequest> areasRateio, decimal valorTotal)
+    {
+        if (areasRateio.Count == 0) return;
+
+        if (areasRateio.Any(x => !x.Valor.HasValue || x.Valor <= 0))
+            throw new DomainException("rateio_area_invalido");
+
+        if (areasRateio.Sum(x => x.Valor!.Value) != valorTotal)
+            throw new DomainException("rateio_area_invalido");
     }
 
     private static IReadOnlyCollection<AmigoRateioRequest> NormalizarAmigos(

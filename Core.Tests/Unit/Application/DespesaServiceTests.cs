@@ -174,6 +174,46 @@ public sealed class DespesaServiceTests
     }
 
     [Fact]
+    public async Task DeveRejeitarRateioDeAmigosQuandoSomaForDiferenteDoValorTotal_AoCriarDespesa()
+    {
+        var service = CriarService(new DespesaRepositoryFake(), 1);
+
+        var ex = await Assert.ThrowsAsync<DomainException>(() =>
+            service.CriarAsync(CriarRequestPadrao(amigos: [new AmigoRateioRequest("Amigo 1", 40m), new AmigoRateioRequest("Amigo 2", 30m)])));
+
+        Assert.Equal("rateio_amigos_invalido", ex.Message);
+    }
+
+    [Fact]
+    public async Task DeveRejeitarRateioDeAreaQuandoSomaForDiferenteDoValorTotal_AoCriarDespesa()
+    {
+        var areaRepository = CriarAreaRepoValida(TipoAreaFinanceira.Despesa);
+        var service = CriarService(new DespesaRepositoryFake(), areaRepository, 1);
+
+        var ex = await Assert.ThrowsAsync<DomainException>(() =>
+            service.CriarAsync(CriarRequestPadrao(areasRateio: [new DespesaAreaRateioRequest(1, 2, 40m)])));
+
+        Assert.Equal("rateio_area_invalido", ex.Message);
+    }
+
+    [Fact]
+    public async Task DevePermitirCriacao_QuandoRateiosSomamValorTotal()
+    {
+        var areaRepository = CriarAreaRepoValida(TipoAreaFinanceira.Despesa);
+        var service = CriarService(new DespesaRepositoryFake(), areaRepository, 1);
+
+        var result = await service.CriarAsync(
+            CriarRequestPadrao(
+                amigos: [new AmigoRateioRequest("Amigo 1", 60m), new AmigoRateioRequest("Amigo 2", 40m)],
+                areasRateio: [new DespesaAreaRateioRequest(1, 2, 100m)]));
+
+        Assert.Equal("Despesa", result.Descricao);
+        Assert.Equal(100m, result.ValorTotal);
+        Assert.Equal(2, result.Amigos.Count);
+        Assert.Single(result.AreasRateio);
+    }
+
+    [Fact]
     public async Task DeveRetornarErro_QuandoPagamentoForCartaoESemQuantidadeParcelas()
     {
         var service = CriarService(new DespesaRepositoryFake(), 1);
@@ -220,6 +260,7 @@ public sealed class DespesaServiceTests
         DateOnly? dataLancamento = null,
         DateOnly? dataVencimento = null,
         IReadOnlyCollection<DespesaAreaRateioRequest>? areasRateio = null,
+        IReadOnlyCollection<AmigoRateioRequest>? amigos = null,
         string tipoPagamento = "pix",
         Recorrencia recorrencia = Recorrencia.Unica,
         int? quantidadeRecorrencia = null,
@@ -244,7 +285,7 @@ public sealed class DespesaServiceTests
             null,
             areasRateio,
             quantidadeRecorrencia,
-            null,
+            amigos,
             quantidadeParcelas,
             recorrenciaFixa);
 
@@ -297,6 +338,18 @@ public sealed class DespesaServiceTests
 
         public Task<List<SubArea>> ObterSubAreasPorIdsAsync(IReadOnlyCollection<long> subAreasIds, CancellationToken cancellationToken = default) =>
             Task.FromResult(SubAreas.Where(x => subAreasIds.Contains(x.Id)).ToList());
+    }
+
+    private static AreaRepoFake CriarAreaRepoValida(TipoAreaFinanceira tipoArea)
+    {
+        var area = new Area { Id = 1, Nome = "Area", Tipo = tipoArea };
+        return new AreaRepoFake
+        {
+            SubAreas =
+            [
+                new SubArea { Id = 2, AreaId = area.Id, Area = area, Nome = "SubArea" }
+            ]
+        };
     }
 
     private sealed class RecorrenciaPublisherFake : IRecorrenciaBackgroundPublisher

@@ -87,6 +87,10 @@ WHERE NOT EXISTS
     SELECT N'Despesa', N'Servicos', N'Advocacia' UNION ALL
     SELECT N'Despesa', N'Servicos', N'Consultoria' UNION ALL
     SELECT N'Despesa', N'Servicos', N'Mao de Obra' UNION ALL
+    SELECT N'Despesa', N'Servicos', N'Telefonia' UNION ALL
+    SELECT N'Despesa', N'Servicos', N'Internet' UNION ALL
+    SELECT N'Despesa', N'Servicos', N'TV por Assinatura' UNION ALL
+    SELECT N'Despesa', N'Servicos', N'Servicos Digitais' UNION ALL
     SELECT N'Despesa', N'Impostos', N'IRPF' UNION ALL
     SELECT N'Despesa', N'Impostos', N'IPTU' UNION ALL
     SELECT N'Despesa', N'Impostos', N'IPVA' UNION ALL
