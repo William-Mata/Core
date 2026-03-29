@@ -169,17 +169,12 @@ public sealed class RabbitMqRecorrenciaBackgroundConsumerService(
                     AmigoNome = x.Nome,
                     Valor = x.Valor
                 }).ToList(),
-                AreasRateio = payload.AreasRateio.Select(x => new DespesaAreaRateio
+                AreasRateio = payload.AreasSubAreasRateio.Select(x => new DespesaAreaRateio
                 {
                     UsuarioCadastroId = payload.UsuarioId,
                     AreaId = x.AreaId,
                     SubAreaId = x.SubAreaId,
                     Valor = x.Valor
-                }).ToList(),
-                TiposRateio = payload.TiposRateio.Select(x => new DespesaTipoRateio
-                {
-                    UsuarioCadastroId = payload.UsuarioId,
-                    TipoRateio = x
                 }).ToList(),
                 Logs =
                 [
@@ -253,7 +248,7 @@ public sealed class RabbitMqRecorrenciaBackgroundConsumerService(
                     AmigoNome = x.Nome,
                     Valor = x.Valor
                 }).ToList(),
-                AreasRateio = payload.AreasRateio.Select(x => new ReceitaAreaRateio
+                AreasRateio = payload.AreasSubAreasRateio.Select(x => new ReceitaAreaRateio
                 {
                     UsuarioCadastroId = payload.UsuarioId,
                     AreaId = x.AreaId,

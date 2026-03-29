@@ -28,6 +28,5 @@ public sealed class Despesa
     public string? AnexoDocumento { get; set; }
     public List<DespesaAmigoRateio> AmigosRateio { get; set; } = [];
     public List<DespesaAreaRateio> AreasRateio { get; set; } = [];
-    public List<DespesaTipoRateio> TiposRateio { get; set; } = [];
     public List<DespesaLog> Logs { get; set; } = [];
 }

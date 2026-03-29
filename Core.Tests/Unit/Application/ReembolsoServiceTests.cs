@@ -77,7 +77,7 @@ public sealed class ReembolsoServiceTests
     }
 
     [Fact]
-    public async Task DeveImpedirReembolsoPagoComDataEfetivacaoMenorQueDataSolicitacao()
+    public async Task DeveImpedirReembolsoPagoComDataEfetivacaoMenorQueDataLancamento()
     {
         var service = CriarService(
             new ReembolsoRepositoryFake(),
@@ -96,7 +96,7 @@ public sealed class ReembolsoServiceTests
     }
 
     [Fact]
-    public async Task DevePermitirReembolsoPagoComDataEfetivacaoIgualDataSolicitacao()
+    public async Task DevePermitirReembolsoPagoComDataEfetivacaoIgualDataLancamento()
     {
         var service = CriarService(
             new ReembolsoRepositoryFake(),
@@ -125,7 +125,7 @@ public sealed class ReembolsoServiceTests
                 Id = 10,
                 Descricao = "Reembolso",
                 Solicitante = "Joao",
-                DataSolicitacao = new DateOnly(2026, 3, 18),
+                DataLancamento = new DateOnly(2026, 3, 18),
                 ValorTotal = 150m,
                 Status = StatusReembolso.Aprovado
             }
@@ -139,7 +139,7 @@ public sealed class ReembolsoServiceTests
     }
 
     [Fact]
-    public async Task DeveImpedirEfetivacao_QuandoDataEfetivacaoForMenorQueDataSolicitacao()
+    public async Task DeveImpedirEfetivacao_QuandoDataEfetivacaoForMenorQueDataLancamento()
     {
         var repository = new ReembolsoRepositoryFake
         {
@@ -148,7 +148,7 @@ public sealed class ReembolsoServiceTests
                 Id = 10,
                 Descricao = "Reembolso",
                 Solicitante = "Joao",
-                DataSolicitacao = new DateOnly(2026, 3, 18),
+                DataLancamento = new DateOnly(2026, 3, 18),
                 ValorTotal = 150m,
                 Status = StatusReembolso.Aprovado
             }
@@ -170,7 +170,7 @@ public sealed class ReembolsoServiceTests
                 Id = 10,
                 Descricao = "Reembolso",
                 Solicitante = "Joao",
-                DataSolicitacao = new DateOnly(2026, 3, 18),
+                DataLancamento = new DateOnly(2026, 3, 18),
                 DataEfetivacao = new DateOnly(2026, 3, 20),
                 ValorTotal = 150m,
                 Status = StatusReembolso.Pago

@@ -24,7 +24,7 @@ Campos lidos pelo front:
   "id": 1,
   "descricao": "Viagem comercial - semana 2",
   "solicitante": "João Silva",
-  "dataSolicitacao": "2026-03-18",
+  "dataLancamento": "2026-03-18",
   "despesasVinculadas": [1, 3],
   "status": "AGUARDANDO"
 }
@@ -53,7 +53,7 @@ Campos mínimos:
 {
   "descricao": "Viagem comercial - semana 2",
   "solicitante": "João Silva",
-  "dataSolicitacao": "2026-03-18",
+  "dataLancamento": "2026-03-18",
   "despesasVinculadas": [1, 3],
   "valorTotal": 274.9,
   "status": "AGUARDANDO"
@@ -82,7 +82,7 @@ Campos:
 Regras:
 - `id`: correspondência parcial por texto.
 - `descricao`: busca por `descricao` e `solicitante`.
-- período: aplicado sobre `dataSolicitacao`.
+- período: aplicado sobre `dataLancamento`.
 
 ## Tratamento de erro
 - Erros de API são exibidos via notificação usando o parser padrão RFC 7807 do projeto.

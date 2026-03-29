@@ -32,10 +32,10 @@ public sealed class DespesaService(
         var recorrencia = ResolverRecorrencia(req.TipoPagamento, req.Recorrencia);
         var recorrenciaFixa = ResolverRecorrenciaFixa(req.TipoPagamento, req.RecorrenciaFixa);
         ValidarComum(req.Descricao, req.DataLancamento, req.DataVencimento, req.TipoDespesa, req.TipoPagamento, recorrencia, recorrenciaFixa, quantidadeRecorrencia, req.ValorTotal);
-        await ValidarAreasRateioAsync(req.AreasRateio ?? [], cancellationToken);
-        var amigos = NormalizarAmigos(req.Amigos, req.AmigosRateio, req.RateioAmigosValores);
+        await ValidarAreasRateioAsync(req.AreasSubAreasRateio ?? [], cancellationToken);
+        var amigos = NormalizarAmigos(req.AmigosRateio);
         ValidarRateioAmigos(amigos, req.ValorTotal);
-        ValidarRateioAreas(req.AreasRateio ?? [], req.ValorTotal);
+        ValidarRateioAreas(req.AreasSubAreasRateio ?? [], req.ValorTotal);
         var liquido = Liquido(req.ValorTotal, req.Desconto, req.Acrescimo, req.Imposto, req.Juros);
 
         var d = new Despesa
@@ -48,8 +48,7 @@ public sealed class DespesaService(
             UsuarioCadastroId = usuarioAutenticadoId,
             Status = StatusDespesa.Pendente, AnexoDocumento = req.AnexoDocumento,
             AmigosRateio = amigos.Select(x => new DespesaAmigoRateio { UsuarioCadastroId = usuarioAutenticadoId, AmigoNome = x.Nome, Valor = x.Valor }).ToList(),
-            AreasRateio = (req.AreasRateio ?? []).Select(x => new DespesaAreaRateio { UsuarioCadastroId = usuarioAutenticadoId, AreaId = x.AreaId, SubAreaId = x.SubAreaId, Valor = x.Valor }).ToList(),
-            TiposRateio = req.TiposRateio.Select(x => new DespesaTipoRateio { UsuarioCadastroId = usuarioAutenticadoId, TipoRateio = x }).ToList(),
+            AreasRateio = (req.AreasSubAreasRateio ?? []).Select(x => new DespesaAreaRateio { UsuarioCadastroId = usuarioAutenticadoId, AreaId = x.AreaId, SubAreaId = x.SubAreaId, Valor = x.Valor }).ToList(),
             Logs = [new DespesaLog { UsuarioCadastroId = usuarioAutenticadoId, Acao = AcaoLogs.Cadastro, Descricao = "Despesa criada com status pendente." }]
         };
 
@@ -75,9 +74,8 @@ public sealed class DespesaService(
                 req.Imposto,
                 req.Juros,
                 req.AnexoDocumento,
-                req.TiposRateio.ToArray(),
                 amigos.Select(x => new RateioAmigoBackgroundMessage(x.Nome, x.Valor)).ToArray(),
-                (req.AreasRateio ?? []).Select(x => new RateioAreaBackgroundMessage(x.AreaId, x.SubAreaId, x.Valor)).ToArray());
+                (req.AreasSubAreasRateio ?? []).Select(x => new RateioAreaBackgroundMessage(x.AreaId, x.SubAreaId, x.Valor)).ToArray());
 
             await recorrenciaBackgroundPublisher.PublicarDespesaAsync(mensagem, cancellationToken);
         }
@@ -95,10 +93,10 @@ public sealed class DespesaService(
         var recorrencia = ResolverRecorrencia(req.TipoPagamento, req.Recorrencia);
         var recorrenciaFixa = ResolverRecorrenciaFixa(req.TipoPagamento, req.RecorrenciaFixa);
         ValidarComum(req.Descricao, req.DataLancamento, req.DataVencimento, req.TipoDespesa, req.TipoPagamento, recorrencia, recorrenciaFixa, quantidadeRecorrencia, req.ValorTotal);
-        await ValidarAreasRateioAsync(req.AreasRateio ?? [], cancellationToken);
-        var amigos = NormalizarAmigos(req.Amigos, req.AmigosRateio, req.RateioAmigosValores);
+        await ValidarAreasRateioAsync(req.AreasSubAreasRateio ?? [], cancellationToken);
+        var amigos = NormalizarAmigos(req.AmigosRateio);
         ValidarRateioAmigos(amigos, req.ValorTotal);
-        ValidarRateioAreas(req.AreasRateio ?? [], req.ValorTotal);
+        ValidarRateioAreas(req.AreasSubAreasRateio ?? [], req.ValorTotal);
         var liquido = Liquido(req.ValorTotal, req.Desconto, req.Acrescimo, req.Imposto, req.Juros);
 
         d.Descricao = req.Descricao.Trim(); d.Observacao = req.Observacao; d.DataLancamento = req.DataLancamento; d.DataVencimento = req.DataVencimento;
@@ -106,8 +104,7 @@ public sealed class DespesaService(
         d.ValorTotal = req.ValorTotal; d.ValorLiquido = liquido; d.Desconto = req.Desconto; d.Acrescimo = req.Acrescimo; d.Imposto = req.Imposto; d.Juros = req.Juros;
         d.AnexoDocumento = req.AnexoDocumento;
         d.AmigosRateio = amigos.Select(x => new DespesaAmigoRateio { DespesaId = d.Id, UsuarioCadastroId = usuarioAutenticadoId, AmigoNome = x.Nome, Valor = x.Valor }).ToList();
-        d.AreasRateio = (req.AreasRateio ?? []).Select(x => new DespesaAreaRateio { DespesaId = d.Id, UsuarioCadastroId = usuarioAutenticadoId, AreaId = x.AreaId, SubAreaId = x.SubAreaId, Valor = x.Valor }).ToList();
-        d.TiposRateio = req.TiposRateio.Select(x => new DespesaTipoRateio { DespesaId = d.Id, UsuarioCadastroId = usuarioAutenticadoId, TipoRateio = x }).ToList();
+        d.AreasRateio = (req.AreasSubAreasRateio ?? []).Select(x => new DespesaAreaRateio { DespesaId = d.Id, UsuarioCadastroId = usuarioAutenticadoId, AreaId = x.AreaId, SubAreaId = x.SubAreaId, Valor = x.Valor }).ToList();
         d.Logs.Add(new DespesaLog { DespesaId = d.Id, UsuarioCadastroId = usuarioAutenticadoId, Acao = AcaoLogs.Atualizacao, Descricao = "Despesa atualizada." });
 
         return Map(await repository.AtualizarAsync(d, cancellationToken));
@@ -192,7 +189,9 @@ public sealed class DespesaService(
         if (!TiposDespesa.Contains(tipoDespesa) || !TiposPagamento.Contains(tipoPagamento) || !Enum.IsDefined(recorrencia)) throw new DomainException("enum_invalida");
         if (PagamentoCartao(tipoPagamento) && recorrenciaFixa) throw new DomainException("recorrencia_fixa_invalida");
         if (recorrenciaFixa && recorrencia == Recorrencia.Unica) throw new DomainException("recorrencia_fixa_invalida");
-        if (recorrencia is not Recorrencia.Unica && (!quantidadeRecorrencia.HasValue || quantidadeRecorrencia <= 0))
+        if (!recorrenciaFixa && recorrencia is not Recorrencia.Unica && (!quantidadeRecorrencia.HasValue || quantidadeRecorrencia <= 0))
+            throw new DomainException("quantidade_recorrencia_invalida");
+        if (recorrenciaFixa && quantidadeRecorrencia.HasValue && quantidadeRecorrencia <= 0)
             throw new DomainException("quantidade_recorrencia_invalida");
         if (!recorrenciaFixa && quantidadeRecorrencia.HasValue && quantidadeRecorrencia > 100)
             throw new DomainException("quantidade_recorrencia_invalida");
@@ -262,19 +261,13 @@ public sealed class DespesaService(
             throw new DomainException("rateio_area_invalido");
     }
 
-    private static IReadOnlyCollection<AmigoRateioRequest> NormalizarAmigos(
-        IReadOnlyCollection<AmigoRateioRequest>? amigosObjetos,
-        IReadOnlyCollection<string> amigosLegado,
-        IReadOnlyDictionary<string, decimal>? rateioAmigosValoresLegado)
+    private static IReadOnlyCollection<AmigoRateioRequest> NormalizarAmigos(IReadOnlyCollection<AmigoRateioRequest>? amigosRateio)
     {
-        if (amigosObjetos is not null && amigosObjetos.Count > 0)
-            return amigosObjetos.Where(x => !string.IsNullOrWhiteSpace(x.Nome)).ToArray();
+        if (amigosRateio is null || amigosRateio.Count == 0)
+            return [];
 
-        return amigosLegado
-            .Where(x => !string.IsNullOrWhiteSpace(x))
-            .Select(x => new AmigoRateioRequest(
-                x,
-                rateioAmigosValoresLegado is not null && rateioAmigosValoresLegado.TryGetValue(x, out var valor) ? valor : null))
+        return amigosRateio
+            .Where(x => !string.IsNullOrWhiteSpace(x.Nome))
             .ToArray();
     }
 
@@ -282,14 +275,12 @@ public sealed class DespesaService(
         new(d.Id, d.Descricao, d.Observacao, d.DataLancamento, d.DataVencimento, d.DataEfetivacao, d.TipoDespesa, d.TipoPagamento, d.Recorrencia, d.QuantidadeRecorrencia, d.RecorrenciaFixa,
             d.ValorTotal, d.ValorLiquido, d.Desconto, d.Acrescimo, d.Imposto, d.Juros, d.ValorEfetivacao, d.Status.ToString().ToLowerInvariant(),
             d.AmigosRateio.Select(x => new AmigoRateioDto(x.AmigoNome, x.Valor)).ToArray(),
-            d.AmigosRateio.Select(x => x.AmigoNome).ToArray(),
-            d.AmigosRateio.Where(x => x.Valor.HasValue).ToDictionary(x => x.AmigoNome, x => x.Valor!.Value),
             d.AreasRateio.Select(x => new DespesaAreaRateioDto(
                 x.AreaId,
                 x.Area?.Nome ?? string.Empty,
                 x.SubAreaId,
                 x.SubArea?.Nome ?? string.Empty,
                 x.Valor)).ToArray(),
-            d.TiposRateio.Select(x => x.TipoRateio).ToArray(), d.AnexoDocumento,
+            d.AnexoDocumento,
             d.Logs.Select(x => new DespesaLogDto(x.Id, DateOnly.FromDateTime(x.DataHoraCadastro), x.Acao, x.Descricao)).ToArray());
 }

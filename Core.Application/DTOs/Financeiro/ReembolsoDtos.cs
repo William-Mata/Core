@@ -8,7 +8,7 @@ public sealed record ReembolsoDto(
     long Id,
     string Descricao,
     string Solicitante,
-    DateOnly DataSolicitacao,
+    DateOnly DataLancamento,
     DateOnly? DataEfetivacao,
     IReadOnlyCollection<long> DespesasVinculadas,
     decimal ValorTotal,
@@ -17,7 +17,7 @@ public sealed record ReembolsoDto(
 public sealed record SalvarReembolsoRequest(
     string Descricao,
     string Solicitante,
-    DateOnly DataSolicitacao,
+    DateOnly DataLancamento,
     DateOnly? DataEfetivacao,
     IReadOnlyCollection<JsonElement> DespesasVinculadas,
     decimal? ValorTotal,

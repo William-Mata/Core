@@ -10,7 +10,7 @@ public sealed class ReembolsoRepository(AppDbContext dbContext) : IReembolsoRepo
     {
         var query = dbContext.Set<Reembolso>()
             .Include(x => x.Despesas)
-            .OrderByDescending(x => x.DataSolicitacao)
+            .OrderByDescending(x => x.DataLancamento)
             .ThenByDescending(x => x.Id)
             .AsQueryable();
 
@@ -27,12 +27,12 @@ public sealed class ReembolsoRepository(AppDbContext dbContext) : IReembolsoRepo
 
         if (dataInicio.HasValue)
         {
-            query = query.Where(x => x.DataSolicitacao >= dataInicio.Value);
+            query = query.Where(x => x.DataLancamento >= dataInicio.Value);
         }
 
         if (dataFim.HasValue)
         {
-            query = query.Where(x => x.DataSolicitacao <= dataFim.Value);
+            query = query.Where(x => x.DataLancamento <= dataFim.Value);
         }
 
         return query.ToListAsync(cancellationToken);

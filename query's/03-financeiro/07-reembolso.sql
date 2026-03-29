@@ -11,7 +11,7 @@ BEGIN
         UsuarioCadastroId INT NOT NULL,
         Descricao NVARCHAR(200) NOT NULL,
         Solicitante NVARCHAR(150) NOT NULL,
-        DataSolicitacao DATE NOT NULL,
+        DataLancamento DATE NOT NULL,
         DataEfetivacao DATE NULL,
         ValorTotal DECIMAL(18,2) NOT NULL,
         Status NVARCHAR(30) NOT NULL,
@@ -28,6 +28,14 @@ BEGIN
 END;
 GO
 
+IF COL_LENGTH(N'dbo.Reembolso', N'DataLancamento') IS NULL
+BEGIN
+    ALTER TABLE dbo.Reembolso
+        ADD DataLancamento DATE NOT NULL
+            CONSTRAINT DF_Reembolso_DataLancamento DEFAULT (CONVERT(date, SYSUTCDATETIME()));
+END;
+GO
+
 IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_Reembolso_Usuario_UsuarioCadastroId')
 BEGIN
     ALTER TABLE dbo.Reembolso
@@ -36,10 +44,10 @@ BEGIN
 END;
 GO
 
-IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_Reembolso_DataSolicitacao' AND object_id = OBJECT_ID(N'dbo.Reembolso'))
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_Reembolso_DataLancamento' AND object_id = OBJECT_ID(N'dbo.Reembolso'))
 BEGIN
-    CREATE NONCLUSTERED INDEX IX_Reembolso_DataSolicitacao
-        ON dbo.Reembolso (DataSolicitacao DESC, Id DESC);
+    CREATE NONCLUSTERED INDEX IX_Reembolso_DataLancamento
+        ON dbo.Reembolso (DataLancamento DESC, Id DESC);
 END;
 GO
 

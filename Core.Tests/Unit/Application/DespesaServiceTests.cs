@@ -209,8 +209,8 @@ public sealed class DespesaServiceTests
 
         Assert.Equal("Despesa", result.Descricao);
         Assert.Equal(100m, result.ValorTotal);
-        Assert.Equal(2, result.Amigos.Count);
-        Assert.Single(result.AreasRateio);
+        Assert.Equal(2, result.AmigosRateio.Count);
+        Assert.Single(result.AreasSubAreasRateio);
     }
 
     [Fact]
@@ -279,13 +279,10 @@ public sealed class DespesaServiceTests
             0m,
             0m,
             0m,
-            [],
-            [],
             null,
-            null,
+            amigos,
             areasRateio,
             quantidadeRecorrencia,
-            amigos,
             quantidadeParcelas,
             recorrenciaFixa);
 

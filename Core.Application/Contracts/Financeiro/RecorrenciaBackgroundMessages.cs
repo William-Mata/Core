@@ -20,9 +20,8 @@ public sealed record DespesaRecorrenciaBackgroundMessage(
     decimal Imposto,
     decimal Juros,
     string? AnexoDocumento,
-    IReadOnlyCollection<string> TiposRateio,
     IReadOnlyCollection<RateioAmigoBackgroundMessage> AmigosRateio,
-    IReadOnlyCollection<RateioAreaBackgroundMessage> AreasRateio);
+    IReadOnlyCollection<RateioAreaBackgroundMessage> AreasSubAreasRateio);
 
 public sealed record ReceitaRecorrenciaBackgroundMessage(
     int UsuarioId,
@@ -43,4 +42,4 @@ public sealed record ReceitaRecorrenciaBackgroundMessage(
     string? ContaBancaria,
     string? AnexoDocumento,
     IReadOnlyCollection<RateioAmigoBackgroundMessage> AmigosRateio,
-    IReadOnlyCollection<RateioAreaBackgroundMessage> AreasRateio);
+    IReadOnlyCollection<RateioAreaBackgroundMessage> AreasSubAreasRateio);

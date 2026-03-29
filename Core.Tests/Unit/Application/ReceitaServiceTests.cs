@@ -96,8 +96,8 @@ public sealed class ReceitaServiceTests
 
         Assert.Equal("Freelance", result.Descricao);
         Assert.Equal(1000m, result.ValorTotal);
-        Assert.Equal(2, result.Amigos.Count);
-        Assert.Single(result.AreasRateio);
+        Assert.Equal(2, result.AmigosRateio.Count);
+        Assert.Single(result.AreasSubAreasRateio);
     }
 
     [Fact]
@@ -241,13 +241,11 @@ public sealed class ReceitaServiceTests
             0m,
             0m,
             0m,
-            [],
-            new Dictionary<string, decimal>(),
             areasRateio ?? [],
             contaBancaria,
             null,
-            quantidadeRecorrencia,
             amigos,
+            quantidadeRecorrencia,
             recorrenciaFixa);
 
     private static ReceitaService CriarService(IReceitaRepository receitaRepository, IContaBancariaRepository contaRepository, IAreaRepository areaRepository, int? usuarioId) =>

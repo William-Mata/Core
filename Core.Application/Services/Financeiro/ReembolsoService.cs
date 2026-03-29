@@ -31,7 +31,7 @@ public sealed class ReembolsoService(
         var despesasIds = ExtrairDespesasIds(request.DespesasVinculadas);
         var despesas = await ObterDespesasValidasAsync(despesasIds, cancellationToken);
         var status = NormalizarStatus(request.Status);
-        ValidarPeriodoEfetivacao(request.DataSolicitacao, request.DataEfetivacao, status);
+        ValidarPeriodoEfetivacao(request.DataLancamento, request.DataEfetivacao, status);
 
         await ValidarDespesasVinculadasAsync(despesasIds, null, cancellationToken);
 
@@ -39,7 +39,7 @@ public sealed class ReembolsoService(
         {
             Descricao = descricao,
             Solicitante = solicitante,
-            DataSolicitacao = request.DataSolicitacao,
+            DataLancamento = request.DataLancamento,
             DataEfetivacao = request.DataEfetivacao,
             ValorTotal = despesas.Sum(x => x.ValorTotal),
             Status = status,
@@ -67,13 +67,13 @@ public sealed class ReembolsoService(
         var despesasIds = ExtrairDespesasIds(request.DespesasVinculadas);
         var despesas = await ObterDespesasValidasAsync(despesasIds, cancellationToken);
         var status = NormalizarStatus(request.Status);
-        ValidarPeriodoEfetivacao(request.DataSolicitacao, request.DataEfetivacao, status);
+        ValidarPeriodoEfetivacao(request.DataLancamento, request.DataEfetivacao, status);
 
         await ValidarDespesasVinculadasAsync(despesasIds, id, cancellationToken);
 
         reembolso.Descricao = descricao;
         reembolso.Solicitante = solicitante;
-        reembolso.DataSolicitacao = request.DataSolicitacao;
+        reembolso.DataLancamento = request.DataLancamento;
         reembolso.DataEfetivacao = request.DataEfetivacao;
         reembolso.ValorTotal = despesas.Sum(x => x.ValorTotal);
         reembolso.Status = status;
@@ -143,7 +143,7 @@ public sealed class ReembolsoService(
 
         var reembolso = await repository.ObterPorIdAsync(id, cancellationToken) ?? throw new NotFoundException("reembolso_nao_encontrado");
         if (reembolso.Status == StatusReembolso.Pago) throw new DomainException("status_invalido");
-        if (request.DataEfetivacao < reembolso.DataSolicitacao) throw new DomainException("periodo_invalido");
+        if (request.DataEfetivacao < reembolso.DataLancamento) throw new DomainException("periodo_invalido");
 
         reembolso.Status = StatusReembolso.Pago;
         reembolso.DataEfetivacao = request.DataEfetivacao;
@@ -291,7 +291,7 @@ public sealed class ReembolsoService(
             reembolso.Id,
             reembolso.Descricao,
             reembolso.Solicitante,
-            reembolso.DataSolicitacao,
+            reembolso.DataLancamento,
             reembolso.DataEfetivacao,
             reembolso.Despesas.Select(x => x.DespesaId).ToArray(),
             reembolso.ValorTotal,
@@ -313,7 +313,7 @@ public sealed class ReembolsoService(
         }
     }
 
-    private static void ValidarPeriodoEfetivacao(DateOnly dataSolicitacao, DateOnly? dataEfetivacao, StatusReembolso status)
+    private static void ValidarPeriodoEfetivacao(DateOnly dataLancamento, DateOnly? dataEfetivacao, StatusReembolso status)
     {
         if (!dataEfetivacao.HasValue)
         {
@@ -325,7 +325,7 @@ public sealed class ReembolsoService(
             return;
         }
 
-        if (dataEfetivacao.Value < dataSolicitacao)
+        if (dataEfetivacao.Value < dataLancamento)
         {
             throw new DomainException("periodo_invalido");
         }

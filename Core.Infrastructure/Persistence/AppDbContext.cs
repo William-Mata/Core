@@ -25,7 +25,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<Despesa> Despesas => Set<Despesa>();
     public DbSet<DespesaAmigoRateio> DespesasAmigosRateio => Set<DespesaAmigoRateio>();
     public DbSet<DespesaAreaRateio> DespesasAreasRateio => Set<DespesaAreaRateio>();
-    public DbSet<DespesaTipoRateio> DespesasTiposRateio => Set<DespesaTipoRateio>();
     public DbSet<DespesaLog> DespesasLogs => Set<DespesaLog>();
     public DbSet<HistoricoTransacaoFinanceira> HistoricosTransacoesFinanceiras => Set<HistoricoTransacaoFinanceira>();
     public DbSet<Reembolso> Reembolsos => Set<Reembolso>();
@@ -156,7 +155,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         modelBuilder.Entity<Despesa>().HasKey(x => x.Id);
         modelBuilder.Entity<DespesaAmigoRateio>().ToTable("DespesaAmigoRateio");
         modelBuilder.Entity<DespesaAreaRateio>().ToTable("DespesaAreaRateio");
-        modelBuilder.Entity<DespesaTipoRateio>().ToTable("DespesaTipoRateio");
         modelBuilder.Entity<DespesaLog>().ToTable("DespesaLog");
         modelBuilder.Entity<Despesa>().Property(x => x.Status).HasConversion<string>();
         modelBuilder.Entity<Despesa>().Property(x => x.Recorrencia).HasConversion<string>();
@@ -164,7 +162,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         modelBuilder.Entity<DespesaLog>().Property(x => x.Acao).HasConversion<string>();
         modelBuilder.Entity<Despesa>().HasMany(x => x.AmigosRateio).WithOne().HasForeignKey(x => x.DespesaId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<Despesa>().HasMany(x => x.AreasRateio).WithOne().HasForeignKey(x => x.DespesaId).OnDelete(DeleteBehavior.Cascade);
-        modelBuilder.Entity<Despesa>().HasMany(x => x.TiposRateio).WithOne().HasForeignKey(x => x.DespesaId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<Despesa>().HasMany(x => x.Logs).WithOne().HasForeignKey(x => x.DespesaId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<DespesaAreaRateio>().HasOne(x => x.Area).WithMany().HasForeignKey(x => x.AreaId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<DespesaAreaRateio>().HasOne(x => x.SubArea).WithMany().HasForeignKey(x => x.SubAreaId).OnDelete(DeleteBehavior.Restrict);

@@ -13,7 +13,6 @@ public sealed class DespesaRepository(AppDbContext dbContext) : IDespesaReposito
                 .ThenInclude(x => x.Area)
             .Include(x => x.AreasRateio)
                 .ThenInclude(x => x.SubArea)
-            .Include(x => x.TiposRateio)
             .Include(x => x.Logs)
             .OrderByDescending(x => x.DataLancamento)
             .ToListAsync(cancellationToken);
@@ -30,7 +29,6 @@ public sealed class DespesaRepository(AppDbContext dbContext) : IDespesaReposito
                 .ThenInclude(x => x.Area)
             .Include(x => x.AreasRateio)
                 .ThenInclude(x => x.SubArea)
-            .Include(x => x.TiposRateio)
             .Include(x => x.Logs)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 

@@ -38,7 +38,7 @@ public sealed class ReembolsoRepositoryTests
             UsuarioCadastroId = 1,
             Descricao = "Viagem comercial",
             Solicitante = "Joao Silva",
-            DataSolicitacao = new DateOnly(2026, 3, 18),
+            DataLancamento = new DateOnly(2026, 3, 18),
             ValorTotal = 100m,
             Status = StatusReembolso.Aguardando,
             Despesas =
