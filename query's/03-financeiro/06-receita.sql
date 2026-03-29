@@ -49,6 +49,36 @@ BEGIN
 END;
 GO
 
+IF COL_LENGTH('dbo.Receita', 'DataEfetivacao') IS NULL
+BEGIN
+    ALTER TABLE dbo.Receita ADD DataEfetivacao DATE NULL;
+END;
+GO
+
+IF COL_LENGTH('dbo.Receita', 'Recorrencia') IS NULL
+BEGIN
+    ALTER TABLE dbo.Receita
+        ADD Recorrencia NVARCHAR(20) NOT NULL
+            CONSTRAINT DF_Receita_Recorrencia DEFAULT (N'Unica');
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_Receita_Recorrencia' AND parent_object_id = OBJECT_ID(N'dbo.Receita'))
+BEGIN
+    ALTER TABLE dbo.Receita
+        WITH CHECK ADD CONSTRAINT CK_Receita_Recorrencia
+        CHECK (Recorrencia IN (N'Unica', N'Diaria', N'Semanal', N'Quinzenal', N'Mensal', N'Trimestral', N'Semestral', N'Anual', N'Fixa'));
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_Receita_QuantidadeRecorrencia' AND parent_object_id = OBJECT_ID(N'dbo.Receita'))
+BEGIN
+    ALTER TABLE dbo.Receita
+        WITH CHECK ADD CONSTRAINT CK_Receita_QuantidadeRecorrencia
+        CHECK (QuantidadeRecorrencia IS NULL OR QuantidadeRecorrencia > 0);
+END;
+GO
+
 IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_Receita_Usuario_UsuarioCadastroId')
 BEGIN
     ALTER TABLE dbo.Receita

@@ -12,11 +12,19 @@ BEGIN
         Descricao NVARCHAR(200) NOT NULL,
         Solicitante NVARCHAR(150) NOT NULL,
         DataSolicitacao DATE NOT NULL,
+        DataEfetivacao DATE NULL,
         ValorTotal DECIMAL(18,2) NOT NULL,
         Status NVARCHAR(30) NOT NULL,
         CONSTRAINT CK_Reembolso_ValorTotal CHECK (ValorTotal >= 0),
         CONSTRAINT CK_Reembolso_Status CHECK (Status IN (N'Aguardando', N'Aprovado', N'Pago', N'Cancelado', N'Rejeitado'))
     );
+END;
+GO
+
+IF COL_LENGTH(N'dbo.Reembolso', N'DataEfetivacao') IS NULL
+BEGIN
+    ALTER TABLE dbo.Reembolso
+        ADD DataEfetivacao DATE NULL;
 END;
 GO
 

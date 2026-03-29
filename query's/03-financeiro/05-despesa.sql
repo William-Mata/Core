@@ -48,6 +48,36 @@ BEGIN
 END;
 GO
 
+IF COL_LENGTH('dbo.Despesa', 'DataEfetivacao') IS NULL
+BEGIN
+    ALTER TABLE dbo.Despesa ADD DataEfetivacao DATE NULL;
+END;
+GO
+
+IF COL_LENGTH('dbo.Despesa', 'Recorrencia') IS NULL
+BEGIN
+    ALTER TABLE dbo.Despesa
+        ADD Recorrencia NVARCHAR(20) NOT NULL
+            CONSTRAINT DF_Despesa_Recorrencia DEFAULT (N'Unica');
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_Despesa_Recorrencia' AND parent_object_id = OBJECT_ID(N'dbo.Despesa'))
+BEGIN
+    ALTER TABLE dbo.Despesa
+        WITH CHECK ADD CONSTRAINT CK_Despesa_Recorrencia
+        CHECK (Recorrencia IN (N'Unica', N'Diaria', N'Semanal', N'Quinzenal', N'Mensal', N'Trimestral', N'Semestral', N'Anual', N'Fixa'));
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_Despesa_QuantidadeRecorrencia' AND parent_object_id = OBJECT_ID(N'dbo.Despesa'))
+BEGIN
+    ALTER TABLE dbo.Despesa
+        WITH CHECK ADD CONSTRAINT CK_Despesa_QuantidadeRecorrencia
+        CHECK (QuantidadeRecorrencia IS NULL OR QuantidadeRecorrencia > 0);
+END;
+GO
+
 IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_Despesa_Usuario_UsuarioCadastroId')
 BEGIN
     ALTER TABLE dbo.Despesa
