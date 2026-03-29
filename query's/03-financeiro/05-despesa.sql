@@ -32,7 +32,6 @@ BEGIN
         Juros DECIMAL(18,2) NOT NULL CONSTRAINT DF_Despesa_Juros DEFAULT (0),
         ValorEfetivacao DECIMAL(18,2) NULL,
         Status NVARCHAR(20) NOT NULL CONSTRAINT DF_Despesa_Status DEFAULT (N'Pendente'),
-        AnexoDocumento NVARCHAR(500) NULL,
         CONSTRAINT PK_Despesa PRIMARY KEY CLUSTERED (Id),
         CONSTRAINT CK_Despesa_Recorrencia CHECK (Recorrencia IN (N'Unica', N'Diaria', N'Semanal', N'Quinzenal', N'Mensal', N'Trimestral', N'Semestral', N'Anual')),
         CONSTRAINT CK_Despesa_RecorrenciaFixa CHECK (Recorrencia <> N'Unica' OR RecorrenciaFixa = 0),
@@ -41,6 +40,18 @@ BEGIN
         CONSTRAINT CK_Despesa_TipoDespesa CHECK (TipoDespesa IN (N'alimentacao', N'transporte', N'moradia', N'lazer', N'saude', N'educacao', N'servicos')),
         CONSTRAINT CK_Despesa_TipoPagamento CHECK (TipoPagamento IN (N'pix', N'cartaoCredito', N'cartaoDebito', N'boleto', N'transferencia', N'dinheiro'))
     );
+END;
+GO
+
+IF COL_LENGTH('dbo.Despesa', 'AnexoDocumento') IS NOT NULL
+BEGIN
+    ALTER TABLE dbo.Despesa DROP COLUMN AnexoDocumento;
+END;
+GO
+
+IF COL_LENGTH('dbo.Despesa', 'Documentos') IS NOT NULL
+BEGIN
+    ALTER TABLE dbo.Despesa DROP COLUMN Documentos;
 END;
 GO
 

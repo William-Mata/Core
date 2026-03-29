@@ -24,7 +24,13 @@ GO
     SELECT N'dbo.Receita', N'ContaBancariaId' UNION ALL
     SELECT N'dbo.ReceitaAmigoRateio', N'Valor' UNION ALL
     SELECT N'dbo.ReceitaAreaRateio', N'Valor' UNION ALL
-    SELECT N'dbo.Reembolso', N'DataEfetivacao'
+    SELECT N'dbo.Reembolso', N'DataLancamento' UNION ALL
+    SELECT N'dbo.Reembolso', N'DataEfetivacao' UNION ALL
+    SELECT N'dbo.Documento', N'NomeArquivo' UNION ALL
+    SELECT N'dbo.Documento', N'CaminhoArquivo' UNION ALL
+    SELECT N'dbo.Documento', N'DespesaId' UNION ALL
+    SELECT N'dbo.Documento', N'ReceitaId' UNION ALL
+    SELECT N'dbo.Documento', N'ReembolsoId'
 )
 SELECT
     e.Tabela,

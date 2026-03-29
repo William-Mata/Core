@@ -33,7 +33,6 @@ BEGIN
         ValorEfetivacao DECIMAL(18,2) NULL,
         Status NVARCHAR(20) NOT NULL CONSTRAINT DF_Receita_Status DEFAULT (N'Pendente'),
         ContaBancariaId BIGINT NULL,
-        AnexoDocumento NVARCHAR(500) NULL,
         CONSTRAINT PK_Receita PRIMARY KEY CLUSTERED (Id),
         CONSTRAINT CK_Receita_Recorrencia CHECK (Recorrencia IN (N'Unica', N'Diaria', N'Semanal', N'Quinzenal', N'Mensal', N'Trimestral', N'Semestral', N'Anual')),
         CONSTRAINT CK_Receita_RecorrenciaFixa CHECK (Recorrencia <> N'Unica' OR RecorrenciaFixa = 0),
@@ -42,6 +41,18 @@ BEGIN
         CONSTRAINT CK_Receita_TipoReceita CHECK (TipoReceita IN (N'salario', N'freelance', N'reembolso', N'investimento', N'bonus', N'outros')),
         CONSTRAINT CK_Receita_TipoRecebimento CHECK (TipoRecebimento IN (N'pix', N'transferencia', N'contaCorrente', N'dinheiro', N'boleto'))
     );
+END;
+GO
+
+IF COL_LENGTH('dbo.Receita', 'AnexoDocumento') IS NOT NULL
+BEGIN
+    ALTER TABLE dbo.Receita DROP COLUMN AnexoDocumento;
+END;
+GO
+
+IF COL_LENGTH('dbo.Receita', 'Documentos') IS NOT NULL
+BEGIN
+    ALTER TABLE dbo.Receita DROP COLUMN Documentos;
 END;
 GO
 
