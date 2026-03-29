@@ -26,7 +26,7 @@ public sealed class Receita
     public decimal? ValorEfetivacao { get; set; }
     public StatusReceita Status { get; set; } = StatusReceita.Pendente;
     public long? ContaBancariaId { get; set; }
-    public string? AnexoDocumento { get; set; }
+    public List<Documento> Documentos { get; set; } = [];
     public List<ReceitaAmigoRateio> AmigosRateio { get; set; } = [];
     public List<ReceitaAreaRateio> AreasRateio { get; set; } = [];
     public List<ReceitaLog> Logs { get; set; } = [];

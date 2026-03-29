@@ -162,7 +162,14 @@ public sealed class RabbitMqRecorrenciaBackgroundConsumerService(
                 Imposto = payload.Imposto,
                 Juros = payload.Juros,
                 Status = StatusDespesa.Pendente,
-                AnexoDocumento = payload.AnexoDocumento,
+                Documentos = (payload.Documentos ?? []).Select(x => new Documento
+                {
+                    UsuarioCadastroId = payload.UsuarioId,
+                    NomeArquivo = x.NomeArquivo,
+                    CaminhoArquivo = x.CaminhoArquivo,
+                    ContentType = x.ContentType,
+                    TamanhoBytes = x.TamanhoBytes
+                }).ToList(),
                 AmigosRateio = payload.AmigosRateio.Select(x => new DespesaAmigoRateio
                 {
                     UsuarioCadastroId = payload.UsuarioId,
@@ -241,7 +248,14 @@ public sealed class RabbitMqRecorrenciaBackgroundConsumerService(
                 Juros = payload.Juros,
                 Status = StatusReceita.Pendente,
                 ContaBancariaId = contaBancariaId,
-                AnexoDocumento = payload.AnexoDocumento,
+                Documentos = (payload.Documentos ?? []).Select(x => new Documento
+                {
+                    UsuarioCadastroId = payload.UsuarioId,
+                    NomeArquivo = x.NomeArquivo,
+                    CaminhoArquivo = x.CaminhoArquivo,
+                    ContentType = x.ContentType,
+                    TamanhoBytes = x.TamanhoBytes
+                }).ToList(),
                 AmigosRateio = payload.AmigosRateio.Select(x => new ReceitaAmigoRateio
                 {
                     UsuarioCadastroId = payload.UsuarioId,

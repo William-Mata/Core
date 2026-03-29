@@ -11,6 +11,7 @@ public sealed record ReembolsoDto(
     DateOnly DataLancamento,
     DateOnly? DataEfetivacao,
     IReadOnlyCollection<long> DespesasVinculadas,
+    IReadOnlyCollection<DocumentoDto> Documentos,
     decimal ValorTotal,
     string Status);
 
@@ -22,10 +23,12 @@ public sealed record SalvarReembolsoRequest(
     IReadOnlyCollection<JsonElement> DespesasVinculadas,
     decimal? ValorTotal,
     string? Status,
+    IReadOnlyCollection<DocumentoRequest>? Documentos = null,
     long? ContaBancariaId = null,
     long? CartaoId = null);
 
 public sealed record EfetivarReembolsoRequest(
     DateOnly DataEfetivacao,
+    IReadOnlyCollection<DocumentoRequest>? Documentos = null,
     long? ContaBancariaId = null,
     long? CartaoId = null);

@@ -1,5 +1,7 @@
 using System.Text.Json;
 using Core.Application.DTOs.Financeiro;
+using Core.Application.Contracts.Financeiro;
+using Core.Domain.Entities;
 using Core.Domain.Entities.Financeiro;
 using Core.Domain.Enums;
 using Core.Domain.Exceptions;
@@ -12,7 +14,8 @@ public sealed class ReembolsoService(
     IReembolsoRepository repository,
     IDespesaRepository despesaRepository,
     IUsuarioAutenticadoProvider usuarioAutenticadoProvider,
-    HistoricoTransacaoFinanceiraService historicoTransacaoFinanceiraService)
+    HistoricoTransacaoFinanceiraService historicoTransacaoFinanceiraService,
+    IDocumentoStorageService documentoStorageService)
 {
     public async Task<IReadOnlyCollection<ReembolsoDto>> ListarAsync(ListarReembolsosRequest request, CancellationToken cancellationToken = default) =>
         (await repository.ListarAsync(request.Id, request.Descricao, request.DataInicio, request.DataFim, cancellationToken))
@@ -32,6 +35,7 @@ public sealed class ReembolsoService(
         var despesas = await ObterDespesasValidasAsync(despesasIds, cancellationToken);
         var status = NormalizarStatus(request.Status);
         ValidarPeriodoEfetivacao(request.DataLancamento, request.DataEfetivacao, status);
+        var documentos = await SalvarDocumentosAsync(request.Documentos ?? [], usuarioAutenticadoId, cancellationToken: cancellationToken);
 
         await ValidarDespesasVinculadasAsync(despesasIds, null, cancellationToken);
 
@@ -41,6 +45,7 @@ public sealed class ReembolsoService(
             Solicitante = solicitante,
             DataLancamento = request.DataLancamento,
             DataEfetivacao = request.DataEfetivacao,
+            Documentos = documentos,
             ValorTotal = despesas.Sum(x => x.ValorTotal),
             Status = status,
             UsuarioCadastroId = usuarioAutenticadoId,
@@ -75,6 +80,8 @@ public sealed class ReembolsoService(
         reembolso.Solicitante = solicitante;
         reembolso.DataLancamento = request.DataLancamento;
         reembolso.DataEfetivacao = request.DataEfetivacao;
+        if (request.Documentos is not null)
+            reembolso.Documentos = await SalvarDocumentosAsync(request.Documentos, usuarioAutenticadoId, reembolsoId: reembolso.Id, cancellationToken: cancellationToken);
         reembolso.ValorTotal = despesas.Sum(x => x.ValorTotal);
         reembolso.Status = status;
         reembolso.Despesas = despesasIds
@@ -147,6 +154,8 @@ public sealed class ReembolsoService(
 
         reembolso.Status = StatusReembolso.Pago;
         reembolso.DataEfetivacao = request.DataEfetivacao;
+        if (request.Documentos is not null)
+            reembolso.Documentos = await SalvarDocumentosAsync(request.Documentos, usuarioAutenticadoId, reembolsoId: reembolso.Id, cancellationToken: cancellationToken);
 
         var reembolsoAtualizado = await repository.AtualizarAsync(reembolso, cancellationToken);
         await historicoTransacaoFinanceiraService.RegistrarEfetivacaoAsync(
@@ -294,8 +303,34 @@ public sealed class ReembolsoService(
             reembolso.DataLancamento,
             reembolso.DataEfetivacao,
             reembolso.Despesas.Select(x => x.DespesaId).ToArray(),
+            reembolso.Documentos.Select(x => new DocumentoDto(x.NomeArquivo, x.CaminhoArquivo, x.ContentType, x.TamanhoBytes)).ToArray(),
             reembolso.ValorTotal,
             reembolso.Status.ToString().ToUpperInvariant());
+
+    private async Task<List<Documento>> SalvarDocumentosAsync(
+        IReadOnlyCollection<DocumentoRequest> documentos,
+        int usuarioAutenticadoId,
+        long? despesaId = null,
+        long? receitaId = null,
+        long? reembolsoId = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (documentos.Count == 0)
+            return [];
+
+        var salvos = await documentoStorageService.SalvarAsync(documentos, cancellationToken);
+        return salvos.Select(x => new Documento
+        {
+            UsuarioCadastroId = usuarioAutenticadoId,
+            NomeArquivo = x.NomeArquivo,
+            CaminhoArquivo = x.Caminho,
+            ContentType = x.ContentType,
+            TamanhoBytes = x.TamanhoBytes,
+            DespesaId = despesaId,
+            ReceitaId = receitaId,
+            ReembolsoId = reembolsoId
+        }).ToList();
+    }
 
     private static void ValidarContaOuCartao(long? contaBancariaId, long? cartaoId)
     {

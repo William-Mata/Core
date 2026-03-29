@@ -11,6 +11,7 @@ public sealed class ReceitaRepository(AppDbContext dbContext) : IReceitaReposito
             .Include(x => x.AmigosRateio)
             .Include(x => x.AreasRateio).ThenInclude(x => x.Area)
             .Include(x => x.AreasRateio).ThenInclude(x => x.SubArea)
+            .Include(x => x.Documentos)
             .Include(x => x.Logs)
             .OrderByDescending(x => x.DataLancamento)
             .ToListAsync(cancellationToken);
@@ -20,6 +21,7 @@ public sealed class ReceitaRepository(AppDbContext dbContext) : IReceitaReposito
             .Include(x => x.AmigosRateio)
             .Include(x => x.AreasRateio).ThenInclude(x => x.Area)
             .Include(x => x.AreasRateio).ThenInclude(x => x.SubArea)
+            .Include(x => x.Documentos)
             .Include(x => x.Logs)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
@@ -32,6 +34,11 @@ public sealed class ReceitaRepository(AppDbContext dbContext) : IReceitaReposito
 
     public async Task<Receita> AtualizarAsync(Receita receita, CancellationToken cancellationToken = default)
     {
+        var documentosAtuais = await dbContext.Set<Documento>()
+            .Where(x => x.ReceitaId == receita.Id)
+            .ToListAsync(cancellationToken);
+
+        dbContext.Set<Documento>().RemoveRange(documentosAtuais);
         dbContext.Receitas.Update(receita);
         await dbContext.SaveChangesAsync(cancellationToken);
         return receita;

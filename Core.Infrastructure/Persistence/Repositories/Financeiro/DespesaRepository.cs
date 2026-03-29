@@ -13,6 +13,7 @@ public sealed class DespesaRepository(AppDbContext dbContext) : IDespesaReposito
                 .ThenInclude(x => x.Area)
             .Include(x => x.AreasRateio)
                 .ThenInclude(x => x.SubArea)
+            .Include(x => x.Documentos)
             .Include(x => x.Logs)
             .OrderByDescending(x => x.DataLancamento)
             .ToListAsync(cancellationToken);
@@ -29,6 +30,7 @@ public sealed class DespesaRepository(AppDbContext dbContext) : IDespesaReposito
                 .ThenInclude(x => x.Area)
             .Include(x => x.AreasRateio)
                 .ThenInclude(x => x.SubArea)
+            .Include(x => x.Documentos)
             .Include(x => x.Logs)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
@@ -41,6 +43,11 @@ public sealed class DespesaRepository(AppDbContext dbContext) : IDespesaReposito
 
     public async Task<Despesa> AtualizarAsync(Despesa despesa, CancellationToken cancellationToken = default)
     {
+        var documentosAtuais = await dbContext.Set<Documento>()
+            .Where(x => x.DespesaId == despesa.Id)
+            .ToListAsync(cancellationToken);
+
+        dbContext.Set<Documento>().RemoveRange(documentosAtuais);
         dbContext.Despesas.Update(despesa);
         await dbContext.SaveChangesAsync(cancellationToken);
         return despesa;

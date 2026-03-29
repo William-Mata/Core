@@ -15,6 +15,7 @@ public sealed class ReceitaService(
     IAreaRepository areaRepository,
     IUsuarioAutenticadoProvider usuarioAutenticadoProvider,
     HistoricoTransacaoFinanceiraService historicoTransacaoFinanceiraService,
+    IDocumentoStorageService documentoStorageService,
     IRecorrenciaBackgroundPublisher recorrenciaBackgroundPublisher)
 {
     private static readonly HashSet<string> TiposReceita = ["salario","freelance","reembolso","investimento","bonus","outros"];
@@ -33,6 +34,7 @@ public sealed class ReceitaService(
         ValidarRateioAreas(req.AreasSubAreasRateio, req.ValorTotal);
         var contaId = await ResolverContaIdAsync(req.ContaBancaria, cancellationToken);
         var liquido = Liquido(req.ValorTotal, req.Desconto, req.Acrescimo, req.Imposto, req.Juros);
+        var documentos = await SalvarDocumentosAsync(req.Documentos ?? [], usuarioAutenticadoId, cancellationToken: cancellationToken);
         var r = new Receita
         {
             Descricao = req.Descricao.Trim(), Observacao = req.Observacao, DataLancamento = req.DataLancamento, DataVencimento = req.DataVencimento,
@@ -41,7 +43,7 @@ public sealed class ReceitaService(
             QuantidadeRecorrencia = req.QuantidadeRecorrencia,
             ValorTotal = req.ValorTotal, ValorLiquido = liquido, Desconto = req.Desconto, Acrescimo = req.Acrescimo, Imposto = req.Imposto, Juros = req.Juros,
             UsuarioCadastroId = usuarioAutenticadoId,
-            Status = StatusReceita.Pendente, ContaBancariaId = contaId, AnexoDocumento = req.AnexoDocumento,
+            Status = StatusReceita.Pendente, ContaBancariaId = contaId, Documentos = documentos,
             AmigosRateio = amigos.Select(x => new ReceitaAmigoRateio { UsuarioCadastroId = usuarioAutenticadoId, AmigoNome = x.Nome, Valor = x.Valor }).ToList(),
             AreasRateio = req.AreasSubAreasRateio.Select(x => new ReceitaAreaRateio { UsuarioCadastroId = usuarioAutenticadoId, AreaId = x.AreaId, SubAreaId = x.SubAreaId, Valor = x.Valor }).ToList(),
             Logs = [new ReceitaLog { UsuarioCadastroId = usuarioAutenticadoId, Acao = AcaoLogs.Cadastro, Descricao = "Receita criada com status pendente." }]
@@ -68,7 +70,7 @@ public sealed class ReceitaService(
                 req.Imposto,
                 req.Juros,
                 req.ContaBancaria,
-                req.AnexoDocumento,
+                documentos.Select(x => new DocumentoBackgroundMessage(x.NomeArquivo, x.CaminhoArquivo, x.ContentType, x.TamanhoBytes)).ToArray(),
                 amigos.Select(x => new RateioAmigoBackgroundMessage(x.Nome, x.Valor)).ToArray(),
                 req.AreasSubAreasRateio.Select(x => new RateioAreaBackgroundMessage(x.AreaId, x.SubAreaId, x.Valor)).ToArray());
 
@@ -94,7 +96,9 @@ public sealed class ReceitaService(
         r.Descricao = req.Descricao.Trim(); r.Observacao = req.Observacao; r.DataLancamento = req.DataLancamento; r.DataVencimento = req.DataVencimento;
         r.TipoReceita = req.TipoReceita; r.TipoRecebimento = req.TipoRecebimento; r.Recorrencia = req.Recorrencia; r.RecorrenciaFixa = req.RecorrenciaFixa; r.QuantidadeRecorrencia = req.QuantidadeRecorrencia;
         r.ValorTotal = req.ValorTotal; r.ValorLiquido = liquido; r.Desconto = req.Desconto; r.Acrescimo = req.Acrescimo; r.Imposto = req.Imposto; r.Juros = req.Juros;
-        r.ContaBancariaId = contaId; r.AnexoDocumento = req.AnexoDocumento;
+        r.ContaBancariaId = contaId;
+        if (req.Documentos is not null)
+            r.Documentos = await SalvarDocumentosAsync(req.Documentos, usuarioAutenticadoId, receitaId: r.Id, cancellationToken: cancellationToken);
         r.AmigosRateio = amigos.Select(x => new ReceitaAmigoRateio { ReceitaId = r.Id, UsuarioCadastroId = usuarioAutenticadoId, AmigoNome = x.Nome, Valor = x.Valor }).ToList();
         r.AreasRateio = req.AreasSubAreasRateio.Select(x => new ReceitaAreaRateio { ReceitaId = r.Id, UsuarioCadastroId = usuarioAutenticadoId, AreaId = x.AreaId, SubAreaId = x.SubAreaId, Valor = x.Valor }).ToList();
         r.Logs.Add(new ReceitaLog { ReceitaId = r.Id, UsuarioCadastroId = usuarioAutenticadoId, Acao = AcaoLogs.Atualizacao, Descricao = "Receita atualizada." });
@@ -115,7 +119,9 @@ public sealed class ReceitaService(
         var valorAntesTransacao = r.ValorEfetivacao ?? 0m;
         r.DataEfetivacao = req.DataEfetivacao; r.TipoRecebimento = req.TipoRecebimento; r.ContaBancariaId = contaId;
         r.ValorTotal = req.ValorTotal; r.Desconto = req.Desconto; r.Acrescimo = req.Acrescimo; r.Imposto = req.Imposto; r.Juros = req.Juros;
-        r.ValorLiquido = liquido; r.ValorEfetivacao = liquido; r.Status = StatusReceita.Efetivada; r.AnexoDocumento = req.AnexoDocumento;
+        r.ValorLiquido = liquido; r.ValorEfetivacao = liquido; r.Status = StatusReceita.Efetivada;
+        if (req.Documentos is not null)
+            r.Documentos = await SalvarDocumentosAsync(req.Documentos, usuarioAutenticadoId, receitaId: r.Id, cancellationToken: cancellationToken);
         r.Logs.Add(new ReceitaLog { ReceitaId = r.Id, UsuarioCadastroId = usuarioAutenticadoId, Acao = AcaoLogs.Atualizacao, Descricao = "Receita efetivada." });
         var receitaAtualizada = await repository.AtualizarAsync(r, cancellationToken);
         await historicoTransacaoFinanceiraService.RegistrarEfetivacaoAsync(
@@ -243,6 +249,31 @@ public sealed class ReceitaService(
             .ToArray();
     }
 
+    private async Task<List<Documento>> SalvarDocumentosAsync(
+        IReadOnlyCollection<DocumentoRequest> documentos,
+        int usuarioAutenticadoId,
+        long? despesaId = null,
+        long? receitaId = null,
+        long? reembolsoId = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (documentos.Count == 0)
+            return [];
+
+        var salvos = await documentoStorageService.SalvarAsync(documentos, cancellationToken);
+        return salvos.Select(x => new Documento
+        {
+            UsuarioCadastroId = usuarioAutenticadoId,
+            NomeArquivo = x.NomeArquivo,
+            CaminhoArquivo = x.Caminho,
+            ContentType = x.ContentType,
+            TamanhoBytes = x.TamanhoBytes,
+            DespesaId = despesaId,
+            ReceitaId = receitaId,
+            ReembolsoId = reembolsoId
+        }).ToList();
+    }
+
     private async Task<long?> ResolverContaIdAsync(string? contaBancaria, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(contaBancaria)) return null;
@@ -261,6 +292,6 @@ public sealed class ReceitaService(
                 x.SubAreaId,
                 x.SubArea?.Nome ?? string.Empty,
                 x.Valor)).ToArray(),
-            r.ContaBancariaId?.ToString(), r.AnexoDocumento,
+            r.ContaBancariaId?.ToString(), r.Documentos.Select(x => new DocumentoDto(x.NomeArquivo, x.CaminhoArquivo, x.ContentType, x.TamanhoBytes)).ToArray(),
             r.Logs.Select(x => new ReceitaLogDto(x.Id, DateOnly.FromDateTime(x.DataHoraCadastro), x.Acao, x.Descricao)).ToArray());
 }

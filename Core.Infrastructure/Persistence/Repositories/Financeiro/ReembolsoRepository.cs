@@ -10,6 +10,7 @@ public sealed class ReembolsoRepository(AppDbContext dbContext) : IReembolsoRepo
     {
         var query = dbContext.Set<Reembolso>()
             .Include(x => x.Despesas)
+            .Include(x => x.Documentos)
             .OrderByDescending(x => x.DataLancamento)
             .ThenByDescending(x => x.Id)
             .AsQueryable();
@@ -41,6 +42,7 @@ public sealed class ReembolsoRepository(AppDbContext dbContext) : IReembolsoRepo
     public Task<Reembolso?> ObterPorIdAsync(long id, CancellationToken cancellationToken = default) =>
         dbContext.Set<Reembolso>()
             .Include(x => x.Despesas)
+            .Include(x => x.Documentos)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
     public async Task<Reembolso> CriarAsync(Reembolso reembolso, CancellationToken cancellationToken = default)
@@ -55,10 +57,15 @@ public sealed class ReembolsoRepository(AppDbContext dbContext) : IReembolsoRepo
         var despesasAtuais = await dbContext.Set<ReembolsoDespesa>()
             .Where(x => x.ReembolsoId == reembolso.Id)
             .ToListAsync(cancellationToken);
+        var documentosAtuais = await dbContext.Set<Documento>()
+            .Where(x => x.ReembolsoId == reembolso.Id)
+            .ToListAsync(cancellationToken);
 
         dbContext.Set<ReembolsoDespesa>().RemoveRange(despesasAtuais);
+        dbContext.Set<Documento>().RemoveRange(documentosAtuais);
         dbContext.Entry(reembolso).State = EntityState.Modified;
         dbContext.Set<ReembolsoDespesa>().AddRange(reembolso.Despesas);
+        dbContext.Set<Documento>().AddRange(reembolso.Documentos);
 
         await dbContext.SaveChangesAsync(cancellationToken);
         return reembolso;

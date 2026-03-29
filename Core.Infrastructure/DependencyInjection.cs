@@ -10,6 +10,7 @@ using Core.Infrastructure.Persistence.Repositories.Administracao;
 using Core.Infrastructure.Persistence.Repositories.Financeiro;
 using Core.Infrastructure.Security;
 using Core.Infrastructure.Messaging;
+using Core.Infrastructure.Storage;
 using Core.Application.Contracts.Financeiro;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -37,6 +38,7 @@ public static class DependencyInjection
         services.AddScoped<IHistoricoTransacaoFinanceiraRepository, HistoricoTransacaoFinanceiraRepository>();
         services.AddScoped<IAreaRepository, AreaRepository>();
         services.AddScoped<IUsuarioRepository, UsuarioRepository>();
+        services.AddScoped<IDocumentoStorageService, LocalDocumentoStorageService>();
         services.AddScoped<ITokenService, JwtTokenService>();
         services.AddSingleton<IRecorrenciaBackgroundPublisher, RabbitMqRecorrenciaBackgroundPublisher>();
         services.AddHostedService<RabbitMqRecorrenciaBackgroundConsumerService>();

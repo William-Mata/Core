@@ -2,6 +2,7 @@ namespace Core.Application.Contracts.Financeiro;
 
 public sealed record RateioAmigoBackgroundMessage(string Nome, decimal? Valor);
 public sealed record RateioAreaBackgroundMessage(long AreaId, long SubAreaId, decimal? Valor);
+public sealed record DocumentoBackgroundMessage(string NomeArquivo, string CaminhoArquivo, string? ContentType, long TamanhoBytes);
 
 public sealed record DespesaRecorrenciaBackgroundMessage(
     int UsuarioId,
@@ -19,7 +20,7 @@ public sealed record DespesaRecorrenciaBackgroundMessage(
     decimal Acrescimo,
     decimal Imposto,
     decimal Juros,
-    string? AnexoDocumento,
+    IReadOnlyCollection<DocumentoBackgroundMessage>? Documentos,
     IReadOnlyCollection<RateioAmigoBackgroundMessage> AmigosRateio,
     IReadOnlyCollection<RateioAreaBackgroundMessage> AreasSubAreasRateio);
 
@@ -40,6 +41,6 @@ public sealed record ReceitaRecorrenciaBackgroundMessage(
     decimal Imposto,
     decimal Juros,
     string? ContaBancaria,
-    string? AnexoDocumento,
+    IReadOnlyCollection<DocumentoBackgroundMessage>? Documentos,
     IReadOnlyCollection<RateioAmigoBackgroundMessage> AmigosRateio,
     IReadOnlyCollection<RateioAreaBackgroundMessage> AreasSubAreasRateio);

@@ -25,7 +25,7 @@ public sealed class Despesa
     public decimal Juros { get; set; }
     public decimal? ValorEfetivacao { get; set; }
     public StatusDespesa Status { get; set; } = StatusDespesa.Pendente;
-    public string? AnexoDocumento { get; set; }
+    public List<Documento> Documentos { get; set; } = [];
     public List<DespesaAmigoRateio> AmigosRateio { get; set; } = [];
     public List<DespesaAreaRateio> AreasRateio { get; set; } = [];
     public List<DespesaLog> Logs { get; set; } = [];

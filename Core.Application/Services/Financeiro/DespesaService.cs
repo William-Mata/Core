@@ -14,6 +14,7 @@ public sealed class DespesaService(
     IAreaRepository areaRepository,
     IUsuarioAutenticadoProvider usuarioAutenticadoProvider,
     HistoricoTransacaoFinanceiraService historicoTransacaoFinanceiraService,
+    IDocumentoStorageService documentoStorageService,
     IRecorrenciaBackgroundPublisher recorrenciaBackgroundPublisher)
 {
     private static readonly HashSet<string> TiposDespesa = ["alimentacao","transporte","moradia","lazer","saude","educacao","servicos"];
@@ -37,6 +38,7 @@ public sealed class DespesaService(
         ValidarRateioAmigos(amigos, req.ValorTotal);
         ValidarRateioAreas(req.AreasSubAreasRateio ?? [], req.ValorTotal);
         var liquido = Liquido(req.ValorTotal, req.Desconto, req.Acrescimo, req.Imposto, req.Juros);
+        var documentos = await SalvarDocumentosAsync(req.Documentos ?? [], usuarioAutenticadoId, cancellationToken: cancellationToken);
 
         var d = new Despesa
         {
@@ -46,7 +48,7 @@ public sealed class DespesaService(
             QuantidadeRecorrencia = quantidadeRecorrencia,
             ValorTotal = req.ValorTotal, ValorLiquido = liquido, Desconto = req.Desconto, Acrescimo = req.Acrescimo, Imposto = req.Imposto, Juros = req.Juros,
             UsuarioCadastroId = usuarioAutenticadoId,
-            Status = StatusDespesa.Pendente, AnexoDocumento = req.AnexoDocumento,
+            Status = StatusDespesa.Pendente, Documentos = documentos,
             AmigosRateio = amigos.Select(x => new DespesaAmigoRateio { UsuarioCadastroId = usuarioAutenticadoId, AmigoNome = x.Nome, Valor = x.Valor }).ToList(),
             AreasRateio = (req.AreasSubAreasRateio ?? []).Select(x => new DespesaAreaRateio { UsuarioCadastroId = usuarioAutenticadoId, AreaId = x.AreaId, SubAreaId = x.SubAreaId, Valor = x.Valor }).ToList(),
             Logs = [new DespesaLog { UsuarioCadastroId = usuarioAutenticadoId, Acao = AcaoLogs.Cadastro, Descricao = "Despesa criada com status pendente." }]
@@ -73,7 +75,7 @@ public sealed class DespesaService(
                 req.Acrescimo,
                 req.Imposto,
                 req.Juros,
-                req.AnexoDocumento,
+                documentos.Select(x => new DocumentoBackgroundMessage(x.NomeArquivo, x.CaminhoArquivo, x.ContentType, x.TamanhoBytes)).ToArray(),
                 amigos.Select(x => new RateioAmigoBackgroundMessage(x.Nome, x.Valor)).ToArray(),
                 (req.AreasSubAreasRateio ?? []).Select(x => new RateioAreaBackgroundMessage(x.AreaId, x.SubAreaId, x.Valor)).ToArray());
 
@@ -102,7 +104,8 @@ public sealed class DespesaService(
         d.Descricao = req.Descricao.Trim(); d.Observacao = req.Observacao; d.DataLancamento = req.DataLancamento; d.DataVencimento = req.DataVencimento;
         d.TipoDespesa = req.TipoDespesa; d.TipoPagamento = req.TipoPagamento; d.Recorrencia = recorrencia; d.RecorrenciaFixa = recorrenciaFixa; d.QuantidadeRecorrencia = quantidadeRecorrencia;
         d.ValorTotal = req.ValorTotal; d.ValorLiquido = liquido; d.Desconto = req.Desconto; d.Acrescimo = req.Acrescimo; d.Imposto = req.Imposto; d.Juros = req.Juros;
-        d.AnexoDocumento = req.AnexoDocumento;
+        if (req.Documentos is not null)
+            d.Documentos = await SalvarDocumentosAsync(req.Documentos, usuarioAutenticadoId, d.Id, cancellationToken: cancellationToken);
         d.AmigosRateio = amigos.Select(x => new DespesaAmigoRateio { DespesaId = d.Id, UsuarioCadastroId = usuarioAutenticadoId, AmigoNome = x.Nome, Valor = x.Valor }).ToList();
         d.AreasRateio = (req.AreasSubAreasRateio ?? []).Select(x => new DespesaAreaRateio { DespesaId = d.Id, UsuarioCadastroId = usuarioAutenticadoId, AreaId = x.AreaId, SubAreaId = x.SubAreaId, Valor = x.Valor }).ToList();
         d.Logs.Add(new DespesaLog { DespesaId = d.Id, UsuarioCadastroId = usuarioAutenticadoId, Acao = AcaoLogs.Atualizacao, Descricao = "Despesa atualizada." });
@@ -123,7 +126,9 @@ public sealed class DespesaService(
         var valorAntesTransacao = d.ValorEfetivacao ?? 0m;
         d.DataEfetivacao = req.DataEfetivacao; d.TipoPagamento = req.TipoPagamento; d.ValorTotal = req.ValorTotal;
         d.Desconto = req.Desconto; d.Acrescimo = req.Acrescimo; d.Imposto = req.Imposto; d.Juros = req.Juros;
-        d.ValorLiquido = liquido; d.ValorEfetivacao = liquido; d.Status = StatusDespesa.Efetivada; d.AnexoDocumento = req.AnexoDocumento;
+        d.ValorLiquido = liquido; d.ValorEfetivacao = liquido; d.Status = StatusDespesa.Efetivada;
+        if (req.Documentos is not null)
+            d.Documentos = await SalvarDocumentosAsync(req.Documentos, usuarioAutenticadoId, d.Id, cancellationToken: cancellationToken);
         d.Logs.Add(new DespesaLog { DespesaId = d.Id, UsuarioCadastroId = usuarioAutenticadoId, Acao = AcaoLogs.Atualizacao, Descricao = "Despesa efetivada." });
 
         var despesaAtualizada = await repository.AtualizarAsync(d, cancellationToken);
@@ -271,6 +276,31 @@ public sealed class DespesaService(
             .ToArray();
     }
 
+    private async Task<List<Documento>> SalvarDocumentosAsync(
+        IReadOnlyCollection<DocumentoRequest> documentos,
+        int usuarioAutenticadoId,
+        long? despesaId = null,
+        long? receitaId = null,
+        long? reembolsoId = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (documentos.Count == 0)
+            return [];
+
+        var salvos = await documentoStorageService.SalvarAsync(documentos, cancellationToken);
+        return salvos.Select(x => new Documento
+        {
+            UsuarioCadastroId = usuarioAutenticadoId,
+            NomeArquivo = x.NomeArquivo,
+            CaminhoArquivo = x.Caminho,
+            ContentType = x.ContentType,
+            TamanhoBytes = x.TamanhoBytes,
+            DespesaId = despesaId,
+            ReceitaId = receitaId,
+            ReembolsoId = reembolsoId
+        }).ToList();
+    }
+
     private static DespesaDto Map(Despesa d) =>
         new(d.Id, d.Descricao, d.Observacao, d.DataLancamento, d.DataVencimento, d.DataEfetivacao, d.TipoDespesa, d.TipoPagamento, d.Recorrencia, d.QuantidadeRecorrencia, d.RecorrenciaFixa,
             d.ValorTotal, d.ValorLiquido, d.Desconto, d.Acrescimo, d.Imposto, d.Juros, d.ValorEfetivacao, d.Status.ToString().ToLowerInvariant(),
@@ -281,6 +311,6 @@ public sealed class DespesaService(
                 x.SubAreaId,
                 x.SubArea?.Nome ?? string.Empty,
                 x.Valor)).ToArray(),
-            d.AnexoDocumento,
+            d.Documentos.Select(x => new DocumentoDto(x.NomeArquivo, x.CaminhoArquivo, x.ContentType, x.TamanhoBytes)).ToArray(),
             d.Logs.Select(x => new DespesaLogDto(x.Id, DateOnly.FromDateTime(x.DataHoraCadastro), x.Acao, x.Descricao)).ToArray());
 }
