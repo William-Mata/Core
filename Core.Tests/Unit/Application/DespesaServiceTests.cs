@@ -161,20 +161,51 @@ public sealed class DespesaServiceTests
         Assert.Equal("relacao_area_subarea_invalida", ex.Message);
     }
 
+    [Fact]
+    public async Task DeveRetornarErro_QuandoPagamentoForCartaoESemQuantidadeParcelas()
+    {
+        var service = CriarService(new DespesaRepositoryFake(), 1);
+
+        var ex = await Assert.ThrowsAsync<DomainException>(() =>
+            service.CriarAsync(CriarRequestPadrao(tipoPagamento: "cartaoCredito", quantidadeRecorrencia: null, quantidadeParcelas: null)));
+
+        Assert.Equal("quantidade_parcelas_invalida", ex.Message);
+    }
+
+    [Fact]
+    public async Task DeveTratarCartaoComoParcelamentoMensal_AoCriarDespesa()
+    {
+        var repository = new DespesaRepositoryFake();
+        var publisher = new RecorrenciaPublisherFake();
+        var service = CriarService(repository, new AreaRepoFake(), publisher, 1);
+
+        await service.CriarAsync(CriarRequestPadrao(tipoPagamento: "cartaoCredito", quantidadeRecorrencia: null, quantidadeParcelas: 3));
+
+        var despesa = Assert.Single(repository.DespesasCriadas);
+        Assert.Equal(Recorrencia.Mensal, despesa.Recorrencia);
+        Assert.Equal(3, despesa.QuantidadeRecorrencia);
+
+        Assert.NotNull(publisher.DespesaMessage);
+        Assert.Equal(Recorrencia.Mensal, publisher.DespesaMessage!.Recorrencia);
+        Assert.Equal(3, publisher.DespesaMessage.QuantidadeRecorrencia);
+    }
+
     private static CriarDespesaRequest CriarRequestPadrao(
         string descricao = "Despesa",
         DateOnly? dataLancamento = null,
         DateOnly? dataVencimento = null,
         IReadOnlyCollection<DespesaAreaRateioRequest>? areasRateio = null,
+        string tipoPagamento = "pix",
         Recorrencia recorrencia = Recorrencia.Unica,
-        int? quantidadeRecorrencia = null) =>
+        int? quantidadeRecorrencia = null,
+        int? quantidadeParcelas = null) =>
         new(
             descricao,
             null,
             dataLancamento ?? new DateOnly(2026, 3, 1),
             dataVencimento ?? new DateOnly(2026, 3, 2),
             "alimentacao",
-            "pix",
+            tipoPagamento,
             recorrencia,
             100m,
             0m,
@@ -186,7 +217,9 @@ public sealed class DespesaServiceTests
             null,
             null,
             areasRateio,
-            quantidadeRecorrencia);
+            quantidadeRecorrencia,
+            null,
+            quantidadeParcelas);
 
     private static DespesaService CriarService(IDespesaRepository repository, int? usuarioId) =>
         CriarService(repository, new AreaRepoFake(), new RecorrenciaPublisherFake(), usuarioId);

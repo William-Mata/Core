@@ -21,6 +21,7 @@ internal static class ErroMensagemExtensions
         ["conta_bancaria_invalida"] = "A conta bancaria informada e invalida.",
         ["area_subarea_invalida"] = "Area ou subarea informada e invalida.",
         ["relacao_area_subarea_invalida"] = "A subarea informada nao pertence a area selecionada.",
+        ["tipo_area_invalido"] = "O tipo de area informado e invalido. Use despesa ou receita.",
         ["campo_obrigatorio"] = "Preencha todos os campos obrigatorios.",
         ["saldo_inicial_invalido"] = "O saldo inicial deve ser maior que zero.",
         ["conta_com_pendencias"] = "A conta bancaria possui pendencias e nao pode ser inativada.",
@@ -48,6 +49,10 @@ internal static class ErroMensagemExtensions
         ["refresh_token_obrigatorio"] = "O refresh token e obrigatorio.",
         ["refresh_token_invalido"] = "O refresh token informado e invalido ou expirou.",
         ["usuario_inativo_ou_nao_encontrado"] = "Usuario inativo ou nao encontrado.",
+        ["forma_pagamento_invalida"] = "Nao e permitido informar conta bancaria e cartao ao mesmo tempo.",
+        ["conta_ou_cartao_obrigatorio"] = "Informe conta bancaria ou cartao para concluir a operacao.",
+        ["data_efetivacao_obrigatoria"] = "A data de efetivacao e obrigatoria.",
+        ["quantidade_parcelas_invalida"] = "Para pagamento com cartao, informe quantidade de parcelas maior que zero.",
         ["erro_interno"] = "Erro interno do servidor."
     };
 
@@ -65,6 +70,9 @@ internal static class ErroMensagemExtensions
             Type = $"https://httpstatuses.com/{status}",
             Instance = httpContext.Request.Path
         };
+
+        problemDetails.Extensions["code"] = codigo;
+        problemDetails.Extensions["traceId"] = httpContext.TraceIdentifier;
 
         if (detalhes is { Count: > 0 })
         {

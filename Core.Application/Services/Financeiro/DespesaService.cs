@@ -28,7 +28,9 @@ public sealed class DespesaService(
     public async Task<DespesaDto> CriarAsync(CriarDespesaRequest req, CancellationToken cancellationToken = default)
     {
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
-        ValidarComum(req.Descricao, req.DataLancamento, req.DataVencimento, req.TipoDespesa, req.TipoPagamento, req.Recorrencia, req.QuantidadeRecorrencia, req.ValorTotal);
+        var quantidadeRecorrencia = ResolverQuantidadeRecorrencia(req.TipoPagamento, req.QuantidadeRecorrencia, req.QuantidadeParcelas);
+        var recorrencia = ResolverRecorrencia(req.TipoPagamento, req.Recorrencia);
+        ValidarComum(req.Descricao, req.DataLancamento, req.DataVencimento, req.TipoDespesa, req.TipoPagamento, recorrencia, quantidadeRecorrencia, req.ValorTotal);
         await ValidarAreasRateioAsync(req.AreasRateio ?? [], cancellationToken);
         var amigos = NormalizarAmigos(req.Amigos, req.AmigosRateio, req.RateioAmigosValores);
         var liquido = Liquido(req.ValorTotal, req.Desconto, req.Acrescimo, req.Imposto, req.Juros);
@@ -36,8 +38,8 @@ public sealed class DespesaService(
         var d = new Despesa
         {
             Descricao = req.Descricao.Trim(), Observacao = req.Observacao, DataLancamento = req.DataLancamento, DataVencimento = req.DataVencimento,
-            TipoDespesa = req.TipoDespesa, TipoPagamento = req.TipoPagamento, Recorrencia = req.Recorrencia,
-            QuantidadeRecorrencia = req.QuantidadeRecorrencia,
+            TipoDespesa = req.TipoDespesa, TipoPagamento = req.TipoPagamento, Recorrencia = recorrencia,
+            QuantidadeRecorrencia = quantidadeRecorrencia,
             ValorTotal = req.ValorTotal, ValorLiquido = liquido, Desconto = req.Desconto, Acrescimo = req.Acrescimo, Imposto = req.Imposto, Juros = req.Juros,
             UsuarioCadastroId = usuarioAutenticadoId,
             Status = StatusDespesa.Pendente, AnexoDocumento = req.AnexoDocumento,
@@ -49,7 +51,7 @@ public sealed class DespesaService(
 
         var despesaCriada = await repository.CriarAsync(d, cancellationToken);
 
-        var alvo = req.Recorrencia == Recorrencia.Fixa ? 100 : req.QuantidadeRecorrencia.GetValueOrDefault(1);
+        var alvo = recorrencia == Recorrencia.Fixa ? 100 : quantidadeRecorrencia.GetValueOrDefault(1);
         if (alvo > 1)
         {
             var mensagem = new DespesaRecorrenciaBackgroundMessage(
@@ -60,8 +62,8 @@ public sealed class DespesaService(
                 req.DataVencimento,
                 req.TipoDespesa,
                 req.TipoPagamento,
-                req.Recorrencia,
-                req.Recorrencia == Recorrencia.Fixa ? 100 : req.QuantidadeRecorrencia,
+                recorrencia,
+                recorrencia == Recorrencia.Fixa ? 100 : quantidadeRecorrencia,
                 req.ValorTotal,
                 req.Desconto,
                 req.Acrescimo,
@@ -84,13 +86,15 @@ public sealed class DespesaService(
         var d = await repository.ObterPorIdAsync(id, cancellationToken) ?? throw new NotFoundException("despesa_nao_encontrada");
         if (d.Status != StatusDespesa.Pendente) throw new DomainException("status_invalido");
 
-        ValidarComum(req.Descricao, req.DataLancamento, req.DataVencimento, req.TipoDespesa, req.TipoPagamento, req.Recorrencia, req.QuantidadeRecorrencia, req.ValorTotal);
+        var quantidadeRecorrencia = ResolverQuantidadeRecorrencia(req.TipoPagamento, req.QuantidadeRecorrencia, req.QuantidadeParcelas);
+        var recorrencia = ResolverRecorrencia(req.TipoPagamento, req.Recorrencia);
+        ValidarComum(req.Descricao, req.DataLancamento, req.DataVencimento, req.TipoDespesa, req.TipoPagamento, recorrencia, quantidadeRecorrencia, req.ValorTotal);
         await ValidarAreasRateioAsync(req.AreasRateio ?? [], cancellationToken);
         var amigos = NormalizarAmigos(req.Amigos, req.AmigosRateio, req.RateioAmigosValores);
         var liquido = Liquido(req.ValorTotal, req.Desconto, req.Acrescimo, req.Imposto, req.Juros);
 
         d.Descricao = req.Descricao.Trim(); d.Observacao = req.Observacao; d.DataLancamento = req.DataLancamento; d.DataVencimento = req.DataVencimento;
-        d.TipoDespesa = req.TipoDespesa; d.TipoPagamento = req.TipoPagamento; d.Recorrencia = req.Recorrencia; d.QuantidadeRecorrencia = req.QuantidadeRecorrencia;
+        d.TipoDespesa = req.TipoDespesa; d.TipoPagamento = req.TipoPagamento; d.Recorrencia = recorrencia; d.QuantidadeRecorrencia = quantidadeRecorrencia;
         d.ValorTotal = req.ValorTotal; d.ValorLiquido = liquido; d.Desconto = req.Desconto; d.Acrescimo = req.Acrescimo; d.Imposto = req.Imposto; d.Juros = req.Juros;
         d.AnexoDocumento = req.AnexoDocumento;
         d.AmigosRateio = amigos.Select(x => new DespesaAmigoRateio { DespesaId = d.Id, UsuarioCadastroId = usuarioAutenticadoId, AmigoNome = x.Nome, Valor = x.Valor }).ToList();
@@ -182,6 +186,24 @@ public sealed class DespesaService(
         if (recorrencia is not Recorrencia.Unica and not Recorrencia.Fixa && (!quantidadeRecorrencia.HasValue || quantidadeRecorrencia <= 0))
             throw new DomainException("quantidade_recorrencia_invalida");
     }
+
+    private static bool PagamentoCartao(string tipoPagamento) =>
+        tipoPagamento is "cartaoCredito" or "cartaoDebito";
+
+    private static int? ResolverQuantidadeRecorrencia(string tipoPagamento, int? quantidadeRecorrencia, int? quantidadeParcelas)
+    {
+        if (!PagamentoCartao(tipoPagamento))
+            return quantidadeRecorrencia;
+
+        var parcelas = quantidadeParcelas ?? quantidadeRecorrencia;
+        if (!parcelas.HasValue || parcelas <= 0)
+            throw new DomainException("quantidade_parcelas_invalida");
+
+        return parcelas;
+    }
+
+    private static Recorrencia ResolverRecorrencia(string tipoPagamento, Recorrencia recorrencia) =>
+        PagamentoCartao(tipoPagamento) ? Recorrencia.Mensal : recorrencia;
 
     private static decimal Liquido(decimal valorTotal, decimal desconto, decimal acrescimo, decimal imposto, decimal juros) => valorTotal - desconto + acrescimo + imposto + juros;
     private async Task ValidarAreasRateioAsync(IReadOnlyCollection<DespesaAreaRateioRequest> areasRateio, CancellationToken cancellationToken)
