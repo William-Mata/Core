@@ -15,6 +15,7 @@ public sealed class Despesa
     public string TipoDespesa { get; set; } = string.Empty;
     public string TipoPagamento { get; set; } = string.Empty;
     public Recorrencia Recorrencia { get; set; } = Recorrencia.Unica;
+    public bool RecorrenciaFixa { get; set; }
     public int? QuantidadeRecorrencia { get; set; }
     public decimal ValorTotal { get; set; }
     public decimal ValorLiquido { get; set; }

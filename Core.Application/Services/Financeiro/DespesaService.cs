@@ -30,7 +30,8 @@ public sealed class DespesaService(
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
         var quantidadeRecorrencia = ResolverQuantidadeRecorrencia(req.TipoPagamento, req.QuantidadeRecorrencia, req.QuantidadeParcelas);
         var recorrencia = ResolverRecorrencia(req.TipoPagamento, req.Recorrencia);
-        ValidarComum(req.Descricao, req.DataLancamento, req.DataVencimento, req.TipoDespesa, req.TipoPagamento, recorrencia, quantidadeRecorrencia, req.ValorTotal);
+        var recorrenciaFixa = ResolverRecorrenciaFixa(req.TipoPagamento, req.RecorrenciaFixa);
+        ValidarComum(req.Descricao, req.DataLancamento, req.DataVencimento, req.TipoDespesa, req.TipoPagamento, recorrencia, recorrenciaFixa, quantidadeRecorrencia, req.ValorTotal);
         await ValidarAreasRateioAsync(req.AreasRateio ?? [], cancellationToken);
         var amigos = NormalizarAmigos(req.Amigos, req.AmigosRateio, req.RateioAmigosValores);
         var liquido = Liquido(req.ValorTotal, req.Desconto, req.Acrescimo, req.Imposto, req.Juros);
@@ -39,6 +40,7 @@ public sealed class DespesaService(
         {
             Descricao = req.Descricao.Trim(), Observacao = req.Observacao, DataLancamento = req.DataLancamento, DataVencimento = req.DataVencimento,
             TipoDespesa = req.TipoDespesa, TipoPagamento = req.TipoPagamento, Recorrencia = recorrencia,
+            RecorrenciaFixa = recorrenciaFixa,
             QuantidadeRecorrencia = quantidadeRecorrencia,
             ValorTotal = req.ValorTotal, ValorLiquido = liquido, Desconto = req.Desconto, Acrescimo = req.Acrescimo, Imposto = req.Imposto, Juros = req.Juros,
             UsuarioCadastroId = usuarioAutenticadoId,
@@ -51,7 +53,7 @@ public sealed class DespesaService(
 
         var despesaCriada = await repository.CriarAsync(d, cancellationToken);
 
-        var alvo = recorrencia == Recorrencia.Fixa ? 100 : quantidadeRecorrencia.GetValueOrDefault(1);
+        var alvo = recorrenciaFixa ? 100 : quantidadeRecorrencia.GetValueOrDefault(1);
         if (alvo > 1)
         {
             var mensagem = new DespesaRecorrenciaBackgroundMessage(
@@ -63,7 +65,8 @@ public sealed class DespesaService(
                 req.TipoDespesa,
                 req.TipoPagamento,
                 recorrencia,
-                recorrencia == Recorrencia.Fixa ? 100 : quantidadeRecorrencia,
+                recorrenciaFixa,
+                recorrenciaFixa ? 100 : quantidadeRecorrencia,
                 req.ValorTotal,
                 req.Desconto,
                 req.Acrescimo,
@@ -88,13 +91,14 @@ public sealed class DespesaService(
 
         var quantidadeRecorrencia = ResolverQuantidadeRecorrencia(req.TipoPagamento, req.QuantidadeRecorrencia, req.QuantidadeParcelas);
         var recorrencia = ResolverRecorrencia(req.TipoPagamento, req.Recorrencia);
-        ValidarComum(req.Descricao, req.DataLancamento, req.DataVencimento, req.TipoDespesa, req.TipoPagamento, recorrencia, quantidadeRecorrencia, req.ValorTotal);
+        var recorrenciaFixa = ResolverRecorrenciaFixa(req.TipoPagamento, req.RecorrenciaFixa);
+        ValidarComum(req.Descricao, req.DataLancamento, req.DataVencimento, req.TipoDespesa, req.TipoPagamento, recorrencia, recorrenciaFixa, quantidadeRecorrencia, req.ValorTotal);
         await ValidarAreasRateioAsync(req.AreasRateio ?? [], cancellationToken);
         var amigos = NormalizarAmigos(req.Amigos, req.AmigosRateio, req.RateioAmigosValores);
         var liquido = Liquido(req.ValorTotal, req.Desconto, req.Acrescimo, req.Imposto, req.Juros);
 
         d.Descricao = req.Descricao.Trim(); d.Observacao = req.Observacao; d.DataLancamento = req.DataLancamento; d.DataVencimento = req.DataVencimento;
-        d.TipoDespesa = req.TipoDespesa; d.TipoPagamento = req.TipoPagamento; d.Recorrencia = recorrencia; d.QuantidadeRecorrencia = quantidadeRecorrencia;
+        d.TipoDespesa = req.TipoDespesa; d.TipoPagamento = req.TipoPagamento; d.Recorrencia = recorrencia; d.RecorrenciaFixa = recorrenciaFixa; d.QuantidadeRecorrencia = quantidadeRecorrencia;
         d.ValorTotal = req.ValorTotal; d.ValorLiquido = liquido; d.Desconto = req.Desconto; d.Acrescimo = req.Acrescimo; d.Imposto = req.Imposto; d.Juros = req.Juros;
         d.AnexoDocumento = req.AnexoDocumento;
         d.AmigosRateio = amigos.Select(x => new DespesaAmigoRateio { DespesaId = d.Id, UsuarioCadastroId = usuarioAutenticadoId, AmigoNome = x.Nome, Valor = x.Valor }).ToList();
@@ -176,14 +180,17 @@ public sealed class DespesaService(
     private int ObterUsuarioAutenticadoId() =>
         usuarioAutenticadoProvider.ObterUsuarioId() ?? throw new DomainException("usuario_nao_autenticado");
 
-    private static void ValidarComum(string descricao, DateOnly dataLanc, DateOnly dataVenc, string tipoDespesa, string tipoPagamento, Recorrencia recorrencia, int? quantidadeRecorrencia, decimal valorTotal)
+    private static void ValidarComum(string descricao, DateOnly dataLanc, DateOnly dataVenc, string tipoDespesa, string tipoPagamento, Recorrencia recorrencia, bool recorrenciaFixa, int? quantidadeRecorrencia, decimal valorTotal)
     {
         if (string.IsNullOrWhiteSpace(descricao)) throw new DomainException("descricao_obrigatoria");
         if (valorTotal <= 0) throw new DomainException("valor_total_invalido");
         if (dataVenc < dataLanc) throw new DomainException("periodo_invalido");
         if (!TiposDespesa.Contains(tipoDespesa) || !TiposPagamento.Contains(tipoPagamento) || !Enum.IsDefined(recorrencia)) throw new DomainException("enum_invalida");
-        if (recorrencia == Recorrencia.Fixa && quantidadeRecorrencia.HasValue) throw new DomainException("quantidade_recorrencia_invalida");
-        if (recorrencia is not Recorrencia.Unica and not Recorrencia.Fixa && (!quantidadeRecorrencia.HasValue || quantidadeRecorrencia <= 0))
+        if (PagamentoCartao(tipoPagamento) && recorrenciaFixa) throw new DomainException("recorrencia_fixa_invalida");
+        if (recorrenciaFixa && recorrencia == Recorrencia.Unica) throw new DomainException("recorrencia_fixa_invalida");
+        if (recorrencia is not Recorrencia.Unica && (!quantidadeRecorrencia.HasValue || quantidadeRecorrencia <= 0))
+            throw new DomainException("quantidade_recorrencia_invalida");
+        if (!recorrenciaFixa && quantidadeRecorrencia.HasValue && quantidadeRecorrencia > 100)
             throw new DomainException("quantidade_recorrencia_invalida");
     }
 
@@ -204,6 +211,9 @@ public sealed class DespesaService(
 
     private static Recorrencia ResolverRecorrencia(string tipoPagamento, Recorrencia recorrencia) =>
         PagamentoCartao(tipoPagamento) ? Recorrencia.Mensal : recorrencia;
+
+    private static bool ResolverRecorrenciaFixa(string tipoPagamento, bool recorrenciaFixa) =>
+        PagamentoCartao(tipoPagamento) ? false : recorrenciaFixa;
 
     private static decimal Liquido(decimal valorTotal, decimal desconto, decimal acrescimo, decimal imposto, decimal juros) => valorTotal - desconto + acrescimo + imposto + juros;
     private async Task ValidarAreasRateioAsync(IReadOnlyCollection<DespesaAreaRateioRequest> areasRateio, CancellationToken cancellationToken)
@@ -243,7 +253,7 @@ public sealed class DespesaService(
     }
 
     private static DespesaDto Map(Despesa d) =>
-        new(d.Id, d.Descricao, d.Observacao, d.DataLancamento, d.DataVencimento, d.DataEfetivacao, d.TipoDespesa, d.TipoPagamento, d.Recorrencia, d.QuantidadeRecorrencia,
+        new(d.Id, d.Descricao, d.Observacao, d.DataLancamento, d.DataVencimento, d.DataEfetivacao, d.TipoDespesa, d.TipoPagamento, d.Recorrencia, d.QuantidadeRecorrencia, d.RecorrenciaFixa,
             d.ValorTotal, d.ValorLiquido, d.Desconto, d.Acrescimo, d.Imposto, d.Juros, d.ValorEfetivacao, d.Status.ToString().ToLowerInvariant(),
             d.AmigosRateio.Select(x => new AmigoRateioDto(x.AmigoNome, x.Valor)).ToArray(),
             d.AmigosRateio.Select(x => x.AmigoNome).ToArray(),

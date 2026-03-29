@@ -21,9 +21,30 @@ BEGIN
 END;
 GO
 
+IF COL_LENGTH(N'dbo.Despesa', N'RecorrenciaFixa') IS NULL
+BEGIN
+    ALTER TABLE dbo.Despesa
+        ADD RecorrenciaFixa BIT NOT NULL
+            CONSTRAINT DF_Despesa_RecorrenciaFixa DEFAULT (0);
+END;
+GO
+
 IF COL_LENGTH(N'dbo.Despesa', N'QuantidadeRecorrencia') IS NULL
 BEGIN
     ALTER TABLE dbo.Despesa ADD QuantidadeRecorrencia INT NULL;
+END;
+GO
+
+UPDATE dbo.Despesa
+SET
+    Recorrencia = N'Mensal',
+    RecorrenciaFixa = 1
+WHERE Recorrencia = N'Fixa';
+GO
+
+IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_Despesa_Recorrencia' AND parent_object_id = OBJECT_ID(N'dbo.Despesa'))
+BEGIN
+    ALTER TABLE dbo.Despesa DROP CONSTRAINT CK_Despesa_Recorrencia;
 END;
 GO
 
@@ -31,7 +52,21 @@ IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_Despesa_Rec
 BEGIN
     ALTER TABLE dbo.Despesa
         WITH CHECK ADD CONSTRAINT CK_Despesa_Recorrencia
-        CHECK (Recorrencia IN (N'Unica', N'Diaria', N'Semanal', N'Quinzenal', N'Mensal', N'Trimestral', N'Semestral', N'Anual', N'Fixa'));
+        CHECK (Recorrencia IN (N'Unica', N'Diaria', N'Semanal', N'Quinzenal', N'Mensal', N'Trimestral', N'Semestral', N'Anual'));
+END;
+GO
+
+IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_Despesa_RecorrenciaFixa' AND parent_object_id = OBJECT_ID(N'dbo.Despesa'))
+BEGIN
+    ALTER TABLE dbo.Despesa DROP CONSTRAINT CK_Despesa_RecorrenciaFixa;
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_Despesa_RecorrenciaFixa' AND parent_object_id = OBJECT_ID(N'dbo.Despesa'))
+BEGIN
+    ALTER TABLE dbo.Despesa
+        WITH CHECK ADD CONSTRAINT CK_Despesa_RecorrenciaFixa
+        CHECK (Recorrencia <> N'Unica' OR RecorrenciaFixa = 0);
 END;
 GO
 
@@ -57,9 +92,30 @@ BEGIN
 END;
 GO
 
+IF COL_LENGTH(N'dbo.Receita', N'RecorrenciaFixa') IS NULL
+BEGIN
+    ALTER TABLE dbo.Receita
+        ADD RecorrenciaFixa BIT NOT NULL
+            CONSTRAINT DF_Receita_RecorrenciaFixa DEFAULT (0);
+END;
+GO
+
 IF COL_LENGTH(N'dbo.Receita', N'QuantidadeRecorrencia') IS NULL
 BEGIN
     ALTER TABLE dbo.Receita ADD QuantidadeRecorrencia INT NULL;
+END;
+GO
+
+UPDATE dbo.Receita
+SET
+    Recorrencia = N'Mensal',
+    RecorrenciaFixa = 1
+WHERE Recorrencia = N'Fixa';
+GO
+
+IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_Receita_Recorrencia' AND parent_object_id = OBJECT_ID(N'dbo.Receita'))
+BEGIN
+    ALTER TABLE dbo.Receita DROP CONSTRAINT CK_Receita_Recorrencia;
 END;
 GO
 
@@ -67,7 +123,21 @@ IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_Receita_Rec
 BEGIN
     ALTER TABLE dbo.Receita
         WITH CHECK ADD CONSTRAINT CK_Receita_Recorrencia
-        CHECK (Recorrencia IN (N'Unica', N'Diaria', N'Semanal', N'Quinzenal', N'Mensal', N'Trimestral', N'Semestral', N'Anual', N'Fixa'));
+        CHECK (Recorrencia IN (N'Unica', N'Diaria', N'Semanal', N'Quinzenal', N'Mensal', N'Trimestral', N'Semestral', N'Anual'));
+END;
+GO
+
+IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_Receita_RecorrenciaFixa' AND parent_object_id = OBJECT_ID(N'dbo.Receita'))
+BEGIN
+    ALTER TABLE dbo.Receita DROP CONSTRAINT CK_Receita_RecorrenciaFixa;
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_Receita_RecorrenciaFixa' AND parent_object_id = OBJECT_ID(N'dbo.Receita'))
+BEGIN
+    ALTER TABLE dbo.Receita
+        WITH CHECK ADD CONSTRAINT CK_Receita_RecorrenciaFixa
+        CHECK (Recorrencia <> N'Unica' OR RecorrenciaFixa = 0);
 END;
 GO
 

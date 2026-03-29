@@ -11,12 +11,14 @@ GO
 (
     SELECT N'dbo.Despesa' AS Tabela, N'DataEfetivacao' AS Coluna UNION ALL
     SELECT N'dbo.Despesa', N'Recorrencia' UNION ALL
+    SELECT N'dbo.Despesa', N'RecorrenciaFixa' UNION ALL
     SELECT N'dbo.Despesa', N'QuantidadeRecorrencia' UNION ALL
     SELECT N'dbo.Despesa', N'ValorEfetivacao' UNION ALL
     SELECT N'dbo.DespesaAmigoRateio', N'Valor' UNION ALL
     SELECT N'dbo.DespesaAreaRateio', N'Valor' UNION ALL
     SELECT N'dbo.Receita', N'DataEfetivacao' UNION ALL
     SELECT N'dbo.Receita', N'Recorrencia' UNION ALL
+    SELECT N'dbo.Receita', N'RecorrenciaFixa' UNION ALL
     SELECT N'dbo.Receita', N'QuantidadeRecorrencia' UNION ALL
     SELECT N'dbo.Receita', N'ValorEfetivacao' UNION ALL
     SELECT N'dbo.Receita', N'ContaBancariaId' UNION ALL

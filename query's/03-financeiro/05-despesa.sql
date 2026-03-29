@@ -22,6 +22,7 @@ BEGIN
         TipoDespesa NVARCHAR(50) NOT NULL,
         TipoPagamento NVARCHAR(50) NOT NULL,
         Recorrencia NVARCHAR(20) NOT NULL CONSTRAINT DF_Despesa_Recorrencia DEFAULT (N'Unica'),
+        RecorrenciaFixa BIT NOT NULL CONSTRAINT DF_Despesa_RecorrenciaFixa DEFAULT (0),
         QuantidadeRecorrencia INT NULL,
         ValorTotal DECIMAL(18,2) NOT NULL,
         ValorLiquido DECIMAL(18,2) NOT NULL,
@@ -33,7 +34,8 @@ BEGIN
         Status NVARCHAR(20) NOT NULL CONSTRAINT DF_Despesa_Status DEFAULT (N'Pendente'),
         AnexoDocumento NVARCHAR(500) NULL,
         CONSTRAINT PK_Despesa PRIMARY KEY CLUSTERED (Id),
-        CONSTRAINT CK_Despesa_Recorrencia CHECK (Recorrencia IN (N'Unica', N'Diaria', N'Semanal', N'Quinzenal', N'Mensal', N'Trimestral', N'Semestral', N'Anual', N'Fixa')),
+        CONSTRAINT CK_Despesa_Recorrencia CHECK (Recorrencia IN (N'Unica', N'Diaria', N'Semanal', N'Quinzenal', N'Mensal', N'Trimestral', N'Semestral', N'Anual')),
+        CONSTRAINT CK_Despesa_RecorrenciaFixa CHECK (Recorrencia <> N'Unica' OR RecorrenciaFixa = 0),
         CONSTRAINT CK_Despesa_QuantidadeRecorrencia CHECK (QuantidadeRecorrencia IS NULL OR QuantidadeRecorrencia > 0),
         CONSTRAINT CK_Despesa_Status CHECK (Status IN (N'Pendente', N'Efetivada', N'Cancelada')),
         CONSTRAINT CK_Despesa_TipoDespesa CHECK (TipoDespesa IN (N'alimentacao', N'transporte', N'moradia', N'lazer', N'saude', N'educacao', N'servicos')),
@@ -62,11 +64,34 @@ BEGIN
 END;
 GO
 
+IF COL_LENGTH('dbo.Despesa', 'RecorrenciaFixa') IS NULL
+BEGIN
+    ALTER TABLE dbo.Despesa
+        ADD RecorrenciaFixa BIT NOT NULL
+            CONSTRAINT DF_Despesa_RecorrenciaFixa DEFAULT (0);
+END;
+GO
+
+UPDATE dbo.Despesa
+SET
+    Recorrencia = N'Mensal',
+    RecorrenciaFixa = 1
+WHERE Recorrencia = N'Fixa';
+GO
+
 IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_Despesa_Recorrencia' AND parent_object_id = OBJECT_ID(N'dbo.Despesa'))
 BEGIN
     ALTER TABLE dbo.Despesa
         WITH CHECK ADD CONSTRAINT CK_Despesa_Recorrencia
-        CHECK (Recorrencia IN (N'Unica', N'Diaria', N'Semanal', N'Quinzenal', N'Mensal', N'Trimestral', N'Semestral', N'Anual', N'Fixa'));
+        CHECK (Recorrencia IN (N'Unica', N'Diaria', N'Semanal', N'Quinzenal', N'Mensal', N'Trimestral', N'Semestral', N'Anual'));
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_Despesa_RecorrenciaFixa' AND parent_object_id = OBJECT_ID(N'dbo.Despesa'))
+BEGIN
+    ALTER TABLE dbo.Despesa
+        WITH CHECK ADD CONSTRAINT CK_Despesa_RecorrenciaFixa
+        CHECK (Recorrencia <> N'Unica' OR RecorrenciaFixa = 0);
 END;
 GO
 

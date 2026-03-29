@@ -121,7 +121,7 @@ public sealed class RabbitMqRecorrenciaBackgroundConsumerService(
 
     private async Task ProcessarDespesaAsync(DespesaRecorrenciaBackgroundMessage payload, CancellationToken cancellationToken)
     {
-        var alvo = payload.Recorrencia == Recorrencia.Fixa ? 100 : payload.QuantidadeRecorrencia.GetValueOrDefault(1);
+        var alvo = payload.RecorrenciaFixa ? 100 : payload.QuantidadeRecorrencia.GetValueOrDefault(1);
         if (alvo <= 1) return;
 
         using var scope = scopeFactory.CreateScope();
@@ -153,6 +153,7 @@ public sealed class RabbitMqRecorrenciaBackgroundConsumerService(
                 TipoDespesa = payload.TipoDespesa,
                 TipoPagamento = payload.TipoPagamento,
                 Recorrencia = payload.Recorrencia,
+                RecorrenciaFixa = payload.RecorrenciaFixa,
                 QuantidadeRecorrencia = payload.QuantidadeRecorrencia,
                 ValorTotal = payload.ValorTotal,
                 ValorLiquido = liquido,
@@ -197,7 +198,7 @@ public sealed class RabbitMqRecorrenciaBackgroundConsumerService(
 
     private async Task ProcessarReceitaAsync(ReceitaRecorrenciaBackgroundMessage payload, CancellationToken cancellationToken)
     {
-        var alvo = payload.Recorrencia == Recorrencia.Fixa ? 100 : payload.QuantidadeRecorrencia.GetValueOrDefault(1);
+        var alvo = payload.RecorrenciaFixa ? 100 : payload.QuantidadeRecorrencia.GetValueOrDefault(1);
         if (alvo <= 1) return;
 
         using var scope = scopeFactory.CreateScope();
@@ -235,6 +236,7 @@ public sealed class RabbitMqRecorrenciaBackgroundConsumerService(
                 TipoReceita = payload.TipoReceita,
                 TipoRecebimento = payload.TipoRecebimento,
                 Recorrencia = payload.Recorrencia,
+                RecorrenciaFixa = payload.RecorrenciaFixa,
                 QuantidadeRecorrencia = payload.QuantidadeRecorrencia,
                 ValorTotal = payload.ValorTotal,
                 ValorLiquido = liquido,
@@ -280,7 +282,7 @@ public sealed class RabbitMqRecorrenciaBackgroundConsumerService(
             Recorrencia.Diaria => data.AddDays(repeticoes),
             Recorrencia.Semanal => data.AddDays(7 * repeticoes),
             Recorrencia.Quinzenal => data.AddDays(15 * repeticoes),
-            Recorrencia.Mensal or Recorrencia.Fixa => data.AddMonths(repeticoes),
+            Recorrencia.Mensal => data.AddMonths(repeticoes),
             Recorrencia.Trimestral => data.AddMonths(3 * repeticoes),
             Recorrencia.Semestral => data.AddMonths(6 * repeticoes),
             Recorrencia.Anual => data.AddYears(repeticoes),

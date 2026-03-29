@@ -144,17 +144,40 @@ public sealed class ReceitaServiceTests
     }
 
     [Fact]
-    public async Task DevePublicarMensagemComAlvo100_AoCriarReceitaFixa()
+    public async Task DevePublicarMensagemComAlvo100_AoCriarReceitaComRecorrenciaFixa()
     {
         var repository = new ReceitaRepoFake();
         var publisher = new RecorrenciaPublisherFake();
         var service = CriarService(repository, new ContaRepoFake(), new AreaRepoFake(), publisher, 99);
 
-        await service.CriarAsync(CriarRequestPadrao(recorrencia: Recorrencia.Fixa, quantidadeRecorrencia: null));
+        await service.CriarAsync(CriarRequestPadrao(recorrencia: Recorrencia.Mensal, quantidadeRecorrencia: null, recorrenciaFixa: true));
 
         Assert.Single(repository.ReceitasCriadas);
         Assert.NotNull(publisher.ReceitaMessage);
+        Assert.True(publisher.ReceitaMessage!.RecorrenciaFixa);
         Assert.Equal(100, publisher.ReceitaMessage!.QuantidadeRecorrencia);
+    }
+
+    [Fact]
+    public async Task DeveRejeitarRecorrenciaFixaComTipoUnico()
+    {
+        var service = CriarService(new ReceitaRepoFake(), new ContaRepoFake(), new AreaRepoFake(), 99);
+
+        var ex = await Assert.ThrowsAsync<DomainException>(() =>
+            service.CriarAsync(CriarRequestPadrao(recorrencia: Recorrencia.Unica, recorrenciaFixa: true)));
+
+        Assert.Equal("recorrencia_fixa_invalida", ex.Message);
+    }
+
+    [Fact]
+    public async Task DeveRejeitarQuantidadeRecorrenciaMaiorQue100_QuandoNaoFixa()
+    {
+        var service = CriarService(new ReceitaRepoFake(), new ContaRepoFake(), new AreaRepoFake(), 99);
+
+        var ex = await Assert.ThrowsAsync<DomainException>(() =>
+            service.CriarAsync(CriarRequestPadrao(recorrencia: Recorrencia.Mensal, quantidadeRecorrencia: 101, recorrenciaFixa: false)));
+
+        Assert.Equal("quantidade_recorrencia_invalida", ex.Message);
     }
 
     private static CriarReceitaRequest CriarRequestPadrao(
@@ -162,7 +185,8 @@ public sealed class ReceitaServiceTests
         string? contaBancaria = null,
         IReadOnlyCollection<ReceitaAreaRateioRequest>? areasRateio = null,
         Recorrencia recorrencia = Recorrencia.Unica,
-        int? quantidadeRecorrencia = null) =>
+        int? quantidadeRecorrencia = null,
+        bool recorrenciaFixa = false) =>
         new(
             "Freelance",
             null,
@@ -181,7 +205,9 @@ public sealed class ReceitaServiceTests
             areasRateio ?? [],
             contaBancaria,
             null,
-            quantidadeRecorrencia);
+            quantidadeRecorrencia,
+            null,
+            recorrenciaFixa);
 
     private static ReceitaService CriarService(IReceitaRepository receitaRepository, IContaBancariaRepository contaRepository, IAreaRepository areaRepository, int? usuarioId) =>
         CriarService(receitaRepository, contaRepository, areaRepository, new RecorrenciaPublisherFake(), usuarioId);

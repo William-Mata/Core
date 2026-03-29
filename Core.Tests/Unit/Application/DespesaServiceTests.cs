@@ -134,17 +134,29 @@ public sealed class DespesaServiceTests
     }
 
     [Fact]
-    public async Task DevePublicarMensagemComAlvo100_AoCriarDespesaFixa()
+    public async Task DevePublicarMensagemComAlvo100_AoCriarDespesaComRecorrenciaFixa()
     {
         var repository = new DespesaRepositoryFake();
         var publisher = new RecorrenciaPublisherFake();
         var service = CriarService(repository, new AreaRepoFake(), publisher, 1);
 
-        await service.CriarAsync(CriarRequestPadrao(recorrencia: Recorrencia.Fixa, quantidadeRecorrencia: null));
+        await service.CriarAsync(CriarRequestPadrao(recorrencia: Recorrencia.Mensal, quantidadeRecorrencia: null, recorrenciaFixa: true));
 
         Assert.Single(repository.DespesasCriadas);
         Assert.NotNull(publisher.DespesaMessage);
+        Assert.True(publisher.DespesaMessage!.RecorrenciaFixa);
         Assert.Equal(100, publisher.DespesaMessage!.QuantidadeRecorrencia);
+    }
+
+    [Fact]
+    public async Task DeveRejeitarRecorrenciaFixaComTipoUnico()
+    {
+        var service = CriarService(new DespesaRepositoryFake(), 1);
+
+        var ex = await Assert.ThrowsAsync<DomainException>(() =>
+            service.CriarAsync(CriarRequestPadrao(recorrencia: Recorrencia.Unica, recorrenciaFixa: true)));
+
+        Assert.Equal("recorrencia_fixa_invalida", ex.Message);
     }
 
     [Fact]
@@ -179,15 +191,28 @@ public sealed class DespesaServiceTests
         var publisher = new RecorrenciaPublisherFake();
         var service = CriarService(repository, new AreaRepoFake(), publisher, 1);
 
-        await service.CriarAsync(CriarRequestPadrao(tipoPagamento: "cartaoCredito", quantidadeRecorrencia: null, quantidadeParcelas: 3));
+        await service.CriarAsync(CriarRequestPadrao(tipoPagamento: "cartaoCredito", quantidadeRecorrencia: null, quantidadeParcelas: 3, recorrenciaFixa: true));
 
         var despesa = Assert.Single(repository.DespesasCriadas);
         Assert.Equal(Recorrencia.Mensal, despesa.Recorrencia);
+        Assert.False(despesa.RecorrenciaFixa);
         Assert.Equal(3, despesa.QuantidadeRecorrencia);
 
         Assert.NotNull(publisher.DespesaMessage);
         Assert.Equal(Recorrencia.Mensal, publisher.DespesaMessage!.Recorrencia);
+        Assert.False(publisher.DespesaMessage.RecorrenciaFixa);
         Assert.Equal(3, publisher.DespesaMessage.QuantidadeRecorrencia);
+    }
+
+    [Fact]
+    public async Task DeveRejeitarQuantidadeRecorrenciaMaiorQue100_QuandoNaoFixa()
+    {
+        var service = CriarService(new DespesaRepositoryFake(), 1);
+
+        var ex = await Assert.ThrowsAsync<DomainException>(() =>
+            service.CriarAsync(CriarRequestPadrao(recorrencia: Recorrencia.Mensal, quantidadeRecorrencia: 101, recorrenciaFixa: false)));
+
+        Assert.Equal("quantidade_recorrencia_invalida", ex.Message);
     }
 
     private static CriarDespesaRequest CriarRequestPadrao(
@@ -198,7 +223,8 @@ public sealed class DespesaServiceTests
         string tipoPagamento = "pix",
         Recorrencia recorrencia = Recorrencia.Unica,
         int? quantidadeRecorrencia = null,
-        int? quantidadeParcelas = null) =>
+        int? quantidadeParcelas = null,
+        bool recorrenciaFixa = false) =>
         new(
             descricao,
             null,
@@ -219,7 +245,8 @@ public sealed class DespesaServiceTests
             areasRateio,
             quantidadeRecorrencia,
             null,
-            quantidadeParcelas);
+            quantidadeParcelas,
+            recorrenciaFixa);
 
     private static DespesaService CriarService(IDespesaRepository repository, int? usuarioId) =>
         CriarService(repository, new AreaRepoFake(), new RecorrenciaPublisherFake(), usuarioId);

@@ -53,6 +53,7 @@ internal static class ErroMensagemExtensions
         ["conta_ou_cartao_obrigatorio"] = "Informe conta bancaria ou cartao para concluir a operacao.",
         ["data_efetivacao_obrigatoria"] = "A data de efetivacao e obrigatoria.",
         ["quantidade_parcelas_invalida"] = "Para pagamento com cartao, informe quantidade de parcelas maior que zero.",
+        ["recorrencia_fixa_invalida"] = "Recorrencia fixa exige periodicidade recorrente (nao unica) e nao aceita tipo de recorrencia fixa.",
         ["erro_interno"] = "Erro interno do servidor."
     };
 

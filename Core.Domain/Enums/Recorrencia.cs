@@ -9,6 +9,5 @@ public enum  Recorrencia
     Mensal = 5,
     Trimestral = 6,
     Semestral = 7,
-    Anual = 8,
-    Fixa = 9
+    Anual = 8
 }
