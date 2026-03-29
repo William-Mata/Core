@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Core.Application.Contracts.Financeiro;
 using Core.Application.DTOs.Financeiro;
 using Core.Application.Services.Financeiro;
 using Core.Domain.Entities.Financeiro;
@@ -44,7 +45,8 @@ public sealed class ReembolsoServiceTests
                 ]
             },
             new UsuarioAutenticadoProviderFake(1),
-            new HistoricoTransacaoFinanceiraService(new HistoricoRepositoryFake()));
+            new HistoricoTransacaoFinanceiraService(new HistoricoRepositoryFake()),
+            new DocumentoStorageServiceFake());
 
         var ex = await Assert.ThrowsAsync<DomainException>(() => service.CriarAsync(CriarRequestPadrao()));
 
@@ -195,7 +197,8 @@ public sealed class ReembolsoServiceTests
             dataEfetivacao,
             despesasVinculadas ?? [CriarJsonNumero(1), CriarJsonNumero(3)],
             999m,
-            status);
+            status,
+            null);
 
     private static JsonElement CriarJsonNumero(long valor)
     {
@@ -204,7 +207,7 @@ public sealed class ReembolsoServiceTests
     }
 
     private static ReembolsoService CriarService(IReembolsoRepository repository, IDespesaRepository despesaRepository, int? usuarioId) =>
-        new(repository, despesaRepository, new UsuarioAutenticadoProviderFake(usuarioId), new HistoricoTransacaoFinanceiraService(new HistoricoRepositoryFake()));
+        new(repository, despesaRepository, new UsuarioAutenticadoProviderFake(usuarioId), new HistoricoTransacaoFinanceiraService(new HistoricoRepositoryFake()), new DocumentoStorageServiceFake());
 
     private sealed class UsuarioAutenticadoProviderFake(int? usuarioId) : IUsuarioAutenticadoProvider
     {
@@ -260,5 +263,12 @@ public sealed class ReembolsoServiceTests
 
         public Task<HistoricoTransacaoFinanceira?> ObterUltimoPorTransacaoAsync(TipoTransacaoFinanceira tipoTransacao, long transacaoId, CancellationToken cancellationToken = default) =>
             Task.FromResult<HistoricoTransacaoFinanceira?>(null);
+    }
+
+    private sealed class DocumentoStorageServiceFake : IDocumentoStorageService
+    {
+        public Task<IReadOnlyCollection<DocumentoDto>> SalvarAsync(IReadOnlyCollection<DocumentoRequest> documentos, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyCollection<DocumentoDto>>(
+                documentos.Select(x => new DocumentoDto(x.NomeArquivo, $@"C:\temp\{x.NomeArquivo}", x.ContentType, 1)).ToArray());
     }
 }

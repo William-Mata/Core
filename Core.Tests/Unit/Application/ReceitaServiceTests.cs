@@ -252,7 +252,7 @@ public sealed class ReceitaServiceTests
         CriarService(receitaRepository, contaRepository, areaRepository, new RecorrenciaPublisherFake(), usuarioId);
 
     private static ReceitaService CriarService(IReceitaRepository receitaRepository, IContaBancariaRepository contaRepository, IAreaRepository areaRepository, IRecorrenciaBackgroundPublisher publisher, int? usuarioId) =>
-        new(receitaRepository, contaRepository, areaRepository, new UsuarioAutenticadoProviderFake(usuarioId), new HistoricoTransacaoFinanceiraService(new HistoricoRepositoryFake()), publisher);
+        new(receitaRepository, contaRepository, areaRepository, new UsuarioAutenticadoProviderFake(usuarioId), new HistoricoTransacaoFinanceiraService(new HistoricoRepositoryFake()), new DocumentoStorageServiceFake(), publisher);
 
     private sealed class UsuarioAutenticadoProviderFake(int? usuarioId) : IUsuarioAutenticadoProvider
     {
@@ -329,5 +329,12 @@ public sealed class ReceitaServiceTests
             ReceitaMessage = message;
             return Task.CompletedTask;
         }
+    }
+
+    private sealed class DocumentoStorageServiceFake : IDocumentoStorageService
+    {
+        public Task<IReadOnlyCollection<DocumentoDto>> SalvarAsync(IReadOnlyCollection<DocumentoRequest> documentos, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyCollection<DocumentoDto>>(
+                documentos.Select(x => new DocumentoDto(x.NomeArquivo, $@"C:\temp\{x.NomeArquivo}", x.ContentType, 1)).ToArray());
     }
 }

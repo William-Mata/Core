@@ -293,7 +293,7 @@ public sealed class DespesaServiceTests
         CriarService(repository, areaRepository, new RecorrenciaPublisherFake(), usuarioId);
 
     private static DespesaService CriarService(IDespesaRepository repository, IAreaRepository areaRepository, IRecorrenciaBackgroundPublisher publisher, int? usuarioId) =>
-        new(repository, areaRepository, new UsuarioAutenticadoProviderFake(usuarioId), new HistoricoTransacaoFinanceiraService(new HistoricoRepositoryFake()), publisher);
+        new(repository, areaRepository, new UsuarioAutenticadoProviderFake(usuarioId), new HistoricoTransacaoFinanceiraService(new HistoricoRepositoryFake()), new DocumentoStorageServiceFake(), publisher);
 
     private sealed class DespesaRepositoryFake : IDespesaRepository
     {
@@ -361,5 +361,12 @@ public sealed class DespesaServiceTests
 
         public Task PublicarReceitaAsync(ReceitaRecorrenciaBackgroundMessage message, CancellationToken cancellationToken = default) =>
             Task.CompletedTask;
+    }
+
+    private sealed class DocumentoStorageServiceFake : IDocumentoStorageService
+    {
+        public Task<IReadOnlyCollection<DocumentoDto>> SalvarAsync(IReadOnlyCollection<DocumentoRequest> documentos, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyCollection<DocumentoDto>>(
+                documentos.Select(x => new DocumentoDto(x.NomeArquivo, $@"C:\temp\{x.NomeArquivo}", x.ContentType, 1)).ToArray());
     }
 }
