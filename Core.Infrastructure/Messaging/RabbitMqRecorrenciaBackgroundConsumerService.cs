@@ -19,10 +19,42 @@ public sealed class RabbitMqRecorrenciaBackgroundConsumerService(
     ILogger<RabbitMqRecorrenciaBackgroundConsumerService> logger) : BackgroundService
 {
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
+    private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(10);
     private IConnection? _connection;
     private IChannel? _channel;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                await ConectarEIniciarConsumoAsync(stoppingToken);
+
+                while (!stoppingToken.IsCancellationRequested && _connection?.IsOpen == true && _channel?.IsOpen == true)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(2), stoppingToken);
+                }
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "RabbitMQ indisponivel para consumidor de recorrencia. Nova tentativa em {DelaySeconds}s.", RetryDelay.TotalSeconds);
+            }
+
+            await FecharConexaoAsync();
+
+            if (!stoppingToken.IsCancellationRequested)
+            {
+                await Task.Delay(RetryDelay, stoppingToken);
+            }
+        }
+    }
+
+    private async Task ConectarEIniciarConsumoAsync(CancellationToken stoppingToken)
     {
         var factory = new ConnectionFactory
         {
@@ -47,11 +79,6 @@ public sealed class RabbitMqRecorrenciaBackgroundConsumerService(
         var receitaConsumer = new AsyncEventingBasicConsumer(_channel);
         receitaConsumer.ReceivedAsync += OnReceitaReceivedAsync;
         await _channel.BasicConsumeAsync(options.Value.QueueRecorrenciaReceita, false, receitaConsumer, stoppingToken);
-
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            await Task.Delay(TimeSpan.FromSeconds(2), stoppingToken);
-        }
     }
 
     private async Task OnDespesaReceivedAsync(object sender, BasicDeliverEventArgs eventArgs)
@@ -263,8 +290,22 @@ public sealed class RabbitMqRecorrenciaBackgroundConsumerService(
 
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
-        if (_channel is not null) await _channel.DisposeAsync();
-        if (_connection is not null) await _connection.DisposeAsync();
+        await FecharConexaoAsync();
         await base.StopAsync(cancellationToken);
+    }
+
+    private async Task FecharConexaoAsync()
+    {
+        if (_channel is not null)
+        {
+            await _channel.DisposeAsync();
+            _channel = null;
+        }
+
+        if (_connection is not null)
+        {
+            await _connection.DisposeAsync();
+            _connection = null;
+        }
     }
 }
