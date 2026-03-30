@@ -127,6 +127,7 @@ public sealed class RabbitMqRecorrenciaBackgroundConsumerService(
         using var scope = scopeFactory.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var liquido = payload.ValorTotal - payload.Desconto + payload.Acrescimo + payload.Imposto + payload.Juros;
+        var origensCriadas = new List<Despesa>();
 
         for (var numero = 2; numero <= alvo; numero++)
         {
@@ -143,7 +144,7 @@ public sealed class RabbitMqRecorrenciaBackgroundConsumerService(
 
             if (jaExiste) continue;
 
-            dbContext.Despesas.Add(new Despesa
+            var origem = new Despesa
             {
                 UsuarioCadastroId = payload.UsuarioId,
                 Descricao = payload.Descricao,
@@ -173,6 +174,7 @@ public sealed class RabbitMqRecorrenciaBackgroundConsumerService(
                 AmigosRateio = payload.AmigosRateio.Select(x => new DespesaAmigoRateio
                 {
                     UsuarioCadastroId = payload.UsuarioId,
+                    AmigoId = x.AmigoId,
                     AmigoNome = x.Nome,
                     Valor = x.Valor
                 }).ToList(),
@@ -192,7 +194,67 @@ public sealed class RabbitMqRecorrenciaBackgroundConsumerService(
                         Descricao = "Despesa recorrente gerada em background."
                     }
                 ]
-            });
+            };
+
+            dbContext.Despesas.Add(origem);
+            origensCriadas.Add(origem);
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        if (origensCriadas.Count == 0 || payload.AmigosRateio.Count == 0)
+            return;
+
+        var amigosAceitos = await dbContext.Amizades
+            .AsNoTracking()
+            .Where(x => x.UsuarioAId == payload.UsuarioId || x.UsuarioBId == payload.UsuarioId)
+            .Select(x => x.UsuarioAId == payload.UsuarioId ? x.UsuarioBId : x.UsuarioAId)
+            .ToHashSetAsync(cancellationToken);
+
+        var amigosRateioValidos = payload.AmigosRateio
+            .Where(x => x.AmigoId > 0 && x.Valor is > 0m && amigosAceitos.Contains(x.AmigoId))
+            .Select(x => new { x.AmigoId, Valor = x.Valor!.Value })
+            .ToArray();
+
+        if (amigosRateioValidos.Length == 0)
+            return;
+
+        foreach (var origem in origensCriadas)
+        {
+            foreach (var amigo in amigosRateioValidos)
+            {
+                dbContext.Despesas.Add(new Despesa
+                {
+                    DespesaOrigemId = origem.Id,
+                    UsuarioCadastroId = amigo.AmigoId,
+                    Descricao = origem.Descricao,
+                    Observacao = origem.Observacao,
+                    DataLancamento = origem.DataLancamento,
+                    DataVencimento = origem.DataVencimento,
+                    TipoDespesa = origem.TipoDespesa,
+                    TipoPagamento = origem.TipoPagamento,
+                    Recorrencia = origem.Recorrencia,
+                    RecorrenciaFixa = origem.RecorrenciaFixa,
+                    QuantidadeRecorrencia = origem.QuantidadeRecorrencia,
+                    ValorTotal = amigo.Valor,
+                    ValorLiquido = amigo.Valor,
+                    Desconto = 0m,
+                    Acrescimo = 0m,
+                    Imposto = 0m,
+                    Juros = 0m,
+                    Status = StatusDespesa.PendenteAprovacao,
+                    AreasRateio = DistribuirAreasDespesa(payload.AreasSubAreasRateio, payload.ValorTotal, amigo.Valor, amigo.AmigoId),
+                    Logs =
+                    [
+                        new DespesaLog
+                        {
+                            UsuarioCadastroId = payload.UsuarioId,
+                            Acao = AcaoLogs.Cadastro,
+                            Descricao = "Despesa compartilhada aguardando aprovacao."
+                        }
+                    ]
+                });
+            }
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -206,6 +268,7 @@ public sealed class RabbitMqRecorrenciaBackgroundConsumerService(
         using var scope = scopeFactory.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var liquido = payload.ValorTotal - payload.Desconto + payload.Acrescimo + payload.Imposto + payload.Juros;
+        var origensCriadas = new List<Receita>();
         long? contaBancariaId = null;
 
         if (!string.IsNullOrWhiteSpace(payload.ContaBancaria) && long.TryParse(payload.ContaBancaria, out var contaId))
@@ -228,7 +291,7 @@ public sealed class RabbitMqRecorrenciaBackgroundConsumerService(
 
             if (jaExiste) continue;
 
-            dbContext.Receitas.Add(new Receita
+            var origem = new Receita
             {
                 UsuarioCadastroId = payload.UsuarioId,
                 Descricao = payload.Descricao,
@@ -259,6 +322,7 @@ public sealed class RabbitMqRecorrenciaBackgroundConsumerService(
                 AmigosRateio = payload.AmigosRateio.Select(x => new ReceitaAmigoRateio
                 {
                     UsuarioCadastroId = payload.UsuarioId,
+                    AmigoId = x.AmigoId,
                     AmigoNome = x.Nome,
                     Valor = x.Valor
                 }).ToList(),
@@ -278,10 +342,151 @@ public sealed class RabbitMqRecorrenciaBackgroundConsumerService(
                         Descricao = "Receita recorrente gerada em background."
                     }
                 ]
-            });
+            };
+
+            dbContext.Receitas.Add(origem);
+            origensCriadas.Add(origem);
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        if (origensCriadas.Count == 0 || payload.AmigosRateio.Count == 0)
+            return;
+
+        var amigosAceitos = await dbContext.Amizades
+            .AsNoTracking()
+            .Where(x => x.UsuarioAId == payload.UsuarioId || x.UsuarioBId == payload.UsuarioId)
+            .Select(x => x.UsuarioAId == payload.UsuarioId ? x.UsuarioBId : x.UsuarioAId)
+            .ToHashSetAsync(cancellationToken);
+
+        var amigosRateioValidos = payload.AmigosRateio
+            .Where(x => x.AmigoId > 0 && x.Valor is > 0m && amigosAceitos.Contains(x.AmigoId))
+            .Select(x => new { x.AmigoId, Valor = x.Valor!.Value })
+            .ToArray();
+
+        if (amigosRateioValidos.Length == 0)
+            return;
+
+        foreach (var origem in origensCriadas)
+        {
+            foreach (var amigo in amigosRateioValidos)
+            {
+                dbContext.Receitas.Add(new Receita
+                {
+                    ReceitaOrigemId = origem.Id,
+                    UsuarioCadastroId = amigo.AmigoId,
+                    Descricao = origem.Descricao,
+                    Observacao = origem.Observacao,
+                    DataLancamento = origem.DataLancamento,
+                    DataVencimento = origem.DataVencimento,
+                    TipoReceita = origem.TipoReceita,
+                    TipoRecebimento = origem.TipoRecebimento,
+                    Recorrencia = origem.Recorrencia,
+                    RecorrenciaFixa = origem.RecorrenciaFixa,
+                    QuantidadeRecorrencia = origem.QuantidadeRecorrencia,
+                    ValorTotal = amigo.Valor,
+                    ValorLiquido = amigo.Valor,
+                    Desconto = 0m,
+                    Acrescimo = 0m,
+                    Imposto = 0m,
+                    Juros = 0m,
+                    Status = StatusReceita.PendenteAprovacao,
+                    ContaBancariaId = origem.ContaBancariaId,
+                    AreasRateio = DistribuirAreasReceita(payload.AreasSubAreasRateio, payload.ValorTotal, amigo.Valor, amigo.AmigoId),
+                    Logs =
+                    [
+                        new ReceitaLog
+                        {
+                            UsuarioCadastroId = payload.UsuarioId,
+                            Acao = AcaoLogs.Cadastro,
+                            Descricao = "Receita compartilhada aguardando aprovacao."
+                        }
+                    ]
+                });
+            }
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private static List<DespesaAreaRateio> DistribuirAreasDespesa(
+        IReadOnlyCollection<RateioAreaBackgroundMessage> areasRateioOrigem,
+        decimal valorTotalOrigem,
+        decimal valorEspelho,
+        int usuarioCadastroId)
+    {
+        if (areasRateioOrigem.Count == 0 || valorTotalOrigem <= 0 || valorEspelho <= 0)
+            return [];
+
+        var areas = areasRateioOrigem.Where(x => x.Valor.HasValue && x.Valor > 0).ToArray();
+        if (areas.Length == 0)
+            return [];
+
+        var resultado = new List<DespesaAreaRateio>(areas.Length);
+        var acumulado = 0m;
+        var fator = valorEspelho / valorTotalOrigem;
+
+        for (var i = 0; i < areas.Length; i++)
+        {
+            var item = areas[i];
+            var valor = i == areas.Length - 1
+                ? Math.Round(valorEspelho - acumulado, 2, MidpointRounding.AwayFromZero)
+                : Math.Round(item.Valor!.Value * fator, 2, MidpointRounding.AwayFromZero);
+
+            if (valor < 0)
+                valor = 0;
+
+            acumulado += valor;
+            resultado.Add(new DespesaAreaRateio
+            {
+                UsuarioCadastroId = usuarioCadastroId,
+                AreaId = item.AreaId,
+                SubAreaId = item.SubAreaId,
+                Valor = valor
+            });
+        }
+
+        return resultado;
+    }
+
+    private static List<ReceitaAreaRateio> DistribuirAreasReceita(
+        IReadOnlyCollection<RateioAreaBackgroundMessage> areasRateioOrigem,
+        decimal valorTotalOrigem,
+        decimal valorEspelho,
+        int usuarioCadastroId)
+    {
+        if (areasRateioOrigem.Count == 0 || valorTotalOrigem <= 0 || valorEspelho <= 0)
+            return [];
+
+        var areas = areasRateioOrigem.Where(x => x.Valor.HasValue && x.Valor > 0).ToArray();
+        if (areas.Length == 0)
+            return [];
+
+        var resultado = new List<ReceitaAreaRateio>(areas.Length);
+        var acumulado = 0m;
+        var fator = valorEspelho / valorTotalOrigem;
+
+        for (var i = 0; i < areas.Length; i++)
+        {
+            var item = areas[i];
+            var valor = i == areas.Length - 1
+                ? Math.Round(valorEspelho - acumulado, 2, MidpointRounding.AwayFromZero)
+                : Math.Round(item.Valor!.Value * fator, 2, MidpointRounding.AwayFromZero);
+
+            if (valor < 0)
+                valor = 0;
+
+            acumulado += valor;
+            resultado.Add(new ReceitaAreaRateio
+            {
+                UsuarioCadastroId = usuarioCadastroId,
+                AreaId = item.AreaId,
+                SubAreaId = item.SubAreaId,
+                Valor = valor
+            });
+        }
+
+        return resultado;
     }
 
     private static DateOnly AvancarData(DateOnly data, Recorrencia recorrencia, int repeticoes)

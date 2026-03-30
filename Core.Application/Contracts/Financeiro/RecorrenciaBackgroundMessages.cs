@@ -1,6 +1,6 @@
 namespace Core.Application.Contracts.Financeiro;
 
-public sealed record RateioAmigoBackgroundMessage(string Nome, decimal? Valor);
+public sealed record RateioAmigoBackgroundMessage(int AmigoId, string Nome, decimal? Valor);
 public sealed record RateioAreaBackgroundMessage(long AreaId, long SubAreaId, decimal? Valor);
 public sealed record DocumentoBackgroundMessage(string NomeArquivo, string CaminhoArquivo, string? ContentType, long TamanhoBytes);
 

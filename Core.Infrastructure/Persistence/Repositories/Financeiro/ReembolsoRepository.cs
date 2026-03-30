@@ -7,6 +7,12 @@ namespace Core.Infrastructure.Persistence.Repositories.Financeiro;
 public sealed class ReembolsoRepository(AppDbContext dbContext) : IReembolsoRepository
 {
     public Task<List<Reembolso>> ListarAsync(string? filtroId, string? descricao, DateOnly? dataInicio, DateOnly? dataFim, CancellationToken cancellationToken = default)
+        => ListarCoreAsync(null, filtroId, descricao, dataInicio, dataFim, cancellationToken);
+
+    public Task<List<Reembolso>> ListarAsync(int usuarioCadastroId, string? filtroId, string? descricao, DateOnly? dataInicio, DateOnly? dataFim, CancellationToken cancellationToken = default)
+        => ListarCoreAsync(usuarioCadastroId, filtroId, descricao, dataInicio, dataFim, cancellationToken);
+
+    private Task<List<Reembolso>> ListarCoreAsync(int? usuarioCadastroId, string? filtroId, string? descricao, DateOnly? dataInicio, DateOnly? dataFim, CancellationToken cancellationToken)
     {
         var query = dbContext.Set<Reembolso>()
             .Include(x => x.Despesas)
@@ -14,6 +20,11 @@ public sealed class ReembolsoRepository(AppDbContext dbContext) : IReembolsoRepo
             .OrderByDescending(x => x.DataLancamento)
             .ThenByDescending(x => x.Id)
             .AsQueryable();
+
+        if (usuarioCadastroId.HasValue)
+        {
+            query = query.Where(x => x.UsuarioCadastroId == usuarioCadastroId.Value);
+        }
 
         if (!string.IsNullOrWhiteSpace(filtroId))
         {
@@ -40,10 +51,18 @@ public sealed class ReembolsoRepository(AppDbContext dbContext) : IReembolsoRepo
     }
 
     public Task<Reembolso?> ObterPorIdAsync(long id, CancellationToken cancellationToken = default) =>
+        ObterCoreAsync(id, null, cancellationToken);
+
+    public Task<Reembolso?> ObterPorIdAsync(long id, int usuarioCadastroId, CancellationToken cancellationToken = default) =>
+        ObterCoreAsync(id, usuarioCadastroId, cancellationToken);
+
+    private Task<Reembolso?> ObterCoreAsync(long id, int? usuarioCadastroId, CancellationToken cancellationToken) =>
         dbContext.Set<Reembolso>()
+            .Where(x => x.Id == id)
+            .Where(x => !usuarioCadastroId.HasValue || x.UsuarioCadastroId == usuarioCadastroId.Value)
             .Include(x => x.Despesas)
             .Include(x => x.Documentos)
-            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+            .FirstOrDefaultAsync(cancellationToken);
 
     public async Task<Reembolso> CriarAsync(Reembolso reembolso, CancellationToken cancellationToken = default)
     {
@@ -78,9 +97,15 @@ public sealed class ReembolsoRepository(AppDbContext dbContext) : IReembolsoRepo
     }
 
     public Task<bool> ExisteDespesaVinculadaEmOutroReembolsoAsync(IReadOnlyCollection<long> despesasIds, long? reembolsoIgnoradoId, CancellationToken cancellationToken = default) =>
-        dbContext.Set<ReembolsoDespesa>()
-            .AnyAsync(
-                x => despesasIds.Contains(x.DespesaId) &&
-                     (!reembolsoIgnoradoId.HasValue || x.ReembolsoId != reembolsoIgnoradoId.Value),
-                cancellationToken);
+        ExisteDespesaVinculadaEmOutroReembolsoAsyncCore(null, despesasIds, reembolsoIgnoradoId, cancellationToken);
+
+    public Task<bool> ExisteDespesaVinculadaEmOutroReembolsoAsync(int usuarioCadastroId, IReadOnlyCollection<long> despesasIds, long? reembolsoIgnoradoId, CancellationToken cancellationToken = default) =>
+        ExisteDespesaVinculadaEmOutroReembolsoAsyncCore(usuarioCadastroId, despesasIds, reembolsoIgnoradoId, cancellationToken);
+
+    private Task<bool> ExisteDespesaVinculadaEmOutroReembolsoAsyncCore(int? usuarioCadastroId, IReadOnlyCollection<long> despesasIds, long? reembolsoIgnoradoId, CancellationToken cancellationToken) =>
+        dbContext.Set<Reembolso>()
+            .Where(x => !usuarioCadastroId.HasValue || x.UsuarioCadastroId == usuarioCadastroId.Value)
+            .Where(x => !reembolsoIgnoradoId.HasValue || x.Id != reembolsoIgnoradoId.Value)
+            .SelectMany(x => x.Despesas)
+            .AnyAsync(x => despesasIds.Contains(x.DespesaId), cancellationToken);
 }

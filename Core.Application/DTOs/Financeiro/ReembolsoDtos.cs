@@ -2,7 +2,7 @@ using System.Text.Json;
 
 namespace Core.Application.DTOs.Financeiro;
 
-public sealed record ListarReembolsosRequest(string? Id, string? Descricao, DateOnly? DataInicio, DateOnly? DataFim);
+public sealed record ListarReembolsosRequest(string? Id, string? Descricao, string? Competencia, DateOnly? DataInicio, DateOnly? DataFim);
 
 public sealed record ReembolsoDto(
     long Id,

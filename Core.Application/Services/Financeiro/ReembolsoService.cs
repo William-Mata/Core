@@ -17,13 +17,17 @@ public sealed class ReembolsoService(
     HistoricoTransacaoFinanceiraService historicoTransacaoFinanceiraService,
     IDocumentoStorageService documentoStorageService)
 {
-    public async Task<IReadOnlyCollection<ReembolsoDto>> ListarAsync(ListarReembolsosRequest request, CancellationToken cancellationToken = default) =>
-        (await repository.ListarAsync(request.Id, request.Descricao, request.DataInicio, request.DataFim, cancellationToken))
+    public async Task<IReadOnlyCollection<ReembolsoDto>> ListarAsync(ListarReembolsosRequest request, CancellationToken cancellationToken = default)
+    {
+        var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
+        var periodo = CompetenciaPeriodoHelper.Resolver(request.Competencia, request.DataInicio, request.DataFim);
+        return (await repository.ListarAsync(usuarioAutenticadoId, request.Id, request.Descricao, periodo.DataInicio, periodo.DataFim, cancellationToken))
             .Select(Map)
             .ToArray();
+    }
 
     public async Task<ReembolsoDto> ObterAsync(long id, CancellationToken cancellationToken = default) =>
-        Map(await repository.ObterPorIdAsync(id, cancellationToken) ?? throw new NotFoundException("reembolso_nao_encontrado"));
+        Map(await repository.ObterPorIdAsync(id, ObterUsuarioAutenticadoId(), cancellationToken) ?? throw new NotFoundException("reembolso_nao_encontrado"));
 
     public async Task<ReembolsoDto> CriarAsync(SalvarReembolsoRequest request, CancellationToken cancellationToken = default)
     {
@@ -32,12 +36,12 @@ public sealed class ReembolsoService(
         var descricao = ValidarDescricao(request.Descricao);
         var solicitante = ValidarSolicitante(request.Solicitante);
         var despesasIds = ExtrairDespesasIds(request.DespesasVinculadas);
-        var despesas = await ObterDespesasValidasAsync(despesasIds, cancellationToken);
+        var despesas = await ObterDespesasValidasAsync(despesasIds, usuarioAutenticadoId, cancellationToken);
         var status = NormalizarStatus(request.Status);
         ValidarPeriodoEfetivacao(request.DataLancamento, request.DataEfetivacao, status);
         var documentos = await SalvarDocumentosAsync(request.Documentos ?? [], usuarioAutenticadoId, cancellationToken: cancellationToken);
 
-        await ValidarDespesasVinculadasAsync(despesasIds, null, cancellationToken);
+        await ValidarDespesasVinculadasAsync(despesasIds, null, usuarioAutenticadoId, cancellationToken);
 
         var reembolso = new Reembolso
         {
@@ -65,16 +69,16 @@ public sealed class ReembolsoService(
     {
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
         ValidarContaOuCartao(request.ContaBancariaId, request.CartaoId);
-        var reembolso = await repository.ObterPorIdAsync(id, cancellationToken) ?? throw new NotFoundException("reembolso_nao_encontrado");
+        var reembolso = await repository.ObterPorIdAsync(id, usuarioAutenticadoId, cancellationToken) ?? throw new NotFoundException("reembolso_nao_encontrado");
         var statusAnterior = reembolso.Status;
         var descricao = ValidarDescricao(request.Descricao);
         var solicitante = ValidarSolicitante(request.Solicitante);
         var despesasIds = ExtrairDespesasIds(request.DespesasVinculadas);
-        var despesas = await ObterDespesasValidasAsync(despesasIds, cancellationToken);
+        var despesas = await ObterDespesasValidasAsync(despesasIds, usuarioAutenticadoId, cancellationToken);
         var status = NormalizarStatus(request.Status);
         ValidarPeriodoEfetivacao(request.DataLancamento, request.DataEfetivacao, status);
 
-        await ValidarDespesasVinculadasAsync(despesasIds, id, cancellationToken);
+        await ValidarDespesasVinculadasAsync(despesasIds, id, usuarioAutenticadoId, cancellationToken);
 
         reembolso.Descricao = descricao;
         reembolso.Solicitante = solicitante;
@@ -138,7 +142,7 @@ public sealed class ReembolsoService(
 
     public async Task ExcluirAsync(long id, CancellationToken cancellationToken = default)
     {
-        var reembolso = await repository.ObterPorIdAsync(id, cancellationToken) ?? throw new NotFoundException("reembolso_nao_encontrado");
+        var reembolso = await repository.ObterPorIdAsync(id, ObterUsuarioAutenticadoId(), cancellationToken) ?? throw new NotFoundException("reembolso_nao_encontrado");
         await repository.ExcluirAsync(reembolso, cancellationToken);
     }
 
@@ -148,7 +152,7 @@ public sealed class ReembolsoService(
         ValidarContaOuCartao(request.ContaBancariaId, request.CartaoId);
         ValidarDestinoParaPagamento(request.ContaBancariaId, request.CartaoId);
 
-        var reembolso = await repository.ObterPorIdAsync(id, cancellationToken) ?? throw new NotFoundException("reembolso_nao_encontrado");
+        var reembolso = await repository.ObterPorIdAsync(id, usuarioAutenticadoId, cancellationToken) ?? throw new NotFoundException("reembolso_nao_encontrado");
         if (reembolso.Status == StatusReembolso.Pago) throw new DomainException("status_invalido");
         if (request.DataEfetivacao < reembolso.DataLancamento) throw new DomainException("periodo_invalido");
 
@@ -178,7 +182,7 @@ public sealed class ReembolsoService(
     public async Task<ReembolsoDto> EstornarAsync(long id, CancellationToken cancellationToken = default)
     {
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
-        var reembolso = await repository.ObterPorIdAsync(id, cancellationToken) ?? throw new NotFoundException("reembolso_nao_encontrado");
+        var reembolso = await repository.ObterPorIdAsync(id, usuarioAutenticadoId, cancellationToken) ?? throw new NotFoundException("reembolso_nao_encontrado");
         if (reembolso.Status != StatusReembolso.Pago) throw new DomainException("status_invalido");
 
         var valorAntesTransacao = reembolso.ValorTotal;
@@ -263,9 +267,9 @@ public sealed class ReembolsoService(
         return idsValidos;
     }
 
-    private async Task<IReadOnlyCollection<Despesa>> ObterDespesasValidasAsync(IReadOnlyCollection<long> despesasIds, CancellationToken cancellationToken)
+    private async Task<IReadOnlyCollection<Despesa>> ObterDespesasValidasAsync(IReadOnlyCollection<long> despesasIds, int usuarioAutenticadoId, CancellationToken cancellationToken)
     {
-        var despesas = await despesaRepository.ObterPorIdsAsync(despesasIds, cancellationToken);
+        var despesas = await despesaRepository.ObterPorIdsAsync(despesasIds, usuarioAutenticadoId, cancellationToken);
         if (despesas.Count != despesasIds.Count)
         {
             throw new DomainException("despesa_nao_encontrada");
@@ -274,9 +278,9 @@ public sealed class ReembolsoService(
         return despesas;
     }
 
-    private async Task ValidarDespesasVinculadasAsync(IReadOnlyCollection<long> despesasIds, long? reembolsoIgnoradoId, CancellationToken cancellationToken)
+    private async Task ValidarDespesasVinculadasAsync(IReadOnlyCollection<long> despesasIds, long? reembolsoIgnoradoId, int usuarioAutenticadoId, CancellationToken cancellationToken)
     {
-        var existeConflito = await repository.ExisteDespesaVinculadaEmOutroReembolsoAsync(despesasIds, reembolsoIgnoradoId, cancellationToken);
+        var existeConflito = await repository.ExisteDespesaVinculadaEmOutroReembolsoAsync(usuarioAutenticadoId, despesasIds, reembolsoIgnoradoId, cancellationToken);
         if (existeConflito)
         {
             throw new DomainException("despesa_vinculada_outro_reembolso");

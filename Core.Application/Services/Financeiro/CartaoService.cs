@@ -11,10 +11,10 @@ namespace Core.Application.Services.Financeiro;
 public sealed class CartaoService(ICartaoRepository repository, IUsuarioAutenticadoProvider usuarioAutenticadoProvider)
 {
     public async Task<IReadOnlyCollection<CartaoDto>> ListarAsync(CancellationToken cancellationToken = default) =>
-        (await repository.ListarAsync(cancellationToken)).Select(Map).ToArray();
+        (await repository.ListarAsync(ObterUsuarioAutenticadoId(), cancellationToken)).Select(Map).ToArray();
 
     public async Task<CartaoDto> ObterAsync(long id, CancellationToken cancellationToken = default) =>
-        Map(await repository.ObterPorIdAsync(id, cancellationToken) ?? throw new NotFoundException("cartao_nao_encontrado"));
+        Map(await repository.ObterPorIdAsync(id, ObterUsuarioAutenticadoId(), cancellationToken) ?? throw new NotFoundException("cartao_nao_encontrado"));
 
     public async Task<CartaoDto> CriarAsync(CriarCartaoRequest request, CancellationToken cancellationToken = default)
     {
@@ -40,7 +40,7 @@ public sealed class CartaoService(ICartaoRepository repository, IUsuarioAutentic
     public async Task<CartaoDto> AtualizarAsync(long id, AtualizarCartaoRequest request, CancellationToken cancellationToken = default)
     {
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
-        var existente = await repository.ObterPorIdAsync(id, cancellationToken) ?? throw new NotFoundException("cartao_nao_encontrado");
+        var existente = await repository.ObterPorIdAsync(id, usuarioAutenticadoId, cancellationToken) ?? throw new NotFoundException("cartao_nao_encontrado");
         Validar(request.Descricao, request.Bandeira, request.Tipo, request.Limite, existente.SaldoDisponivel, request.DiaVencimento, request.DataVencimentoCartao);
 
         existente.Descricao = request.Descricao.Trim();
@@ -57,7 +57,7 @@ public sealed class CartaoService(ICartaoRepository repository, IUsuarioAutentic
     public async Task<CartaoDto> InativarAsync(long id, AlternarStatusCartaoRequest request, CancellationToken cancellationToken = default)
     {
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
-        var existente = await repository.ObterPorIdAsync(id, cancellationToken) ?? throw new NotFoundException("cartao_nao_encontrado");
+        var existente = await repository.ObterPorIdAsync(id, usuarioAutenticadoId, cancellationToken) ?? throw new NotFoundException("cartao_nao_encontrado");
         if (existente.Status != StatusCartao.Ativo) throw new DomainException("status_invalido");
         if (request.QuantidadePendencias > 0) throw new DomainException("cartao_com_pendencias");
 
@@ -69,7 +69,7 @@ public sealed class CartaoService(ICartaoRepository repository, IUsuarioAutentic
     public async Task<CartaoDto> AtivarAsync(long id, CancellationToken cancellationToken = default)
     {
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
-        var existente = await repository.ObterPorIdAsync(id, cancellationToken) ?? throw new NotFoundException("cartao_nao_encontrado");
+        var existente = await repository.ObterPorIdAsync(id, usuarioAutenticadoId, cancellationToken) ?? throw new NotFoundException("cartao_nao_encontrado");
         if (existente.Status != StatusCartao.Inativo) throw new DomainException("status_invalido");
 
         existente.Status = StatusCartao.Ativo;

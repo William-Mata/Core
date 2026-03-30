@@ -2,6 +2,7 @@ using Core.Domain.Enums;
 
 namespace Core.Application.DTOs.Financeiro;
 
+public sealed record ListarReceitasRequest(string? Id, string? Descricao, string? Competencia, DateOnly? DataInicio, DateOnly? DataFim);
 public sealed record ReceitaLogDto(long Id, DateOnly Data, AcaoLogs Acao, string Descricao);
 public sealed record ReceitaAreaRateioDto(long AreaId, string AreaNome, long SubAreaId, string SubAreaNome, decimal? Valor);
 public sealed record ReceitaDto(long Id, string Descricao, string? Observacao, DateOnly DataLancamento, DateOnly DataVencimento, DateOnly? DataEfetivacao, string TipoReceita, string TipoRecebimento, Recorrencia Recorrencia, int? QuantidadeRecorrencia, bool RecorrenciaFixa, decimal ValorTotal, decimal ValorLiquido, decimal Desconto, decimal Acrescimo, decimal Imposto, decimal Juros, decimal? ValorEfetivacao, string Status, IReadOnlyCollection<AmigoRateioDto> AmigosRateio, IReadOnlyCollection<ReceitaAreaRateioDto> AreasSubAreasRateio, string? ContaBancaria, IReadOnlyCollection<DocumentoDto> Documentos, IReadOnlyCollection<ReceitaLogDto> Logs);

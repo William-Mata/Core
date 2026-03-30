@@ -11,10 +11,10 @@ namespace Core.Application.Services.Financeiro;
 public sealed class ContaBancariaService(IContaBancariaRepository repository, IUsuarioAutenticadoProvider usuarioAutenticadoProvider)
 {
     public async Task<IReadOnlyCollection<ContaBancariaDto>> ListarAsync(CancellationToken cancellationToken = default) =>
-        (await repository.ListarAsync(cancellationToken)).Select(Map).ToArray();
+        (await repository.ListarAsync(ObterUsuarioAutenticadoId(), cancellationToken)).Select(Map).ToArray();
 
     public async Task<ContaBancariaDto> ObterAsync(long id, CancellationToken cancellationToken = default) =>
-        Map(await repository.ObterPorIdAsync(id, cancellationToken) ?? throw new NotFoundException("conta_bancaria_nao_encontrada"));
+        Map(await repository.ObterPorIdAsync(id, ObterUsuarioAutenticadoId(), cancellationToken) ?? throw new NotFoundException("conta_bancaria_nao_encontrada"));
 
     public async Task<ContaBancariaDto> CriarAsync(CriarContaBancariaRequest request, CancellationToken cancellationToken = default)
     {
@@ -43,7 +43,7 @@ public sealed class ContaBancariaService(IContaBancariaRepository repository, IU
     public async Task<ContaBancariaDto> AtualizarAsync(long id, AtualizarContaBancariaRequest request, CancellationToken cancellationToken = default)
     {
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
-        var existente = await repository.ObterPorIdAsync(id, cancellationToken) ?? throw new NotFoundException("conta_bancaria_nao_encontrada");
+        var existente = await repository.ObterPorIdAsync(id, usuarioAutenticadoId, cancellationToken) ?? throw new NotFoundException("conta_bancaria_nao_encontrada");
         if (string.IsNullOrWhiteSpace(request.Descricao) || string.IsNullOrWhiteSpace(request.Banco) || string.IsNullOrWhiteSpace(request.Agencia) || string.IsNullOrWhiteSpace(request.Numero))
             throw new DomainException("campo_obrigatorio");
 
@@ -60,7 +60,7 @@ public sealed class ContaBancariaService(IContaBancariaRepository repository, IU
     public async Task<ContaBancariaDto> InativarAsync(long id, AlternarStatusContaBancariaRequest request, CancellationToken cancellationToken = default)
     {
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
-        var existente = await repository.ObterPorIdAsync(id, cancellationToken) ?? throw new NotFoundException("conta_bancaria_nao_encontrada");
+        var existente = await repository.ObterPorIdAsync(id, usuarioAutenticadoId, cancellationToken) ?? throw new NotFoundException("conta_bancaria_nao_encontrada");
         if (existente.Status != StatusContaBancaria.Ativa) throw new DomainException("status_invalido");
         if (request.QuantidadePendencias > 0) throw new DomainException("conta_com_pendencias");
 
@@ -72,7 +72,7 @@ public sealed class ContaBancariaService(IContaBancariaRepository repository, IU
     public async Task<ContaBancariaDto> AtivarAsync(long id, CancellationToken cancellationToken = default)
     {
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
-        var existente = await repository.ObterPorIdAsync(id, cancellationToken) ?? throw new NotFoundException("conta_bancaria_nao_encontrada");
+        var existente = await repository.ObterPorIdAsync(id, usuarioAutenticadoId, cancellationToken) ?? throw new NotFoundException("conta_bancaria_nao_encontrada");
         if (existente.Status != StatusContaBancaria.Inativa) throw new DomainException("status_invalido");
 
         existente.Status = StatusContaBancaria.Ativa;
