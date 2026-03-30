@@ -11,7 +11,14 @@ namespace Core.Api.Controllers.Financeiro;
 public sealed class ReceitaController(ReceitaService service) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> Listar(CancellationToken cancellationToken) => Ok(await service.ListarAsync(cancellationToken));
+    public async Task<IActionResult> Listar(
+        [FromQuery] string? id,
+        [FromQuery] string? descricao,
+        [FromQuery] string? competencia,
+        [FromQuery] DateOnly? dataInicio,
+        [FromQuery] DateOnly? dataFim,
+        CancellationToken cancellationToken) =>
+        Ok(await service.ListarAsync(new ListarReceitasRequest(id, descricao, competencia, dataInicio, dataFim), cancellationToken));
 
     [HttpGet("{id:long}")]
     public async Task<IActionResult> Obter(long id, CancellationToken cancellationToken) => Ok(await service.ObterAsync(id, cancellationToken));

@@ -14,10 +14,11 @@ public sealed class ReembolsoController(ReembolsoService service) : ControllerBa
     public async Task<IActionResult> Listar(
         [FromQuery] string? id,
         [FromQuery] string? descricao,
+        [FromQuery] string? competencia,
         [FromQuery] DateOnly? dataInicio,
         [FromQuery] DateOnly? dataFim,
         CancellationToken cancellationToken) =>
-        Ok(await service.ListarAsync(new ListarReembolsosRequest(id, descricao, dataInicio, dataFim), cancellationToken));
+        Ok(await service.ListarAsync(new ListarReembolsosRequest(id, descricao, competencia, dataInicio, dataFim), cancellationToken));
 
     [HttpGet("{id:long}")]
     public async Task<IActionResult> Obter(long id, CancellationToken cancellationToken) =>
