@@ -10,6 +10,17 @@ namespace Core.Tests.Unit.Application;
 public sealed class ContaBancariaServiceTests
 {
     [Fact]
+    public async Task DeveListarContasFiltrandoPeloUsuarioAutenticado()
+    {
+        var repository = new ContaBancariaRepositoryFake();
+        var service = new ContaBancariaService(repository, new UsuarioAutenticadoProviderFake(7));
+
+        await service.ListarAsync();
+
+        Assert.Equal(7, repository.UltimoUsuarioIdConsulta);
+    }
+
+    [Fact]
     public async Task DeveExigirUsuarioAutenticado_ParaCriarConta()
     {
         var service = new ContaBancariaService(new ContaBancariaRepositoryFake(), new UsuarioAutenticadoProviderFake(null));
@@ -66,9 +77,20 @@ public sealed class ContaBancariaServiceTests
     private sealed class ContaBancariaRepositoryFake : IContaBancariaRepository
     {
         public ContaBancaria? Conta { get; set; }
+        public int? UltimoUsuarioIdConsulta { get; private set; }
 
         public Task<List<ContaBancaria>> ListarAsync(CancellationToken cancellationToken = default) => Task.FromResult(new List<ContaBancaria>());
+        public Task<List<ContaBancaria>> ListarAsync(int usuarioCadastroId, CancellationToken cancellationToken = default)
+        {
+            UltimoUsuarioIdConsulta = usuarioCadastroId;
+            return ListarAsync(cancellationToken);
+        }
         public Task<ContaBancaria?> ObterPorIdAsync(long id, CancellationToken cancellationToken = default) => Task.FromResult(Conta);
+        public Task<ContaBancaria?> ObterPorIdAsync(long id, int usuarioCadastroId, CancellationToken cancellationToken = default)
+        {
+            UltimoUsuarioIdConsulta = usuarioCadastroId;
+            return ObterPorIdAsync(id, cancellationToken);
+        }
         public Task<ContaBancaria> CriarAsync(ContaBancaria conta, CancellationToken cancellationToken = default) => Task.FromResult(conta);
         public Task<ContaBancaria> AtualizarAsync(ContaBancaria conta, CancellationToken cancellationToken = default) => Task.FromResult(conta);
     }

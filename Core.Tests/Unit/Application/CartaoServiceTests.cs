@@ -10,6 +10,17 @@ namespace Core.Tests.Unit.Application;
 public sealed class CartaoServiceTests
 {
     [Fact]
+    public async Task DeveListarCartoesFiltrandoPeloUsuarioAutenticado()
+    {
+        var repository = new CartaoRepositoryFake();
+        var service = new CartaoService(repository, new UsuarioAutenticadoProviderFake(5));
+
+        await service.ListarAsync();
+
+        Assert.Equal(5, repository.UltimoUsuarioIdConsulta);
+    }
+
+    [Fact]
     public async Task DeveExigirUsuarioAutenticado_ParaCriarCartao()
     {
         var service = new CartaoService(new CartaoRepositoryFake(), new UsuarioAutenticadoProviderFake(null));
@@ -66,9 +77,20 @@ public sealed class CartaoServiceTests
     private sealed class CartaoRepositoryFake : ICartaoRepository
     {
         public Cartao? Cartao { get; set; }
+        public int? UltimoUsuarioIdConsulta { get; private set; }
 
         public Task<List<Cartao>> ListarAsync(CancellationToken cancellationToken = default) => Task.FromResult(new List<Cartao>());
+        public Task<List<Cartao>> ListarAsync(int usuarioCadastroId, CancellationToken cancellationToken = default)
+        {
+            UltimoUsuarioIdConsulta = usuarioCadastroId;
+            return ListarAsync(cancellationToken);
+        }
         public Task<Cartao?> ObterPorIdAsync(long id, CancellationToken cancellationToken = default) => Task.FromResult(Cartao);
+        public Task<Cartao?> ObterPorIdAsync(long id, int usuarioCadastroId, CancellationToken cancellationToken = default)
+        {
+            UltimoUsuarioIdConsulta = usuarioCadastroId;
+            return ObterPorIdAsync(id, cancellationToken);
+        }
         public Task<Cartao> CriarAsync(Cartao cartao, CancellationToken cancellationToken = default) => Task.FromResult(cartao);
         public Task<Cartao> AtualizarAsync(Cartao cartao, CancellationToken cancellationToken = default) => Task.FromResult(cartao);
     }
