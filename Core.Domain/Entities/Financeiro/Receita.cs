@@ -5,6 +5,7 @@ namespace Core.Domain.Entities.Financeiro;
 public sealed class Receita
 {
     public long Id { get; set; }
+    public long? ReceitaOrigemId { get; set; }
     public DateTime DataHoraCadastro { get; set; } = DateTime.UtcNow;
     public int UsuarioCadastroId { get; set; }
     public string Descricao { get; set; } = string.Empty;

@@ -37,6 +37,7 @@ public static class DependencyInjection
         services.AddScoped<IReembolsoRepository, ReembolsoRepository>();
         services.AddScoped<IHistoricoTransacaoFinanceiraRepository, HistoricoTransacaoFinanceiraRepository>();
         services.AddScoped<IAreaRepository, AreaRepository>();
+        services.AddScoped<IAmizadeRepository, AmizadeRepository>();
         services.AddScoped<IUsuarioRepository, UsuarioRepository>();
         services.AddScoped<IDocumentoStorageService, LocalDocumentoStorageService>();
         services.AddScoped<ITokenService, JwtTokenService>();
