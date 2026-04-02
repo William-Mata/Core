@@ -8,13 +8,26 @@ using Core.Domain.Interfaces.Financeiro;
 
 namespace Core.Application.Services.Financeiro;
 
-public sealed class CartaoService(ICartaoRepository repository, IUsuarioAutenticadoProvider usuarioAutenticadoProvider)
+public sealed class CartaoService(
+    ICartaoRepository repository,
+    IHistoricoTransacaoFinanceiraRepository historicoRepository,
+    IUsuarioAutenticadoProvider usuarioAutenticadoProvider)
 {
     public async Task<IReadOnlyCollection<CartaoDto>> ListarAsync(CancellationToken cancellationToken = default) =>
         (await repository.ListarAsync(ObterUsuarioAutenticadoId(), cancellationToken)).Select(Map).ToArray();
 
     public async Task<CartaoDto> ObterAsync(long id, CancellationToken cancellationToken = default) =>
         Map(await repository.ObterPorIdAsync(id, ObterUsuarioAutenticadoId(), cancellationToken) ?? throw new NotFoundException("cartao_nao_encontrado"));
+
+    public async Task<IReadOnlyCollection<LancamentoVinculadoDto>> ListarLancamentosAsync(long id, string? competencia, CancellationToken cancellationToken = default)
+    {
+        var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
+        var cartao = await repository.ObterPorIdAsync(id, usuarioAutenticadoId, cancellationToken) ?? throw new NotFoundException("cartao_nao_encontrado");
+
+        return (await historicoRepository.ListarPorCartaoCompetenciaAsync(cartao.Id, usuarioAutenticadoId, competencia, cancellationToken))
+            .Select(MapLancamento)
+            .ToArray();
+    }
 
     public async Task<CartaoDto> CriarAsync(CriarCartaoRequest request, CancellationToken cancellationToken = default)
     {
@@ -92,4 +105,17 @@ public sealed class CartaoService(ICartaoRepository repository, IUsuarioAutentic
         new(c.Id, c.Descricao, c.Bandeira, c.Tipo, c.Limite, c.SaldoDisponivel, c.DiaVencimento, c.DataVencimentoCartao, c.Status.ToString().ToLowerInvariant(),
             c.Lancamentos.Select(x => new CartaoLancamentoDto(x.Id, DateOnly.FromDateTime(x.DataHoraCadastro), x.Descricao, x.Valor)).ToArray(),
             c.Logs.Select(x => new CartaoLogDto(x.Id, DateOnly.FromDateTime(x.DataHoraCadastro), x.Acao, x.Descricao)).ToArray());
+
+    private static LancamentoVinculadoDto MapLancamento(HistoricoTransacaoFinanceira historico) =>
+        new(
+            historico.Id,
+            historico.TransacaoId,
+            historico.DataTransacao,
+            historico.TipoTransacao.ToString().ToLowerInvariant(),
+            historico.TipoOperacao.ToString().ToLowerInvariant(),
+            historico.Descricao,
+            historico.TipoPagamento,
+            historico.ValorAntesTransacao,
+            historico.ValorTransacao,
+            historico.ValorDepoisTransacao);
 }

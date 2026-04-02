@@ -8,13 +8,26 @@ using Core.Domain.Interfaces.Financeiro;
 
 namespace Core.Application.Services.Financeiro;
 
-public sealed class ContaBancariaService(IContaBancariaRepository repository, IUsuarioAutenticadoProvider usuarioAutenticadoProvider)
+public sealed class ContaBancariaService(
+    IContaBancariaRepository repository,
+    IHistoricoTransacaoFinanceiraRepository historicoRepository,
+    IUsuarioAutenticadoProvider usuarioAutenticadoProvider)
 {
     public async Task<IReadOnlyCollection<ContaBancariaDto>> ListarAsync(CancellationToken cancellationToken = default) =>
         (await repository.ListarAsync(ObterUsuarioAutenticadoId(), cancellationToken)).Select(Map).ToArray();
 
     public async Task<ContaBancariaDto> ObterAsync(long id, CancellationToken cancellationToken = default) =>
         Map(await repository.ObterPorIdAsync(id, ObterUsuarioAutenticadoId(), cancellationToken) ?? throw new NotFoundException("conta_bancaria_nao_encontrada"));
+
+    public async Task<IReadOnlyCollection<LancamentoVinculadoDto>> ListarLancamentosAsync(long id, string? competencia, CancellationToken cancellationToken = default)
+    {
+        var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
+        var conta = await repository.ObterPorIdAsync(id, usuarioAutenticadoId, cancellationToken) ?? throw new NotFoundException("conta_bancaria_nao_encontrada");
+
+        return (await historicoRepository.ListarPorContaBancariaCompetenciaAsync(conta.Id, usuarioAutenticadoId, competencia, cancellationToken))
+            .Select(MapLancamento)
+            .ToArray();
+    }
 
     public async Task<ContaBancariaDto> CriarAsync(CriarContaBancariaRequest request, CancellationToken cancellationToken = default)
     {
@@ -87,4 +100,17 @@ public sealed class ContaBancariaService(IContaBancariaRepository repository, IU
         new(c.Id, c.Descricao, c.Banco, c.Agencia, c.Numero, c.SaldoInicial, c.SaldoAtual, c.DataAbertura, c.Status.ToString().ToLowerInvariant(),
             c.Extrato.Select(x => new ContaBancariaExtratoDto(x.Id, DateOnly.FromDateTime(x.DataHoraCadastro), x.Descricao, x.Tipo, x.Valor)).ToArray(),
             c.Logs.Select(x => new ContaBancariaLogDto(x.Id, DateOnly.FromDateTime(x.DataHoraCadastro), x.Acao, x.Descricao)).ToArray());
+
+    private static LancamentoVinculadoDto MapLancamento(HistoricoTransacaoFinanceira historico) =>
+        new(
+            historico.Id,
+            historico.TransacaoId,
+            historico.DataTransacao,
+            historico.TipoTransacao.ToString().ToLowerInvariant(),
+            historico.TipoOperacao.ToString().ToLowerInvariant(),
+            historico.Descricao,
+            historico.TipoPagamento,
+            historico.ValorAntesTransacao,
+            historico.ValorTransacao,
+            historico.ValorDepoisTransacao);
 }

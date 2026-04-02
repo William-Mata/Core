@@ -20,6 +20,8 @@ public sealed record DespesaRecorrenciaBackgroundMessage(
     decimal Acrescimo,
     decimal Imposto,
     decimal Juros,
+    long? ContaBancariaId,
+    long? CartaoId,
     IReadOnlyCollection<DocumentoBackgroundMessage>? Documentos,
     IReadOnlyCollection<RateioAmigoBackgroundMessage> AmigosRateio,
     IReadOnlyCollection<RateioAreaBackgroundMessage> AreasSubAreasRateio);
@@ -40,7 +42,8 @@ public sealed record ReceitaRecorrenciaBackgroundMessage(
     decimal Acrescimo,
     decimal Imposto,
     decimal Juros,
-    string? ContaBancaria,
+    long? ContaBancariaId,
+    long? CartaoId,
     IReadOnlyCollection<DocumentoBackgroundMessage>? Documentos,
     IReadOnlyCollection<RateioAmigoBackgroundMessage> AmigosRateio,
     IReadOnlyCollection<RateioAreaBackgroundMessage> AreasSubAreasRateio);

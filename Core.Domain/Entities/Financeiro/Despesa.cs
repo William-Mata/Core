@@ -26,6 +26,8 @@ public sealed class Despesa
     public decimal Juros { get; set; }
     public decimal? ValorEfetivacao { get; set; }
     public StatusDespesa Status { get; set; } = StatusDespesa.Pendente;
+    public long? ContaBancariaId { get; set; }
+    public long? CartaoId { get; set; }
     public List<Documento> Documentos { get; set; } = [];
     public List<DespesaAmigoRateio> AmigosRateio { get; set; } = [];
     public List<DespesaAreaRateio> AreasRateio { get; set; } = [];

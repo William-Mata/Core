@@ -6,17 +6,16 @@ namespace Core.Infrastructure.Persistence.Repositories.Financeiro;
 
 public sealed class ReembolsoRepository(AppDbContext dbContext) : IReembolsoRepository
 {
-    public Task<List<Reembolso>> ListarAsync(string? filtroId, string? descricao, DateOnly? dataInicio, DateOnly? dataFim, CancellationToken cancellationToken = default)
-        => ListarCoreAsync(null, filtroId, descricao, dataInicio, dataFim, cancellationToken);
+    public Task<List<Reembolso>> ListarAsync(string? filtroId, string? descricao, string? competencia, DateOnly? dataInicio, DateOnly? dataFim, CancellationToken cancellationToken = default)
+        => ListarCoreAsync(null, filtroId, descricao, competencia, dataInicio, dataFim, cancellationToken);
 
-    public Task<List<Reembolso>> ListarAsync(int usuarioCadastroId, string? filtroId, string? descricao, DateOnly? dataInicio, DateOnly? dataFim, CancellationToken cancellationToken = default)
-        => ListarCoreAsync(usuarioCadastroId, filtroId, descricao, dataInicio, dataFim, cancellationToken);
+    public Task<List<Reembolso>> ListarAsync(int usuarioCadastroId, string? filtroId, string? descricao, string? competencia, DateOnly? dataInicio, DateOnly? dataFim, CancellationToken cancellationToken = default)
+        => ListarCoreAsync(usuarioCadastroId, filtroId, descricao, competencia, dataInicio, dataFim, cancellationToken);
 
-    private Task<List<Reembolso>> ListarCoreAsync(int? usuarioCadastroId, string? filtroId, string? descricao, DateOnly? dataInicio, DateOnly? dataFim, CancellationToken cancellationToken)
+    private Task<List<Reembolso>> ListarCoreAsync(int? usuarioCadastroId, string? filtroId, string? descricao, string? competencia, DateOnly? dataInicio, DateOnly? dataFim, CancellationToken cancellationToken)
     {
+        var competenciaMesAno = CompetenciaFiltroHelper.ResolverMesAno(competencia);
         var query = dbContext.Set<Reembolso>()
-            .Include(x => x.Despesas)
-            .Include(x => x.Documentos)
             .OrderByDescending(x => x.DataLancamento)
             .ThenByDescending(x => x.Id)
             .AsQueryable();
@@ -45,6 +44,13 @@ public sealed class ReembolsoRepository(AppDbContext dbContext) : IReembolsoRepo
         if (dataFim.HasValue)
         {
             query = query.Where(x => x.DataLancamento <= dataFim.Value);
+        }
+
+        if (competenciaMesAno.HasValue)
+        {
+            query = query.Where(x =>
+                x.DataLancamento.Year == competenciaMesAno.Value.Ano &&
+                x.DataLancamento.Month == competenciaMesAno.Value.Mes);
         }
 
         return query.ToListAsync(cancellationToken);

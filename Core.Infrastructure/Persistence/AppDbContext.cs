@@ -164,6 +164,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         modelBuilder.Entity<Despesa>().Property(x => x.RecorrenciaFixa).HasDefaultValue(false);
         modelBuilder.Entity<DespesaLog>().Property(x => x.Acao).HasConversion<string>();
         modelBuilder.Entity<Despesa>().HasOne<Despesa>().WithMany().HasForeignKey(x => x.DespesaOrigemId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Despesa>().HasOne<ContaBancaria>().WithMany().HasForeignKey(x => x.ContaBancariaId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Despesa>().HasOne<Cartao>().WithMany().HasForeignKey(x => x.CartaoId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<Despesa>().HasMany(x => x.AmigosRateio).WithOne().HasForeignKey(x => x.DespesaId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<Despesa>().HasMany(x => x.AreasRateio).WithOne().HasForeignKey(x => x.DespesaId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<Despesa>().HasMany(x => x.Documentos).WithOne().HasForeignKey(x => x.DespesaId).OnDelete(DeleteBehavior.Cascade);
@@ -217,6 +219,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         modelBuilder.Entity<Receita>().Property(x => x.RecorrenciaFixa).HasDefaultValue(false);
         modelBuilder.Entity<ReceitaLog>().Property(x => x.Acao).HasConversion<string>();
         modelBuilder.Entity<Receita>().HasOne<Receita>().WithMany().HasForeignKey(x => x.ReceitaOrigemId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Receita>().HasOne<ContaBancaria>().WithMany().HasForeignKey(x => x.ContaBancariaId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Receita>().HasOne<Cartao>().WithMany().HasForeignKey(x => x.CartaoId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<Receita>().HasMany(x => x.AmigosRateio).WithOne().HasForeignKey(x => x.ReceitaId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<Receita>().HasMany(x => x.AreasRateio).WithOne().HasForeignKey(x => x.ReceitaId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<Receita>().HasMany(x => x.Documentos).WithOne().HasForeignKey(x => x.ReceitaId).OnDelete(DeleteBehavior.Cascade);

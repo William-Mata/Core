@@ -17,12 +17,31 @@ public sealed class ReembolsoService(
     HistoricoTransacaoFinanceiraService historicoTransacaoFinanceiraService,
     IDocumentoStorageService documentoStorageService)
 {
-    public async Task<IReadOnlyCollection<ReembolsoDto>> ListarAsync(ListarReembolsosRequest request, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyCollection<ReembolsoListaDto>> ListarAsync(ListarReembolsosRequest request, CancellationToken cancellationToken = default)
     {
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
-        var periodo = CompetenciaPeriodoHelper.Resolver(request.Competencia, request.DataInicio, request.DataFim);
-        return (await repository.ListarAsync(usuarioAutenticadoId, request.Id, request.Descricao, periodo.DataInicio, periodo.DataFim, cancellationToken))
-            .Select(Map)
+        var dataInicio = request.DataInicio;
+        var dataFim = request.DataFim;
+
+        if (dataInicio.HasValue && dataFim.HasValue && dataFim.Value < dataInicio.Value)
+            throw new DomainException("periodo_invalido");
+
+        if (string.IsNullOrWhiteSpace(request.Competencia) && !dataInicio.HasValue && !dataFim.HasValue)
+        {
+            var periodoAtual = CompetenciaPeriodoHelper.Resolver(null, null, null);
+            dataInicio = periodoAtual.DataInicio;
+            dataFim = periodoAtual.DataFim;
+        }
+
+        return (await repository.ListarAsync(
+                usuarioAutenticadoId,
+                request.Id,
+                request.Descricao,
+                request.Competencia,
+                dataInicio,
+                dataFim,
+                cancellationToken))
+            .Select(MapLista)
             .ToArray();
     }
 
@@ -308,6 +327,16 @@ public sealed class ReembolsoService(
             reembolso.DataEfetivacao,
             reembolso.Despesas.Select(x => x.DespesaId).ToArray(),
             reembolso.Documentos.Select(x => new DocumentoDto(x.NomeArquivo, x.CaminhoArquivo, x.ContentType, x.TamanhoBytes)).ToArray(),
+            reembolso.ValorTotal,
+            reembolso.Status.ToString().ToUpperInvariant());
+
+    private static ReembolsoListaDto MapLista(Reembolso reembolso) =>
+        new(
+            reembolso.Id,
+            reembolso.Descricao,
+            reembolso.Solicitante,
+            reembolso.DataLancamento,
+            reembolso.DataEfetivacao,
             reembolso.ValorTotal,
             reembolso.Status.ToString().ToUpperInvariant());
 

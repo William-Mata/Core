@@ -16,6 +16,10 @@ public sealed class ContaBancariaController(ContaBancariaService service) : Cont
     [HttpGet("{id:long}")]
     public async Task<IActionResult> Obter(long id, CancellationToken cancellationToken) => Ok(await service.ObterAsync(id, cancellationToken));
 
+    [HttpGet("{id:long}/lancamentos")]
+    public async Task<IActionResult> ListarLancamentos(long id, [FromQuery] string? competencia, CancellationToken cancellationToken) =>
+        Ok(await service.ListarLancamentosAsync(id, competencia, cancellationToken));
+
     [HttpPost]
     public async Task<IActionResult> Criar([FromBody] CriarContaBancariaRequest request, CancellationToken cancellationToken)
     {

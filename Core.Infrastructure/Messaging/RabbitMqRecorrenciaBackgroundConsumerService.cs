@@ -162,6 +162,8 @@ public sealed class RabbitMqRecorrenciaBackgroundConsumerService(
                 Acrescimo = payload.Acrescimo,
                 Imposto = payload.Imposto,
                 Juros = payload.Juros,
+                ContaBancariaId = payload.ContaBancariaId,
+                CartaoId = payload.CartaoId,
                 Status = StatusDespesa.Pendente,
                 Documentos = (payload.Documentos ?? []).Select(x => new Documento
                 {
@@ -242,6 +244,8 @@ public sealed class RabbitMqRecorrenciaBackgroundConsumerService(
                     Acrescimo = 0m,
                     Imposto = 0m,
                     Juros = 0m,
+                    ContaBancariaId = origem.ContaBancariaId,
+                    CartaoId = origem.CartaoId,
                     Status = StatusDespesa.PendenteAprovacao,
                     AreasRateio = DistribuirAreasDespesa(payload.AreasSubAreasRateio, payload.ValorTotal, amigo.Valor, amigo.AmigoId),
                     Logs =
@@ -269,12 +273,6 @@ public sealed class RabbitMqRecorrenciaBackgroundConsumerService(
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var liquido = payload.ValorTotal - payload.Desconto + payload.Acrescimo + payload.Imposto + payload.Juros;
         var origensCriadas = new List<Receita>();
-        long? contaBancariaId = null;
-
-        if (!string.IsNullOrWhiteSpace(payload.ContaBancaria) && long.TryParse(payload.ContaBancaria, out var contaId))
-        {
-            contaBancariaId = contaId;
-        }
 
         for (var numero = 2; numero <= alvo; numero++)
         {
@@ -310,7 +308,8 @@ public sealed class RabbitMqRecorrenciaBackgroundConsumerService(
                 Imposto = payload.Imposto,
                 Juros = payload.Juros,
                 Status = StatusReceita.Pendente,
-                ContaBancariaId = contaBancariaId,
+                ContaBancariaId = payload.ContaBancariaId,
+                CartaoId = payload.CartaoId,
                 Documentos = (payload.Documentos ?? []).Select(x => new Documento
                 {
                     UsuarioCadastroId = payload.UsuarioId,
@@ -392,6 +391,7 @@ public sealed class RabbitMqRecorrenciaBackgroundConsumerService(
                     Juros = 0m,
                     Status = StatusReceita.PendenteAprovacao,
                     ContaBancariaId = origem.ContaBancariaId,
+                    CartaoId = origem.CartaoId,
                     AreasRateio = DistribuirAreasReceita(payload.AreasSubAreasRateio, payload.ValorTotal, amigo.Valor, amigo.AmigoId),
                     Logs =
                     [

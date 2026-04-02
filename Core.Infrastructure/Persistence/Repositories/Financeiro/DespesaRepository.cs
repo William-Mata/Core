@@ -7,13 +7,13 @@ namespace Core.Infrastructure.Persistence.Repositories.Financeiro;
 public sealed class DespesaRepository(AppDbContext dbContext) : IDespesaRepository
 {
     public Task<List<Despesa>> ListarAsync(CancellationToken cancellationToken = default) =>
-        ListarAsync(filtroId: null, descricao: null, dataInicio: null, dataFim: null, cancellationToken);
+        ListarAsync(filtroId: null, descricao: null, competencia: null, dataInicio: null, dataFim: null, cancellationToken);
 
-    public Task<List<Despesa>> ListarAsync(string? filtroId, string? descricao, DateOnly? dataInicio, DateOnly? dataFim, CancellationToken cancellationToken = default) =>
-        ListarCoreAsync(null, filtroId, descricao, dataInicio, dataFim, cancellationToken);
+    public Task<List<Despesa>> ListarAsync(string? filtroId, string? descricao, string? competencia, DateOnly? dataInicio, DateOnly? dataFim, CancellationToken cancellationToken = default) =>
+        ListarCoreAsync(null, filtroId, descricao, competencia, dataInicio, dataFim, cancellationToken);
 
-    public Task<List<Despesa>> ListarPorUsuarioAsync(int usuarioCadastroId, string? filtroId, string? descricao, DateOnly? dataInicio, DateOnly? dataFim, CancellationToken cancellationToken = default) =>
-        ListarCoreAsync(usuarioCadastroId, filtroId, descricao, dataInicio, dataFim, cancellationToken);
+    public Task<List<Despesa>> ListarPorUsuarioAsync(int usuarioCadastroId, string? filtroId, string? descricao, string? competencia, DateOnly? dataInicio, DateOnly? dataFim, CancellationToken cancellationToken = default) =>
+        ListarCoreAsync(usuarioCadastroId, filtroId, descricao, competencia, dataInicio, dataFim, cancellationToken);
 
     public Task<List<Despesa>> ListarPendentesAprovacaoPorUsuarioAsync(int usuarioCadastroId, CancellationToken cancellationToken = default) =>
         dbContext.Despesas
@@ -42,22 +42,27 @@ public sealed class DespesaRepository(AppDbContext dbContext) : IDespesaReposito
             .Include(x => x.Logs)
             .ToListAsync(cancellationToken);
 
-    private Task<List<Despesa>> ListarCoreAsync(int? usuarioCadastroId, string? filtroId, string? descricao, DateOnly? dataInicio, DateOnly? dataFim, CancellationToken cancellationToken) =>
-        dbContext.Despesas
+    private Task<List<Despesa>> ListarCoreAsync(int? usuarioCadastroId, string? filtroId, string? descricao, string? competencia, DateOnly? dataInicio, DateOnly? dataFim, CancellationToken cancellationToken)
+    {
+        var competenciaMesAno = CompetenciaFiltroHelper.ResolverMesAno(competencia);
+        var query = dbContext.Despesas
             .Where(x => !usuarioCadastroId.HasValue || x.UsuarioCadastroId == usuarioCadastroId.Value)
             .Where(x => string.IsNullOrWhiteSpace(filtroId) || x.Id.ToString().Contains(filtroId.Trim()))
             .Where(x => string.IsNullOrWhiteSpace(descricao) || x.Descricao.Contains(descricao.Trim()))
             .Where(x => !dataInicio.HasValue || x.DataLancamento >= dataInicio.Value)
-            .Where(x => !dataFim.HasValue || x.DataLancamento <= dataFim.Value)
-            .Include(x => x.AmigosRateio)
-            .Include(x => x.AreasRateio)
-                .ThenInclude(x => x.Area)
-            .Include(x => x.AreasRateio)
-                .ThenInclude(x => x.SubArea)
-            .Include(x => x.Documentos)
-            .Include(x => x.Logs)
+            .Where(x => !dataFim.HasValue || x.DataLancamento <= dataFim.Value);
+
+        if (competenciaMesAno.HasValue)
+        {
+            query = query.Where(x =>
+                x.DataLancamento.Year == competenciaMesAno.Value.Ano &&
+                x.DataLancamento.Month == competenciaMesAno.Value.Mes);
+        }
+
+        return query
             .OrderByDescending(x => x.DataLancamento)
             .ToListAsync(cancellationToken);
+    }
 
     public Task<List<Despesa>> ObterPorIdsAsync(IReadOnlyCollection<long> ids, CancellationToken cancellationToken = default) =>
         dbContext.Despesas
