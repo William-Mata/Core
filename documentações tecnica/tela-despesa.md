@@ -1,67 +1,208 @@
 # Tela de Despesa
 
 ## Objetivo
-Documentar o contrato atual do front-end da tela de despesa para integracao com API.
+Documentar o contrato atual da API para a tela de despesa, com foco nas regras reais aplicadas no backend.
 
-Arquivo principal:
-- `app/principal/financeiro/despesa.tsx`
+Arquivos fonte usados:
+- `Core.Api/Controllers/Financeiro/DespesaController.cs`
+- `Core.Application/Services/Financeiro/DespesaService.cs`
+- `Core.Application/DTOs/Financeiro/DespesaDtos.cs`
+- `Core.Domain/Enums/Recorrencia.cs`
+- `Core.Domain/Enums/StatusDespesa.cs`
 
-## Rota do front
-- listagem da tela: `/principal/financeiro/despesa`
-- visualizacao por id: `/principal/financeiro/despesa?id={id}`
+## Autenticacao
+Todos os endpoints exigem autenticacao (`[Authorize]`).
 
-## Modos da tela
-A tela trabalha com cinco modos internos:
-- `lista`
-- `novo`
-- `edicao`
-- `visualizacao`
-- `efetivacao`
+## Endpoints
+- `GET /api/financeiro/despesas`
+- `GET /api/financeiro/despesas/{id}`
+- `POST /api/financeiro/despesas`
+- `PUT /api/financeiro/despesas/{id}`
+- `POST /api/financeiro/despesas/{id}/efetivar`
+- `POST /api/financeiro/despesas/{id}/cancelar`
+- `POST /api/financeiro/despesas/{id}/estornar`
 
-## Estrutura esperada de despesa
-Campos usados pelo front:
+## Contrato de listagem
+### Query params
+- `id` (opcional)
+- `descricao` (opcional)
+- `competencia` (opcional)
+- `dataInicio` (opcional, `yyyy-MM-dd`)
+- `dataFim` (opcional, `yyyy-MM-dd`)
 
+### Regras
+- se `dataInicio` e `dataFim` forem informadas, `dataFim >= dataInicio` (`periodo_invalido` em caso contrario)
+- se `competencia`, `dataInicio` e `dataFim` nao forem enviados, a API aplica automaticamente o periodo da competencia atual
+- despesas espelho de rateio com status `pendenteaprovacao` ou `rejeitado` nao entram na listagem principal
+
+### Exemplo de response de sucesso (200)
+```json
+[
+  {
+    "id": 12,
+    "descricao": "Almoco com cliente",
+    "dataLancamento": "2026-03-10",
+    "dataVencimento": "2026-03-15",
+    "dataEfetivacao": null,
+    "tipoDespesa": "alimentacao",
+    "tipoPagamento": "pix",
+    "valorTotal": 150.0,
+    "valorLiquido": 145.0,
+    "valorEfetivacao": null,
+    "status": "pendente",
+    "vinculo": {
+      "contaBancariaId": 3,
+      "cartaoId": null
+    }
+  }
+]
+```
+
+## Contrato de detalhe
+`GET /api/financeiro/despesas/{id}` retorna `DespesaDto` com:
+- dados principais da despesa
+- `recorrencia`, `quantidadeRecorrencia`, `recorrenciaFixa`
+- `amigosRateio` e `areasSubAreasRateio`
+- `documentos`
+- `vinculo` (`contaBancariaId`, `cartaoId`)
+- `logs`
+
+## Payload de criacao
+### Request (`POST /api/financeiro/despesas`)
 ```json
 {
-  "id": 1,
   "descricao": "Almoco com cliente",
-  "observacao": "Reuniao comercial no centro.",
+  "observacao": "Reuniao comercial",
   "dataLancamento": "2026-03-10",
   "dataVencimento": "2026-03-15",
-  "dataEfetivacao": "2026-03-15",
   "tipoDespesa": "alimentacao",
   "tipoPagamento": "pix",
-  "recorrencia": "unica",
+  "recorrencia": 1,
   "valorTotal": 150.0,
-  "valorLiquido": 145.0,
   "desconto": 5.0,
   "acrescimo": 0.0,
   "imposto": 0.0,
   "juros": 0.0,
-  "valorEfetivacao": 145.0,
-  "status": "efetivada",
-  "amigosRateio": ["Ana", "Bruno"],
-  "tiposRateio": ["alimentacao"],
-  "anexoDocumento": "recibo-almoco.pdf",
-  "logs": [
+  "documentos": [
     {
-      "id": 1,
-      "data": "2026-03-10",
-      "acao": "CRIADA",
-      "descricao": "Despesa criada com status pendente."
+      "nomeArquivo": "recibo.pdf",
+      "conteudoBase64": "<base64>",
+      "contentType": "application/pdf"
     }
-  ]
+  ],
+  "amigosRateio": [
+    {
+      "amigoId": 10,
+      "valor": 150.0
+    }
+  ],
+  "areasSubAreasRateio": [
+    {
+      "areaId": 1,
+      "subAreaId": 3,
+      "valor": 150.0
+    }
+  ],
+  "quantidadeRecorrencia": 1,
+  "quantidadeParcelas": null,
+  "recorrenciaFixa": false,
+  "vinculo": {
+    "contaBancariaId": 3,
+    "cartaoId": null
+  }
 }
 ```
 
-## Enumeracoes esperadas pelo front
+### Regras de criacao/atualizacao
+- `descricao` obrigatoria (`descricao_obrigatoria`)
+- `valorTotal > 0` (`valor_total_invalido`)
+- `dataVencimento >= dataLancamento` (`periodo_invalido`)
+- `tipoDespesa`, `tipoPagamento` e `recorrencia` devem ser validos (`enum_invalida`)
+- status inicial sempre `pendente`
+- `valorLiquido` e recalculado no backend: `valorTotal - desconto + acrescimo + imposto + juros`
+- atualizacao so e permitida quando status atual for `pendente` (`status_invalido`)
 
-### Status
-- `pendente`
-- `efetivada`
-- `cancelada`
+### Regras de recorrencia
+- `recorrenciaFixa = true` exige recorrencia diferente de `Unica` (`recorrencia_fixa_invalida`)
+- quando `recorrenciaFixa = false` e recorrencia nao for `Unica`, `quantidadeRecorrencia` deve ser maior que zero
+- quando informada, `quantidadeRecorrencia` nao pode exceder 100 (nao fixa)
+- para `cartaoCredito` e `cartaoDebito`:
+  - recorrencia e forcada para `Mensal`
+  - `recorrenciaFixa` e forcada para `false`
+  - e obrigatorio informar parcelas (`quantidadeParcelas` ou `quantidadeRecorrencia`) > 0 (`quantidade_parcelas_invalida`)
+- quando o total de recorrencias for maior que 1, a API publica criacao em background para lancamentos futuros
 
-### Tipo de despesa
+### Regras de vinculo de pagamento
+- nao pode informar `contaBancariaId` e `cartaoId` ao mesmo tempo (`forma_pagamento_invalida`)
+- `pix` e `transferencia` exigem `contaBancariaId` (`conta_bancaria_obrigatoria`)
+- `cartaoCredito` e `cartaoDebito` exigem `cartaoId` (`cartao_obrigatorio`)
+- conta/cartao informados precisam existir para o usuario (`conta_bancaria_invalida`, `cartao_invalido`)
+
+### Regras de rateio
+- amigos:
+  - ids unicos e validos (> 0)
+  - cada item com `valor > 0`
+  - soma exata dos valores = `valorTotal`
+  - amigo precisa ser amizade aceita e usuario ativo (`amigo_rateio_invalido`)
+- area/subarea:
+  - `areaId` e `subAreaId` > 0
+  - subarea deve pertencer a area informada (`relacao_area_subarea_invalida`)
+  - area/subarea deve ser do tipo financeiro `Despesa` (`area_subarea_invalida`)
+  - soma dos valores = `valorTotal` (`rateio_area_invalido`)
+
+## Efetivacao
+### Request (`POST /api/financeiro/despesas/{id}/efetivar`)
+```json
+{
+  "dataEfetivacao": "2026-03-15",
+  "tipoPagamento": "pix",
+  "valorTotal": 150.0,
+  "desconto": 5.0,
+  "acrescimo": 0.0,
+  "imposto": 0.0,
+  "juros": 0.0,
+  "documentos": [],
+  "contaBancariaId": 3,
+  "cartaoId": null,
+  "vinculo": {
+    "contaBancariaId": 3,
+    "cartaoId": null
+  }
+}
+```
+
+### Regras
+- so efetiva despesa em status `pendente` (`status_invalido`)
+- `tipoPagamento` obrigatorio e `valorTotal > 0` (`dados_invalidos`)
+- `dataEfetivacao >= dataLancamento` (`periodo_invalido`)
+- aplica regras de vinculo (conta/cartao)
+- define:
+  - `status = efetivada`
+  - `dataEfetivacao`
+  - `valorLiquido` recalculado
+  - `valorEfetivacao = valorLiquido`
+- registra historico financeiro de efetivacao
+
+## Cancelamento
+`POST /api/financeiro/despesas/{id}/cancelar`
+
+Regras:
+- so permite cancelar em status `pendente`
+- define `status = cancelada`
+
+## Estorno
+`POST /api/financeiro/despesas/{id}/estornar`
+
+Regras:
+- so permite estornar em status `efetivada`
+- define:
+  - `status = pendente`
+  - `dataEfetivacao = null`
+  - `valorEfetivacao = null`
+- registra historico financeiro de estorno
+
+## Enumeracoes relevantes
+### `tipoDespesa`
 - `alimentacao`
 - `transporte`
 - `moradia`
@@ -70,7 +211,7 @@ Campos usados pelo front:
 - `educacao`
 - `servicos`
 
-### Tipo de pagamento
+### `tipoPagamento`
 - `pix`
 - `cartaoCredito`
 - `cartaoDebito`
@@ -78,140 +219,40 @@ Campos usados pelo front:
 - `transferencia`
 - `dinheiro`
 
-### Recorrencia
-- `unica`
-- `semanal`
-- `mensal`
-- `anual`
+### `status` retornado pela API
+- `pendente`
+- `efetivada`
+- `cancelada`
+- `pendenteaprovacao`
+- `rejeitado`
 
-## Filtros da listagem
-A tela usa filtro local com:
-- `id`
-- `descricao`
-- `dataInicio`
-- `dataFim`
+### `recorrencia` (enum numerico)
+- `1` Unica
+- `2` Diaria
+- `3` Semanal
+- `4` Quinzenal
+- `5` Mensal
+- `6` Trimestral
+- `7` Semestral
+- `8` Anual
 
-Regras do front:
-- `id` filtra por correspondencia parcial
-- `descricao` filtra por descricao, observacao, tipo traduzido e status traduzido
-- o intervalo de data usa `dataLancamento`
+## Erros e formato de resposta
+- erros de dominio e validacao: `400`
+- recurso nao encontrado: `404`
+- erro interno: `500`
 
-## Regras de validacao no cadastro e edicao
-Campos obrigatorios exigidos pelo front:
-- `descricao`
-- `dataLancamento`
-- `dataVencimento`
-- `tipoDespesa`
-- `tipoPagamento`
-- `valorTotal`
-
-Comportamento atual:
-- quando um campo obrigatorio nao e preenchido, o front destaca o campo e exibe alerta
-- o calculo de `valorLiquido` e automatico
-- `valorLiquido` e bloqueado na UI
-- formula atual:
-
-```txt
-valorLiquido = valorTotal - desconto + acrescimo + imposto + juros
-```
-
-## Regras de cadastro
-Ao salvar uma nova despesa o front:
-- gera o `id` localmente no mock atual
-- define `status = pendente`
-- grava `logs` com acao `CRIADA`
-
-Payload recomendado para criacao:
-
+Formato padrao (`application/problem+json`):
 ```json
 {
-  "descricao": "Almoco com cliente",
-  "observacao": "Reuniao comercial no centro.",
-  "dataLancamento": "2026-03-10",
-  "dataVencimento": "2026-03-15",
-  "tipoDespesa": "alimentacao",
-  "tipoPagamento": "pix",
-  "recorrencia": "unica",
-  "valorTotal": 150.0,
-  "desconto": 5.0,
-  "acrescimo": 0.0,
-  "imposto": 0.0,
-  "juros": 0.0,
-  "amigosRateio": ["Ana", "Bruno"],
-  "tiposRateio": ["alimentacao"],
-  "anexoDocumento": "recibo-almoco.pdf"
+  "type": "https://httpstatuses.com/400",
+  "title": "Requisicao invalida",
+  "status": 400,
+  "detail": "A operacao nao pode ser realizada no status atual.",
+  "instance": "/api/financeiro/despesas/12/efetivar",
+  "code": "status_invalido",
+  "traceId": "00-..."
 }
 ```
 
-## Regras de edicao
-- o front so permite editar despesa com `status = pendente`
-- ao editar, grava log com acao `EDITADA`
-- a mesma validacao do cadastro continua valendo
-
-## Regras de visualizacao
-A visualizacao mostra:
-- todos os campos principais
-- status
-- data de efetivacao
-- logs de alteracao
-
-## Regras de efetivacao
-Campos exigidos pelo front:
-- `dataEfetivacao`
-- `tipoPagamento`
-- `valorTotal`
-
-Comportamento atual:
-- `valorLiquido` fica bloqueado
-- `valorEfetivacao` fica bloqueado
-- `valorEfetivacao` recebe o mesmo valor do `valorLiquido`
-- ao efetivar, o front define:
-  - `status = efetivada`
-  - `valorEfetivacao = valorLiquido`
-  - log com acao `EFETIVADA`
-
-Payload recomendado para efetivacao:
-
-```json
-{
-  "dataEfetivacao": "2026-03-15",
-  "tipoPagamento": "pix",
-  "valorTotal": 150.0,
-  "desconto": 5.0,
-  "acrescimo": 0.0,
-  "imposto": 0.0,
-  "juros": 0.0,
-  "anexoDocumento": "recibo-almoco.pdf"
-}
-```
-
-## Regras de cancelamento
-- o front so permite cancelar despesa com `status = pendente`
-- na web, confirma via `confirm()` nativo
-- no mobile, confirma via `Alert.alert`
-- ao cancelar, o front define:
-  - `status = cancelada`
-  - log com acao `CANCELADA`
-
-## Regras de estorno
-- o front so permite estornar despesa com `status = efetivada`
-- ao estornar, o front define:
-  - `status = pendente`
-  - `dataEfetivacao = undefined`
-  - `valorEfetivacao = undefined`
-  - log com acao `ESTORNADA`
-
-## Regras de upload
-- `anexoDocumento` e tratado como seletor de arquivo
-- o front espera receber ou manter o nome do arquivo para exibicao
-
-## Regras de formatacao
-- valores devem ser enviados como numero
-- datas devem ser enviadas em ISO `yyyy-MM-dd`
-- o front aplica formatacao por idioma para exibicao
-- os campos monetarios usam mascara local no cliente
-
-## Fora do escopo atual da tela
-- rateio com percentuais
-- persistencia real dos uploads
-- auditoria de usuario que alterou cada log
+## Pendencias
+- o controller de despesa nao expoe (nesta rota) endpoints para aprovar/rejeitar rateio espelho, apesar de existirem regras no service (`AprovarRateioAsync` e `RejeitarRateioAsync`), indicando fluxo atendido por outro ponto da API.

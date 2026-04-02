@@ -1,187 +1,155 @@
 # Tela de Receita
 
 ## Objetivo
-Documentar o contrato atual do front-end da tela de receita para integracao com API.
+Documentar o contrato atual da API para a tela de receita, com base no comportamento real do backend.
 
-Arquivo principal:
-- `app/principal/financeiro/receita.tsx`
+Arquivos fonte usados:
+- `Core.Api/Controllers/Financeiro/ReceitaController.cs`
+- `Core.Application/Services/Financeiro/ReceitaService.cs`
+- `Core.Application/DTOs/Financeiro/ReceitaDtos.cs`
+- `Core.Domain/Enums/Recorrencia.cs`
+- `Core.Domain/Enums/StatusReceita.cs`
 
-## Rota do front
-- listagem da tela: `/principal/financeiro/receita`
-- visualizacao por id: `/principal/financeiro/receita?id={id}`
+## Autenticacao
+Todos os endpoints exigem autenticacao (`[Authorize]`).
 
-## Modos da tela
-A tela trabalha com cinco modos internos:
-- `lista`
-- `novo`
-- `edicao`
-- `visualizacao`
-- `efetivacao`
+## Endpoints
+- `GET /api/financeiro/receitas`
+- `GET /api/financeiro/receitas/{id}`
+- `POST /api/financeiro/receitas`
+- `PUT /api/financeiro/receitas/{id}`
+- `POST /api/financeiro/receitas/{id}/efetivar`
+- `POST /api/financeiro/receitas/{id}/cancelar`
+- `POST /api/financeiro/receitas/{id}/estornar`
 
-## Estrutura esperada de receita
-Campos usados pelo front:
+## Contrato de listagem
+### Query params
+- `id` (opcional)
+- `descricao` (opcional)
+- `competencia` (opcional)
+- `dataInicio` (opcional, `yyyy-MM-dd`)
+- `dataFim` (opcional, `yyyy-MM-dd`)
 
+### Regras
+- se `dataInicio` e `dataFim` vierem juntas, `dataFim >= dataInicio` (`periodo_invalido`)
+- sem `competencia`, `dataInicio` e `dataFim`, a API aplica automaticamente a competencia atual
+- receitas espelho de rateio com status `pendenteaprovacao` ou `rejeitado` nao entram na listagem principal
+
+### Exemplo de response de sucesso (200)
 ```json
-{
-  "id": 1,
-  "descricao": "Salario mensal",
-  "observacao": "Recebimento principal do mes.",
-  "dataLancamento": "2026-03-01",
-  "dataVencimento": "2026-03-05",
-  "dataEfetivacao": "2026-03-05",
-  "tipoReceita": "salario",
-  "tipoRecebimento": "transferencia",
-  "recorrencia": "mensal",
-  "valorTotal": 5800.0,
-  "valorLiquido": 5650.0,
-  "desconto": 150.0,
-  "acrescimo": 0.0,
-  "imposto": 0.0,
-  "juros": 0.0,
-  "valorEfetivacao": 5650.0,
-  "status": "efetivada",
-  "amigosRateio": [],
-  "rateioAmigosValores": {},
-  "areasRateio": ["Comercial > Projeto A"],
-  "rateioAreasValores": {
-    "Comercial > Projeto A": 5650.0
-  },
-  "contaBancaria": "Conta Principal",
-  "anexoDocumento": "holerite-marco.pdf",
-  "logs": []
-}
+[
+  {
+    "id": 24,
+    "descricao": "Freelance",
+    "dataLancamento": "2026-03-12",
+    "dataVencimento": "2026-03-20",
+    "dataEfetivacao": null,
+    "tipoReceita": "freelance",
+    "tipoRecebimento": "pix",
+    "valorTotal": 1200.0,
+    "valorLiquido": 1200.0,
+    "valorEfetivacao": null,
+    "status": "pendente",
+    "vinculo": {
+      "contaBancariaId": 3,
+      "cartaoId": null
+    }
+  }
+]
 ```
 
-## Enumeracoes esperadas pelo front
+## Contrato de detalhe
+`GET /api/financeiro/receitas/{id}` retorna `ReceitaDto` com:
+- dados principais da receita
+- `recorrencia`, `quantidadeRecorrencia`, `recorrenciaFixa`
+- `amigosRateio` e `areasSubAreasRateio`
+- `contaBancaria` (legado, string)
+- `documentos`
+- `vinculo` (`contaBancariaId`, `cartaoId`)
+- `logs`
 
-### Status
-- `pendente`
-- `efetivada`
-- `cancelada`
-
-### Tipo de receita
-- `salario`
-- `freelance`
-- `reembolso`
-- `investimento`
-- `bonus`
-- `outros`
-
-### Tipo de recebimento
-- `pix`
-- `transferencia`
-- `contaCorrente`
-- `dinheiro`
-- `boleto`
-
-### Recorrencia
-- `unica`
-- `semanal`
-- `mensal`
-- `anual`
-
-## Filtros da listagem
-A tela usa filtro local com:
-- `id`
-- `descricao`
-- `dataInicio`
-- `dataFim`
-
-Regras do front:
-- `id` filtra por correspondencia parcial
-- `descricao` filtra por descricao, observacao, tipo traduzido e status traduzido
-- o intervalo de data usa `dataLancamento`
-
-## Regras de validacao no cadastro e edicao
-Campos obrigatorios exigidos pelo front:
-- `descricao`
-- `dataLancamento`
-- `dataVencimento`
-- `tipoReceita`
-- `tipoRecebimento`
-- `valorTotal`
-
-Regra adicional:
-- `contaBancaria` passa a ser obrigatoria quando `tipoRecebimento` for `pix` ou `transferencia`
-
-Comportamento atual:
-- quando um campo obrigatorio nao e preenchido, o front destaca o campo e exibe alerta
-- o calculo de `valorLiquido` e automatico
-- `valorLiquido` e bloqueado na UI
-- formula atual:
-
-```txt
-valorLiquido = valorTotal - desconto + acrescimo + imposto + juros
-```
-
-## Regras de cadastro
-Ao salvar uma nova receita o front:
-- gera o `id` localmente no mock atual
-- define `status = pendente`
-- grava `logs` com acao `CRIADA`
-
-Payload recomendado para criacao:
-
+## Payload de criacao
+### Request (`POST /api/financeiro/receitas`)
 ```json
 {
   "descricao": "Freelance design",
-  "observacao": "Projeto pontual.",
+  "observacao": "Projeto pontual",
   "dataLancamento": "2026-03-12",
   "dataVencimento": "2026-03-20",
   "tipoReceita": "freelance",
   "tipoRecebimento": "pix",
-  "recorrencia": "unica",
+  "recorrencia": 1,
   "valorTotal": 1200.0,
   "desconto": 0.0,
   "acrescimo": 0.0,
   "imposto": 0.0,
   "juros": 0.0,
-  "amigosRateio": ["Ana"],
-  "rateioAmigosValores": {
-    "Ana": 400.0
-  },
-  "areasRateio": ["Marketing > Midia"],
-  "rateioAreasValores": {
-    "Marketing > Midia": 800.0
-  },
+  "areasSubAreasRateio": [
+    {
+      "areaId": 2,
+      "subAreaId": 8,
+      "valor": 1200.0
+    }
+  ],
   "contaBancaria": "Conta Principal",
-  "anexoDocumento": "proposta.pdf"
+  "documentos": [
+    {
+      "nomeArquivo": "comprovante.pdf",
+      "conteudoBase64": "<base64>",
+      "contentType": "application/pdf"
+    }
+  ],
+  "amigosRateio": [
+    {
+      "amigoId": 10,
+      "valor": 1200.0
+    }
+  ],
+  "quantidadeRecorrencia": 1,
+  "recorrenciaFixa": false,
+  "vinculo": {
+    "contaBancariaId": 3,
+    "cartaoId": null
+  }
 }
 ```
 
-## Regras de edicao
-- o front so permite editar receita com `status = pendente`
-- ao editar, grava log com acao `EDITADA`
-- a mesma validacao do cadastro continua valendo
+### Regras de criacao/atualizacao
+- `descricao` obrigatoria (`descricao_obrigatoria`)
+- `valorTotal > 0` (`valor_total_invalido`)
+- `dataVencimento >= dataLancamento` (`periodo_invalido`)
+- `tipoReceita`, `tipoRecebimento` e `recorrencia` validos (`enum_invalida`)
+- status inicial sempre `pendente`
+- `valorLiquido` calculado no backend: `valorTotal - desconto + acrescimo + imposto + juros`
+- atualizacao somente em status `pendente` (`status_invalido`)
 
-## Regras de visualizacao
-A visualizacao mostra:
-- todos os campos principais
-- status
-- data de efetivacao
-- logs de alteracao
-- rateios com valores por amigo e por area / subarea
+### Regras de recorrencia
+- `recorrenciaFixa = true` nao permite `recorrencia = Unica` (`recorrencia_fixa_invalida`)
+- se recorrencia nao for `Unica` e nao for fixa, `quantidadeRecorrencia` deve ser > 0
+- em recorrencia nao fixa, `quantidadeRecorrencia` (quando informada) nao pode ser > 100
+- quando alvo de recorrencia for maior que 1, a API publica criacao em background
 
-## Regras de efetivacao
-Campos exigidos pelo front:
-- `dataEfetivacao`
-- `tipoRecebimento`
-- `valorTotal`
+### Regras de recebimento e vinculo
+- tipos que exigem conta bancaria: `pix`, `transferencia`, `contaCorrente`
+- para `cartaoCredito` e `cartaoDebito`, `cartaoId` e obrigatorio
+- nao pode enviar conta e cartao ao mesmo tempo (`forma_pagamento_invalida`)
+- `contaBancaria` (legado) aceita id em texto ou descricao da conta; backend resolve para `contaBancariaId`
+- conta/cartao precisam existir para o usuario (`conta_bancaria_invalida`, `cartao_invalido`)
 
-Regra adicional na efetivacao:
-- `contaBancaria` e obrigatoria quando `tipoRecebimento` for `pix` ou `transferencia`
+### Regras de rateio
+- amigos:
+  - ids validos e sem repeticao
+  - cada item com `valor > 0`
+  - soma dos valores = `valorTotal`
+  - amigo deve ser aceito e ativo (`amigo_rateio_invalido`)
+- area/subarea:
+  - ids > 0
+  - subarea deve pertencer a area (`relacao_area_subarea_invalida`)
+  - area/subarea precisa ser do tipo financeiro `Receita`
+  - soma dos valores = `valorTotal`
 
-Comportamento atual:
-- `valorLiquido` fica bloqueado
-- `valorEfetivacao` fica bloqueado
-- `valorEfetivacao` recebe o mesmo valor do `valorLiquido`
-- ao efetivar, o front define:
-  - `status = efetivada`
-  - `valorEfetivacao = valorLiquido`
-  - log com acao `EFETIVADA`
-
-Payload recomendado para efetivacao:
-
+## Efetivacao
+### Request (`POST /api/financeiro/receitas/{id}/efetivar`)
 ```json
 {
   "dataEfetivacao": "2026-03-20",
@@ -192,45 +160,84 @@ Payload recomendado para efetivacao:
   "acrescimo": 0.0,
   "imposto": 0.0,
   "juros": 0.0,
-  "anexoDocumento": "comprovante.pdf"
+  "documentos": [],
+  "vinculo": {
+    "contaBancariaId": 3,
+    "cartaoId": null
+  }
 }
 ```
 
-## Regras de cancelamento
-- o front so permite cancelar receita com `status = pendente`
-- confirma cancelamento via alerta nativo
-- ao cancelar, o front define:
-  - `status = cancelada`
-  - log com acao `CANCELADA`
+### Regras
+- so efetiva receita em status `pendente`
+- `tipoRecebimento` obrigatorio e `valorTotal > 0`
+- `dataEfetivacao >= dataLancamento`
+- aplica validacoes de conta/cartao
+- define:
+  - `status = efetivada`
+  - `dataEfetivacao`
+  - `valorLiquido` recalculado
+  - `valorEfetivacao = valorLiquido`
+- registra historico financeiro de efetivacao
 
-## Regras de estorno
-- o front so permite estornar receita com `status = efetivada`
-- ao estornar, o front define:
+## Cancelamento
+`POST /api/financeiro/receitas/{id}/cancelar`
+
+Regras:
+- permitido somente em status `pendente`
+- define `status = cancelada`
+
+## Estorno
+`POST /api/financeiro/receitas/{id}/estornar`
+
+Regras:
+- permitido somente em status `efetivada`
+- define:
   - `status = pendente`
-  - `dataEfetivacao = undefined`
-  - `valorEfetivacao = undefined`
-  - log com acao `ESTORNADA`
+  - `dataEfetivacao = null`
+  - `valorEfetivacao = null`
+- registra historico financeiro de estorno
 
-## Regras de rateio
-O front suporta dois blocos de rateio:
-- `amigosRateio` com `rateioAmigosValores`
-- `areasRateio` com `rateioAreasValores`
+## Enumeracoes relevantes
+### `tipoReceita`
+- `salario`
+- `freelance`
+- `reembolso`
+- `investimento`
+- `bonus`
+- `outros`
 
-Regra atual:
-- o front nao valida se a soma dos rateios bate com o valor liquido
-- ele apenas captura os valores informados e envia / armazena no estado
+### `tipoRecebimento`
+- `pix`
+- `transferencia`
+- `contaCorrente`
+- `dinheiro`
+- `boleto`
+- `cartaoCredito`
+- `cartaoDebito`
 
-## Regras de upload
-- `anexoDocumento` e tratado como seletor de arquivo
-- o front espera receber ou manter o nome do arquivo para exibicao
+### `status` retornado pela API
+- `pendente`
+- `efetivada`
+- `cancelada`
+- `pendenteaprovacao`
+- `rejeitado`
 
-## Regras de formatacao
-- valores devem ser enviados como numero
-- datas devem ser enviadas em ISO `yyyy-MM-dd`
-- o front aplica formatacao por idioma para exibicao
-- os campos monetarios usam mascara local no cliente
+### `recorrencia` (enum numerico)
+- `1` Unica
+- `2` Diaria
+- `3` Semanal
+- `4` Quinzenal
+- `5` Mensal
+- `6` Trimestral
+- `7` Semestral
+- `8` Anual
 
-## Fora do escopo atual da tela
-- validacao automatica do fechamento dos rateios
-- persistencia real dos uploads
-- conciliacao automatica com conta bancaria
+## Erros e formato de resposta
+- erros de dominio e validacao: `400`
+- recurso nao encontrado: `404`
+- erro interno: `500`
+- payload de erro segue `application/problem+json` com `code` e `traceId`
+
+## Pendencias
+- assim como em despesa, existem regras de aprovacao/rejeicao de espelhos no service (`AprovarRateioAsync`/`RejeitarRateioAsync`), mas esses endpoints nao estao neste controller.
