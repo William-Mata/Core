@@ -1,9 +1,11 @@
 using Core.Application.DTOs;
 using Core.Application.Services.Financeiro;
 using Core.Domain.Entities;
+using Core.Domain.Entities.Financeiro;
 using Core.Domain.Enums;
 using Core.Domain.Exceptions;
 using Core.Domain.Interfaces;
+using Core.Domain.Interfaces.Financeiro;
 
 namespace Core.Tests.Unit.Application;
 
@@ -13,7 +15,7 @@ public sealed class CartaoServiceTests
     public async Task DeveListarCartoesFiltrandoPeloUsuarioAutenticado()
     {
         var repository = new CartaoRepositoryFake();
-        var service = new CartaoService(repository, new UsuarioAutenticadoProviderFake(5));
+        var service = new CartaoService(repository, new HistoricoRepositoryFake(), new UsuarioAutenticadoProviderFake(5));
 
         await service.ListarAsync();
 
@@ -23,7 +25,7 @@ public sealed class CartaoServiceTests
     [Fact]
     public async Task DeveExigirUsuarioAutenticado_ParaCriarCartao()
     {
-        var service = new CartaoService(new CartaoRepositoryFake(), new UsuarioAutenticadoProviderFake(null));
+        var service = new CartaoService(new CartaoRepositoryFake(), new HistoricoRepositoryFake(), new UsuarioAutenticadoProviderFake(null));
 
         var ex = await Assert.ThrowsAsync<DomainException>(() => service.CriarAsync(new CriarCartaoRequest("Cartao", "Visa", TipoCartao.Debito, null, 100m, null, null)));
 
@@ -33,7 +35,7 @@ public sealed class CartaoServiceTests
     [Fact]
     public async Task DeveValidarCamposObrigatorios_AoCriarCartao()
     {
-        var service = new CartaoService(new CartaoRepositoryFake(), new UsuarioAutenticadoProviderFake(1));
+        var service = new CartaoService(new CartaoRepositoryFake(), new HistoricoRepositoryFake(), new UsuarioAutenticadoProviderFake(1));
 
         var ex = await Assert.ThrowsAsync<DomainException>(() => service.CriarAsync(new CriarCartaoRequest("", "Visa", TipoCartao.Debito, null, 100m, null, null)));
 
@@ -43,7 +45,7 @@ public sealed class CartaoServiceTests
     [Fact]
     public async Task DeveExigirDadosDeCredito_QuandoTipoForCredito()
     {
-        var service = new CartaoService(new CartaoRepositoryFake(), new UsuarioAutenticadoProviderFake(1));
+        var service = new CartaoService(new CartaoRepositoryFake(), new HistoricoRepositoryFake(), new UsuarioAutenticadoProviderFake(1));
 
         var ex = await Assert.ThrowsAsync<DomainException>(() => service.CriarAsync(new CriarCartaoRequest("Cartao", "Visa", TipoCartao.Credito, null, 100m, null, null)));
 
@@ -57,7 +59,7 @@ public sealed class CartaoServiceTests
         {
             Cartao = new Cartao { Id = 1, Descricao = "Cartao", Bandeira = "Visa", Tipo = TipoCartao.Debito, SaldoDisponivel = 100m, Status = StatusCartao.Ativo }
         };
-        var service = new CartaoService(repository, new UsuarioAutenticadoProviderFake(1));
+        var service = new CartaoService(repository, new HistoricoRepositoryFake(), new UsuarioAutenticadoProviderFake(1));
 
         var ex = await Assert.ThrowsAsync<DomainException>(() => service.InativarAsync(1, new AlternarStatusCartaoRequest(2)));
 
@@ -67,11 +69,33 @@ public sealed class CartaoServiceTests
     [Fact]
     public async Task DeveRetornarErro_QuandoCartaoNaoForEncontrado()
     {
-        var service = new CartaoService(new CartaoRepositoryFake(), new UsuarioAutenticadoProviderFake(1));
+        var service = new CartaoService(new CartaoRepositoryFake(), new HistoricoRepositoryFake(), new UsuarioAutenticadoProviderFake(1));
 
         var ex = await Assert.ThrowsAsync<NotFoundException>(() => service.ObterAsync(99));
 
         Assert.Equal("cartao_nao_encontrado", ex.Message);
+    }
+
+    [Fact]
+    public async Task DeveListarLancamentosVinculadosDoCartaoPorCompetencia()
+    {
+        var repository = new CartaoRepositoryFake
+        {
+            Cartao = new Cartao { Id = 2, Descricao = "Cartao", Bandeira = "Visa", Tipo = TipoCartao.Credito, Limite = 1000m, SaldoDisponivel = 700m, Status = StatusCartao.Ativo }
+        };
+        var historicoRepository = new HistoricoRepositoryFake
+        {
+            Historicos = [new HistoricoTransacaoFinanceira { Id = 33, TransacaoId = 120, DataTransacao = new DateOnly(2026, 4, 20), Descricao = "Efetivacao no cartao", TipoTransacao = TipoTransacaoFinanceira.Receita, TipoOperacao = TipoOperacaoTransacaoFinanceira.Efetivacao, ValorAntesTransacao = 10m, ValorTransacao = 15m, ValorDepoisTransacao = 25m }]
+        };
+        var service = new CartaoService(repository, historicoRepository, new UsuarioAutenticadoProviderFake(5));
+
+        var resultado = await service.ListarLancamentosAsync(2, "04/2026");
+
+        var item = Assert.Single(resultado);
+        Assert.Equal(33, item.Id);
+        Assert.Equal(2, historicoRepository.UltimoCartaoIdConsulta);
+        Assert.Equal(5, historicoRepository.UltimoUsuarioIdConsulta);
+        Assert.Equal("04/2026", historicoRepository.UltimaCompetenciaConsulta);
     }
 
     private sealed class CartaoRepositoryFake : ICartaoRepository
@@ -98,5 +122,30 @@ public sealed class CartaoServiceTests
     private sealed class UsuarioAutenticadoProviderFake(int? usuarioId) : IUsuarioAutenticadoProvider
     {
         public int? ObterUsuarioId() => usuarioId;
+    }
+
+    private sealed class HistoricoRepositoryFake : IHistoricoTransacaoFinanceiraRepository
+    {
+        public List<HistoricoTransacaoFinanceira> Historicos { get; set; } = [];
+        public long? UltimoCartaoIdConsulta { get; private set; }
+        public int? UltimoUsuarioIdConsulta { get; private set; }
+        public string? UltimaCompetenciaConsulta { get; private set; }
+
+        public Task<HistoricoTransacaoFinanceira> CriarAsync(HistoricoTransacaoFinanceira historico, CancellationToken cancellationToken = default) =>
+            Task.FromResult(historico);
+
+        public Task<HistoricoTransacaoFinanceira?> ObterUltimoPorTransacaoAsync(TipoTransacaoFinanceira tipoTransacao, long transacaoId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<HistoricoTransacaoFinanceira?>(null);
+
+        public Task<List<HistoricoTransacaoFinanceira>> ListarPorContaBancariaCompetenciaAsync(long contaBancariaId, int usuarioOperacaoId, string? competencia, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new List<HistoricoTransacaoFinanceira>());
+
+        public Task<List<HistoricoTransacaoFinanceira>> ListarPorCartaoCompetenciaAsync(long cartaoId, int usuarioOperacaoId, string? competencia, CancellationToken cancellationToken = default)
+        {
+            UltimoCartaoIdConsulta = cartaoId;
+            UltimoUsuarioIdConsulta = usuarioOperacaoId;
+            UltimaCompetenciaConsulta = competencia;
+            return Task.FromResult(Historicos);
+        }
     }
 }

@@ -25,8 +25,9 @@ public sealed class DespesaServiceTests
         Assert.Equal(1, repository.UltimoUsuarioIdFiltro);
         Assert.Equal("12", repository.UltimoIdFiltro);
         Assert.Equal("Telefone", repository.UltimaDescricaoFiltro);
-        Assert.Equal(new DateOnly(2026, 3, 1), repository.UltimaDataInicioFiltro);
-        Assert.Equal(new DateOnly(2026, 3, 31), repository.UltimaDataFimFiltro);
+        Assert.Equal("03/2026", repository.UltimaCompetenciaFiltro);
+        Assert.Null(repository.UltimaDataInicioFiltro);
+        Assert.Null(repository.UltimaDataFimFiltro);
     }
 
     [Fact]
@@ -40,6 +41,19 @@ public sealed class DespesaServiceTests
         var hoje = DateOnly.FromDateTime(DateTime.Today);
         Assert.Equal(new DateOnly(hoje.Year, hoje.Month, 1), repository.UltimaDataInicioFiltro);
         Assert.Equal(new DateOnly(hoje.Year, hoje.Month, DateTime.DaysInMonth(hoje.Year, hoje.Month)), repository.UltimaDataFimFiltro);
+    }
+
+    [Fact]
+    public async Task DeveConsiderarCompetenciaEPeriodo_QuandoAmbosForemInformados()
+    {
+        var repository = new DespesaRepositoryFake();
+        var service = CriarService(repository, 1);
+
+        await service.ListarAsync(new ListarDespesasRequest(null, null, "04-2026", new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 31)));
+
+        Assert.Equal("04-2026", repository.UltimaCompetenciaFiltro);
+        Assert.Equal(new DateOnly(2026, 1, 1), repository.UltimaDataInicioFiltro);
+        Assert.Equal(new DateOnly(2026, 1, 31), repository.UltimaDataFimFiltro);
     }
 
     [Fact]
@@ -249,6 +263,8 @@ public sealed class DespesaServiceTests
         var areaRepository = CriarAreaRepoValida(TipoAreaFinanceira.Despesa);
         var service = new DespesaService(
             new DespesaRepositoryFake(),
+            new ContaBancariaRepositoryFake(),
+            new CartaoRepositoryFake(),
             areaRepository,
             new AmizadeRepositoryFake { AmigosAceitosIds = [2] },
             new UsuarioRepositoryFake(),
@@ -580,6 +596,8 @@ public sealed class DespesaServiceTests
     private static DespesaService CriarService(IDespesaRepository repository, IAreaRepository areaRepository, IRecorrenciaBackgroundPublisher publisher, int? usuarioId) =>
         new(
             repository,
+            new ContaBancariaRepositoryFake(),
+            new CartaoRepositoryFake(),
             areaRepository,
             new AmizadeRepositoryFake(),
             new UsuarioRepositoryFake(),
@@ -595,6 +613,7 @@ public sealed class DespesaServiceTests
         public int? UltimoUsuarioIdFiltro { get; private set; }
         public string? UltimoIdFiltro { get; private set; }
         public string? UltimaDescricaoFiltro { get; private set; }
+        public string? UltimaCompetenciaFiltro { get; private set; }
         public DateOnly? UltimaDataInicioFiltro { get; private set; }
         public DateOnly? UltimaDataFimFiltro { get; private set; }
         public List<Despesa> EspelhosPorOrigem { get; set; } = [];
@@ -602,25 +621,27 @@ public sealed class DespesaServiceTests
         public bool ValidarUsuarioNoObter { get; set; }
 
         public Task<List<Despesa>> ListarAsync(CancellationToken cancellationToken = default) => Task.FromResult(new List<Despesa>());
-        public Task<List<Despesa>> ListarAsync(string? filtroId, string? descricao, DateOnly? dataInicio, DateOnly? dataFim, CancellationToken cancellationToken = default)
+        public Task<List<Despesa>> ListarAsync(string? filtroId, string? descricao, string? competencia, DateOnly? dataInicio, DateOnly? dataFim, CancellationToken cancellationToken = default)
         {
             UltimoIdFiltro = filtroId;
             UltimaDescricaoFiltro = descricao;
+            UltimaCompetenciaFiltro = competencia;
             UltimaDataInicioFiltro = dataInicio;
             UltimaDataFimFiltro = dataFim;
             return Task.FromResult(new List<Despesa>());
         }
-        public Task<List<Despesa>> ListarPorUsuarioAsync(int usuarioCadastroId, string? filtroId, string? descricao, DateOnly? dataInicio, DateOnly? dataFim, CancellationToken cancellationToken = default) =>
-            ListarPorUsuarioInternoAsync(usuarioCadastroId, filtroId, descricao, dataInicio, dataFim);
+        public Task<List<Despesa>> ListarPorUsuarioAsync(int usuarioCadastroId, string? filtroId, string? descricao, string? competencia, DateOnly? dataInicio, DateOnly? dataFim, CancellationToken cancellationToken = default) =>
+            ListarPorUsuarioInternoAsync(usuarioCadastroId, filtroId, descricao, competencia, dataInicio, dataFim);
         public Task<List<Despesa>> ListarPendentesAprovacaoPorUsuarioAsync(int usuarioCadastroId, CancellationToken cancellationToken = default) =>
             Task.FromResult(new List<Despesa>());
         public Task<List<Despesa>> ListarEspelhosPorOrigemAsync(long despesaOrigemId, CancellationToken cancellationToken = default) =>
             Task.FromResult(EspelhosPorOrigem.Where(x => x.DespesaOrigemId == despesaOrigemId).ToList());
-        private Task<List<Despesa>> ListarPorUsuarioInternoAsync(int usuarioCadastroId, string? filtroId, string? descricao, DateOnly? dataInicio, DateOnly? dataFim)
+        private Task<List<Despesa>> ListarPorUsuarioInternoAsync(int usuarioCadastroId, string? filtroId, string? descricao, string? competencia, DateOnly? dataInicio, DateOnly? dataFim)
         {
             UltimoUsuarioIdFiltro = usuarioCadastroId;
             UltimoIdFiltro = filtroId;
             UltimaDescricaoFiltro = descricao;
+            UltimaCompetenciaFiltro = competencia;
             UltimaDataInicioFiltro = dataInicio;
             UltimaDataFimFiltro = dataFim;
             return Task.FromResult(new List<Despesa>());
@@ -667,6 +688,12 @@ public sealed class DespesaServiceTests
 
         public Task<HistoricoTransacaoFinanceira?> ObterUltimoPorTransacaoAsync(TipoTransacaoFinanceira tipoTransacao, long transacaoId, CancellationToken cancellationToken = default) =>
             Task.FromResult<HistoricoTransacaoFinanceira?>(null);
+
+        public Task<List<HistoricoTransacaoFinanceira>> ListarPorContaBancariaCompetenciaAsync(long contaBancariaId, int usuarioOperacaoId, string? competencia, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new List<HistoricoTransacaoFinanceira>());
+
+        public Task<List<HistoricoTransacaoFinanceira>> ListarPorCartaoCompetenciaAsync(long cartaoId, int usuarioOperacaoId, string? competencia, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new List<HistoricoTransacaoFinanceira>());
     }
 
     private sealed class AreaRepoFake : IAreaRepository
@@ -679,6 +706,48 @@ public sealed class DespesaServiceTests
 
         public Task<List<SubArea>> ObterSubAreasPorIdsAsync(IReadOnlyCollection<long> subAreasIds, CancellationToken cancellationToken = default) =>
             Task.FromResult(SubAreas.Where(x => subAreasIds.Contains(x.Id)).ToList());
+    }
+
+    private sealed class ContaBancariaRepositoryFake : IContaBancariaRepository
+    {
+        public Task<List<ContaBancaria>> ListarAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(new List<ContaBancaria>());
+
+        public Task<List<ContaBancaria>> ListarAsync(int usuarioCadastroId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new List<ContaBancaria>());
+
+        public Task<ContaBancaria?> ObterPorIdAsync(long id, CancellationToken cancellationToken = default) =>
+            Task.FromResult<ContaBancaria?>(new ContaBancaria { Id = id, UsuarioCadastroId = 1 });
+
+        public Task<ContaBancaria?> ObterPorIdAsync(long id, int usuarioCadastroId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<ContaBancaria?>(new ContaBancaria { Id = id, UsuarioCadastroId = usuarioCadastroId });
+
+        public Task<ContaBancaria> CriarAsync(ContaBancaria conta, CancellationToken cancellationToken = default) =>
+            Task.FromResult(conta);
+
+        public Task<ContaBancaria> AtualizarAsync(ContaBancaria conta, CancellationToken cancellationToken = default) =>
+            Task.FromResult(conta);
+    }
+
+    private sealed class CartaoRepositoryFake : ICartaoRepository
+    {
+        public Task<List<Cartao>> ListarAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(new List<Cartao>());
+
+        public Task<List<Cartao>> ListarAsync(int usuarioCadastroId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new List<Cartao>());
+
+        public Task<Cartao?> ObterPorIdAsync(long id, CancellationToken cancellationToken = default) =>
+            Task.FromResult<Cartao?>(new Cartao { Id = id, UsuarioCadastroId = 1 });
+
+        public Task<Cartao?> ObterPorIdAsync(long id, int usuarioCadastroId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<Cartao?>(new Cartao { Id = id, UsuarioCadastroId = usuarioCadastroId });
+
+        public Task<Cartao> CriarAsync(Cartao cartao, CancellationToken cancellationToken = default) =>
+            Task.FromResult(cartao);
+
+        public Task<Cartao> AtualizarAsync(Cartao cartao, CancellationToken cancellationToken = default) =>
+            Task.FromResult(cartao);
     }
 
     private static AreaRepoFake CriarAreaRepoValida(TipoAreaFinanceira tipoArea)
