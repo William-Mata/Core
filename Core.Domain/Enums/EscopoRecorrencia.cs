@@ -1,0 +1,8 @@
+namespace Core.Domain.Enums;
+
+public enum EscopoRecorrencia
+{
+    ApenasEssa = 1,
+    EssaEAsProximas = 2,
+    TodasPendentes = 3
+}

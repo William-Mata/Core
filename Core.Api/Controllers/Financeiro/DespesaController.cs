@@ -1,5 +1,6 @@
 using Core.Application.DTOs.Financeiro;
 using Core.Application.Services.Financeiro;
+using Core.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -32,9 +33,13 @@ public sealed class DespesaController(DespesaService service) : ControllerBase
     }
 
     [HttpPut("{id:long}")]
-    public async Task<IActionResult> Atualizar(long id, [FromBody] AtualizarDespesaRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Atualizar(
+        long id,
+        [FromBody] AtualizarDespesaRequest request,
+        [FromQuery] EscopoRecorrencia? escopoRecorrencia,
+        CancellationToken cancellationToken)
     {
-        return Ok(await service.AtualizarAsync(id, request, cancellationToken));
+        return Ok(await service.AtualizarAsync(id, request, escopoRecorrencia ?? EscopoRecorrencia.ApenasEssa, cancellationToken));
     }
 
     [HttpPost("{id:long}/efetivar")]
@@ -44,9 +49,9 @@ public sealed class DespesaController(DespesaService service) : ControllerBase
     }
 
     [HttpPost("{id:long}/cancelar")]
-    public async Task<IActionResult> Cancelar(long id, CancellationToken cancellationToken)
+    public async Task<IActionResult> Cancelar(long id, [FromQuery] EscopoRecorrencia? escopoRecorrencia, CancellationToken cancellationToken)
     {
-        return Ok(await service.CancelarAsync(id, cancellationToken));
+        return Ok(await service.CancelarAsync(id, escopoRecorrencia ?? EscopoRecorrencia.ApenasEssa, cancellationToken));
     }
 
     [HttpPost("{id:long}/estornar")]

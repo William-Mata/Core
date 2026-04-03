@@ -162,11 +162,16 @@ public sealed partial class DespesaService(
         return Map(despesaCriada);
     }
 
-    public async Task<DespesaDto> AtualizarAsync(long id, AtualizarDespesaRequest req, CancellationToken cancellationToken = default)
+    public async Task<DespesaDto> AtualizarAsync(
+        long id,
+        AtualizarDespesaRequest req,
+        EscopoRecorrencia escopoRecorrencia = EscopoRecorrencia.ApenasEssa,
+        CancellationToken cancellationToken = default)
     {
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
         var despesa = await repository.ObterPorIdAsync(id, usuarioAutenticadoId, cancellationToken) ?? throw new NotFoundException("despesa_nao_encontrada");
         if (despesa.Status != StatusDespesa.Pendente) throw new DomainException("status_invalido");
+        if (!Enum.IsDefined(escopoRecorrencia)) throw new DomainException("escopo_recorrencia_invalido");
 
         var quantidadeRecorrencia = ResolverQuantidadeRecorrencia(req.TipoPagamento, req.QuantidadeRecorrencia, req.QuantidadeParcelas);
         var recorrencia = ResolverRecorrencia(req.TipoPagamento, req.Recorrencia);
@@ -180,47 +185,65 @@ public sealed partial class DespesaService(
         var liquido = Liquido(req.ValorTotal, req.Desconto, req.Acrescimo, req.Imposto, req.Juros);
         var vinculo = await ResolverVinculoPagamentoAsync(req.TipoPagamento, req.Vinculo, despesa.ContaBancariaId, despesa.CartaoId, usuarioAutenticadoId, cancellationToken);
 
-        despesa.Descricao = req.Descricao.Trim();
-        despesa.Observacao = req.Observacao;
-        despesa.DataLancamento = req.DataLancamento;
-        despesa.DataVencimento = req.DataVencimento;
-        despesa.TipoDespesa = req.TipoDespesa;
-        despesa.TipoPagamento = req.TipoPagamento;
-        despesa.Recorrencia = recorrencia;
-        despesa.RecorrenciaFixa = recorrenciaFixa;
-        despesa.QuantidadeRecorrencia = quantidadeRecorrencia;
-        despesa.ValorTotal = req.ValorTotal;
-        despesa.ValorLiquido = liquido;
-        despesa.Desconto = req.Desconto;
-        despesa.Acrescimo = req.Acrescimo;
-        despesa.Imposto = req.Imposto;
-        despesa.Juros = req.Juros;
-        despesa.ContaBancariaId = vinculo.ContaBancariaId;
-        despesa.CartaoId = vinculo.CartaoId;
-        if (req.Documentos is not null)
-            despesa.Documentos = await SalvarDocumentosAsync(req.Documentos, usuarioAutenticadoId, despesa.Id, cancellationToken: cancellationToken);
+        var serie = await ListarSerieRecorrenteAsync(despesa, usuarioAutenticadoId, cancellationToken);
+        var alvos = SelecionarAlvosPorEscopo(serie, despesa, escopoRecorrencia);
+        var indicePorId = serie
+            .Select((item, indice) => new { item.Id, Indice = indice })
+            .ToDictionary(x => x.Id, x => x.Indice);
+        var indiceBase = indicePorId.GetValueOrDefault(despesa.Id, 0);
 
-        despesa.AmigosRateio = amigosValidados.Select(x => new DespesaAmigoRateio
-        {
-            DespesaId = despesa.Id,
-            UsuarioCadastroId = usuarioAutenticadoId,
-            AmigoId = x.AmigoId,
-            AmigoNome = x.Nome,
-            Valor = x.Valor
-        }).ToList();
-        despesa.AreasRateio = (req.AreasSubAreasRateio ?? []).Select(x => new DespesaAreaRateio
-        {
-            DespesaId = despesa.Id,
-            UsuarioCadastroId = usuarioAutenticadoId,
-            AreaId = x.AreaId,
-            SubAreaId = x.SubAreaId,
-            Valor = x.Valor
-        }).ToList();
-        despesa.Logs.Add(new DespesaLog { DespesaId = despesa.Id, UsuarioCadastroId = usuarioAutenticadoId, Acao = AcaoLogs.Atualizacao, Descricao = "Despesa atualizada." });
+        Despesa? despesaAtualizada = null;
 
-        var despesaAtualizada = await repository.AtualizarAsync(despesa, cancellationToken);
-        await SincronizarEspelhosRateioAsync(despesaAtualizada, amigosValidados, req.AreasSubAreasRateio ?? [], cancellationToken);
-        return Map(despesaAtualizada);
+        foreach (var alvo in alvos)
+        {
+            var deslocamento = indicePorId.GetValueOrDefault(alvo.Id, indiceBase) - indiceBase;
+
+            alvo.Descricao = req.Descricao.Trim();
+            alvo.Observacao = req.Observacao;
+            alvo.DataLancamento = AvancarData(req.DataLancamento, recorrencia, deslocamento);
+            alvo.DataVencimento = AvancarData(req.DataVencimento, recorrencia, deslocamento);
+            alvo.TipoDespesa = req.TipoDespesa;
+            alvo.TipoPagamento = req.TipoPagamento;
+            alvo.Recorrencia = recorrencia;
+            alvo.RecorrenciaFixa = recorrenciaFixa;
+            alvo.QuantidadeRecorrencia = quantidadeRecorrencia;
+            alvo.ValorTotal = req.ValorTotal;
+            alvo.ValorLiquido = liquido;
+            alvo.Desconto = req.Desconto;
+            alvo.Acrescimo = req.Acrescimo;
+            alvo.Imposto = req.Imposto;
+            alvo.Juros = req.Juros;
+            alvo.ContaBancariaId = vinculo.ContaBancariaId;
+            alvo.CartaoId = vinculo.CartaoId;
+            if (req.Documentos is not null)
+                alvo.Documentos = await SalvarDocumentosAsync(req.Documentos, usuarioAutenticadoId, alvo.Id, cancellationToken: cancellationToken);
+
+            alvo.AmigosRateio = amigosValidados.Select(x => new DespesaAmigoRateio
+            {
+                DespesaId = alvo.Id,
+                UsuarioCadastroId = usuarioAutenticadoId,
+                AmigoId = x.AmigoId,
+                AmigoNome = x.Nome,
+                Valor = x.Valor
+            }).ToList();
+            alvo.AreasRateio = (req.AreasSubAreasRateio ?? []).Select(x => new DespesaAreaRateio
+            {
+                DespesaId = alvo.Id,
+                UsuarioCadastroId = usuarioAutenticadoId,
+                AreaId = x.AreaId,
+                SubAreaId = x.SubAreaId,
+                Valor = x.Valor
+            }).ToList();
+            alvo.Logs.Add(new DespesaLog { DespesaId = alvo.Id, UsuarioCadastroId = usuarioAutenticadoId, Acao = AcaoLogs.Atualizacao, Descricao = "Despesa atualizada." });
+
+            var atualizado = await repository.AtualizarAsync(alvo, cancellationToken);
+            await SincronizarEspelhosRateioAsync(atualizado, amigosValidados, req.AreasSubAreasRateio ?? [], cancellationToken);
+
+            if (atualizado.Id == id)
+                despesaAtualizada = atualizado;
+        }
+
+        return Map(despesaAtualizada ?? despesa);
     }
 
     public async Task<DespesaDto> AprovarRateioAsync(long id, CancellationToken cancellationToken = default)
@@ -313,14 +336,41 @@ public sealed partial class DespesaService(
         return Map(despesaAtualizada);
     }
 
-    public async Task<DespesaDto> CancelarAsync(long id, CancellationToken cancellationToken = default)
+    public async Task<DespesaDto> CancelarAsync(
+        long id,
+        EscopoRecorrencia escopoRecorrencia = EscopoRecorrencia.ApenasEssa,
+        CancellationToken cancellationToken = default)
     {
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
         var despesa = await repository.ObterPorIdAsync(id, usuarioAutenticadoId, cancellationToken) ?? throw new NotFoundException("despesa_nao_encontrada");
         if (despesa.Status != StatusDespesa.Pendente) throw new DomainException("status_invalido");
-        despesa.Status = StatusDespesa.Cancelada;
-        despesa.Logs.Add(new DespesaLog { DespesaId = despesa.Id, UsuarioCadastroId = usuarioAutenticadoId, Acao = AcaoLogs.Exclusao, Descricao = "Despesa cancelada." });
-        return Map(await repository.AtualizarAsync(despesa, cancellationToken));
+        if (!Enum.IsDefined(escopoRecorrencia)) throw new DomainException("escopo_recorrencia_invalido");
+
+        var serie = await ListarSerieRecorrenteAsync(despesa, usuarioAutenticadoId, cancellationToken);
+        var alvos = SelecionarAlvosPorEscopo(serie, despesa, escopoRecorrencia);
+
+        Despesa? despesaAtualizada = null;
+
+        foreach (var alvo in alvos)
+        {
+            alvo.Status = StatusDespesa.Cancelada;
+            alvo.Logs.Add(new DespesaLog { DespesaId = alvo.Id, UsuarioCadastroId = usuarioAutenticadoId, Acao = AcaoLogs.Exclusao, Descricao = "Despesa cancelada." });
+            var atualizado = await repository.AtualizarAsync(alvo, cancellationToken);
+
+            if (atualizado.Id == id)
+                despesaAtualizada = atualizado;
+        }
+
+        if (escopoRecorrencia == EscopoRecorrencia.TodasPendentes && despesa.RecorrenciaFixa)
+        {
+            foreach (var item in serie.Where(x => x.RecorrenciaFixa))
+            {
+                item.RecorrenciaFixa = false;
+                await repository.AtualizarAsync(item, cancellationToken);
+            }
+        }
+
+        return Map(despesaAtualizada ?? despesa);
     }
 
     public async Task<DespesaDto> EstornarAsync(long id, CancellationToken cancellationToken = default)
@@ -351,6 +401,48 @@ public sealed partial class DespesaService(
 
     private int ObterUsuarioAutenticadoId() =>
         usuarioAutenticadoProvider.ObterUsuarioId() ?? throw new DomainException("usuario_nao_autenticado");
+
+    private async Task<List<Despesa>> ListarSerieRecorrenteAsync(Despesa referencia, int usuarioAutenticadoId, CancellationToken cancellationToken)
+    {
+        if (referencia.Recorrencia == Recorrencia.Unica || referencia.DespesaOrigemId.HasValue)
+            return [referencia];
+
+        var todas = await repository.ListarPorUsuarioAsync(usuarioAutenticadoId, null, null, null, null, null, cancellationToken);
+        var serie = todas
+            .Where(x => x.DespesaOrigemId is null)
+            .Where(x => x.Descricao == referencia.Descricao)
+            .Where(x => x.TipoDespesa == referencia.TipoDespesa)
+            .Where(x => x.TipoPagamento == referencia.TipoPagamento)
+            .Where(x => x.Recorrencia == referencia.Recorrencia)
+            .Where(x => x.RecorrenciaFixa == referencia.RecorrenciaFixa)
+            .Where(x => x.ContaBancariaId == referencia.ContaBancariaId)
+            .Where(x => x.CartaoId == referencia.CartaoId)
+            .OrderBy(x => x.DataLancamento)
+            .ThenBy(x => x.Id)
+            .ToList();
+
+        return serie.Any(x => x.Id == referencia.Id) ? serie : [referencia];
+    }
+
+    private static List<Despesa> SelecionarAlvosPorEscopo(IReadOnlyList<Despesa> serie, Despesa referencia, EscopoRecorrencia escopoRecorrencia)
+    {
+        if (escopoRecorrencia == EscopoRecorrencia.ApenasEssa || referencia.Recorrencia == Recorrencia.Unica || referencia.DespesaOrigemId.HasValue)
+            return [referencia];
+
+        var indiceBase = serie
+            .Select((item, indice) => new { item.Id, Indice = indice })
+            .FirstOrDefault(x => x.Id == referencia.Id)?.Indice ?? -1;
+
+        if (indiceBase < 0)
+            return [referencia];
+
+        return escopoRecorrencia switch
+        {
+            EscopoRecorrencia.EssaEAsProximas => serie.Where((item, indice) => indice >= indiceBase && item.Status == StatusDespesa.Pendente).ToList(),
+            EscopoRecorrencia.TodasPendentes => serie.Where(item => item.Status == StatusDespesa.Pendente).ToList(),
+            _ => [referencia]
+        };
+    }
 
     private async Task VerificarUltimasRecorrenciasERecuperarFalhasAsync(
         int usuarioAutenticadoId,
@@ -480,11 +572,11 @@ public sealed partial class DespesaService(
             _ => data
         };
 
-    private static void ValidarComum(string descricao, DateOnly dataLanc, DateOnly dataVenc, string tipoDespesa, string tipoPagamento, Recorrencia recorrencia, bool recorrenciaFixa, int? quantidadeRecorrencia, decimal valorTotal)
+    private static void ValidarComum(string descricao, DateOnly dataLancamento, DateOnly dataVencimento, string tipoDespesa, string tipoPagamento, Recorrencia recorrencia, bool recorrenciaFixa, int? quantidadeRecorrencia, decimal valorTotal)
     {
         if (string.IsNullOrWhiteSpace(descricao)) throw new DomainException("descricao_obrigatoria");
         if (valorTotal <= 0) throw new DomainException("valor_total_invalido");
-        if (dataVenc < dataLanc) throw new DomainException("periodo_invalido");
+        if (dataVencimento < dataLancamento) throw new DomainException("periodo_invalido");
         if (!TiposDespesa.Contains(tipoDespesa) || !TiposPagamento.Contains(tipoPagamento) || !Enum.IsDefined(recorrencia)) throw new DomainException("enum_invalida");
         if (PagamentoCartao(tipoPagamento) && recorrenciaFixa) throw new DomainException("recorrencia_fixa_invalida");
         if (recorrenciaFixa && recorrencia == Recorrencia.Unica) throw new DomainException("recorrencia_fixa_invalida");
