@@ -44,6 +44,29 @@ public sealed class ReceitaServiceTests
     }
 
     [Fact]
+    public async Task NaoDevePropagarTaskCanceledException_QuandoTokenForCanceladoNaListagem()
+    {
+        using var cts = new CancellationTokenSource();
+        var repository = new ReceitaRepoFake
+        {
+            LancarCancelamentoNaListagemQuandoTokenCancelado = true,
+            CancelarTokenNaProximaListagem = true,
+            FonteCancelamento = cts
+        };
+        var service = CriarService(repository, new ContaRepoFake(), new AreaRepoFake(), 99);
+
+        IReadOnlyCollection<ReceitaListaDto> result = [];
+        var exception = await Record.ExceptionAsync(async () =>
+        {
+            result = await service.ListarAsync(new ListarReceitasRequest(null, null, null, null, null, false), cts.Token);
+        });
+
+        Assert.Null(exception);
+        Assert.Empty(result);
+        Assert.True(cts.IsCancellationRequested);
+    }
+
+    [Fact]
     public async Task DeveConsiderarCompetenciaEPeriodo_QuandoAmbosForemInformados()
     {
         var repository = new ReceitaRepoFake();
@@ -777,6 +800,93 @@ public sealed class ReceitaServiceTests
         Assert.All(repository.ReceitasListadas, x => Assert.False(x.RecorrenciaFixa));
     }
 
+    [Fact]
+    public async Task NaoDevePropagarTaskCanceledException_AoCancelarSerieQuandoTokenForCanceladoDuranteLoop()
+    {
+        using var cts = new CancellationTokenSource();
+        var repository = new ReceitaRepoFake
+        {
+            CancelarTokenNoUpdateNumero = 2,
+            FonteCancelamento = cts,
+            LancarCancelamentoAoAtualizarQuandoTokenCancelado = true,
+            Receita = new Receita
+            {
+                Id = 2,
+                UsuarioCadastroId = 99,
+                Descricao = "Plano",
+                DataLancamento = new DateOnly(2026, 2, 1),
+                DataVencimento = new DateOnly(2026, 2, 1),
+                TipoReceita = "freelance",
+                TipoRecebimento = "dinheiro",
+                Recorrencia = Recorrencia.Mensal,
+                RecorrenciaFixa = true,
+                QuantidadeRecorrencia = 100,
+                ValorTotal = 1000m,
+                ValorLiquido = 1000m,
+                Status = StatusReceita.Pendente
+            },
+            ReceitasListadas =
+            [
+                new Receita
+                {
+                    Id = 1,
+                    UsuarioCadastroId = 99,
+                    Descricao = "Plano",
+                    DataLancamento = new DateOnly(2026, 1, 1),
+                    DataVencimento = new DateOnly(2026, 1, 1),
+                    TipoReceita = "freelance",
+                    TipoRecebimento = "dinheiro",
+                    Recorrencia = Recorrencia.Mensal,
+                    RecorrenciaFixa = true,
+                    QuantidadeRecorrencia = 100,
+                    ValorTotal = 1000m,
+                    ValorLiquido = 1000m,
+                    Status = StatusReceita.Efetivada
+                },
+                new Receita
+                {
+                    Id = 2,
+                    UsuarioCadastroId = 99,
+                    Descricao = "Plano",
+                    DataLancamento = new DateOnly(2026, 2, 1),
+                    DataVencimento = new DateOnly(2026, 2, 1),
+                    TipoReceita = "freelance",
+                    TipoRecebimento = "dinheiro",
+                    Recorrencia = Recorrencia.Mensal,
+                    RecorrenciaFixa = true,
+                    QuantidadeRecorrencia = 100,
+                    ValorTotal = 1000m,
+                    ValorLiquido = 1000m,
+                    Status = StatusReceita.Pendente
+                },
+                new Receita
+                {
+                    Id = 3,
+                    UsuarioCadastroId = 99,
+                    Descricao = "Plano",
+                    DataLancamento = new DateOnly(2026, 3, 1),
+                    DataVencimento = new DateOnly(2026, 3, 1),
+                    TipoReceita = "freelance",
+                    TipoRecebimento = "dinheiro",
+                    Recorrencia = Recorrencia.Mensal,
+                    RecorrenciaFixa = true,
+                    QuantidadeRecorrencia = 100,
+                    ValorTotal = 1000m,
+                    ValorLiquido = 1000m,
+                    Status = StatusReceita.Pendente
+                }
+            ]
+        };
+        var service = CriarService(repository, new ContaRepoFake(), new AreaRepoFake(), 99);
+
+        var exception = await Record.ExceptionAsync(() =>
+            service.CancelarAsync(2, EscopoRecorrencia.TodasPendentes, cts.Token));
+
+        Assert.Null(exception);
+        Assert.True(cts.IsCancellationRequested);
+        Assert.NotEmpty(repository.ReceitasAtualizadas);
+    }
+
     private static CriarReceitaRequest CriarRequestPadrao(
         string tipoRecebimento = "dinheiro",
         string? contaBancaria = null,
@@ -868,9 +978,15 @@ public sealed class ReceitaServiceTests
         public List<Receita> EspelhosPorOrigem { get; set; } = [];
         public List<Receita> ReceitasAtualizadas { get; } = [];
         public bool ValidarUsuarioNoObter { get; set; }
+        public bool LancarCancelamentoNaListagemQuandoTokenCancelado { get; set; }
+        public bool CancelarTokenNaProximaListagem { get; set; }
+        public bool LancarCancelamentoAoAtualizarQuandoTokenCancelado { get; set; }
+        public int? CancelarTokenNoUpdateNumero { get; set; }
+        public CancellationTokenSource? FonteCancelamento { get; set; }
+        private int _atualizacoesExecutadas;
 
         public Task<List<Receita>> ListarAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(FiltrarListagem(null, null, null, null, null, null));
+            Task.FromResult(FiltrarListagemComCancelamento(null, null, null, null, null, null, cancellationToken));
 
         public Task<List<Receita>> ListarAsync(string? filtroId, string? descricao, string? competencia, DateOnly? dataInicio, DateOnly? dataFim, CancellationToken cancellationToken = default)
         {
@@ -879,15 +995,15 @@ public sealed class ReceitaServiceTests
             UltimaCompetenciaFiltro = competencia;
             UltimaDataInicioFiltro = dataInicio;
             UltimaDataFimFiltro = dataFim;
-            return Task.FromResult(FiltrarListagem(null, filtroId, descricao, competencia, dataInicio, dataFim));
+            return Task.FromResult(FiltrarListagemComCancelamento(null, filtroId, descricao, competencia, dataInicio, dataFim, cancellationToken));
         }
         public Task<List<Receita>> ListarPorUsuarioAsync(int usuarioCadastroId, string? filtroId, string? descricao, string? competencia, DateOnly? dataInicio, DateOnly? dataFim, CancellationToken cancellationToken = default) =>
-            ListarPorUsuarioInternoAsync(usuarioCadastroId, filtroId, descricao, competencia, dataInicio, dataFim);
+            ListarPorUsuarioInternoAsync(usuarioCadastroId, filtroId, descricao, competencia, dataInicio, dataFim, cancellationToken);
         public Task<List<Receita>> ListarPendentesAprovacaoPorUsuarioAsync(int usuarioCadastroId, CancellationToken cancellationToken = default) =>
             Task.FromResult(new List<Receita>());
         public Task<List<Receita>> ListarEspelhosPorOrigemAsync(long receitaOrigemId, CancellationToken cancellationToken = default) =>
             Task.FromResult(EspelhosPorOrigem.Where(x => x.ReceitaOrigemId == receitaOrigemId).ToList());
-        private Task<List<Receita>> ListarPorUsuarioInternoAsync(int usuarioCadastroId, string? filtroId, string? descricao, string? competencia, DateOnly? dataInicio, DateOnly? dataFim)
+        private Task<List<Receita>> ListarPorUsuarioInternoAsync(int usuarioCadastroId, string? filtroId, string? descricao, string? competencia, DateOnly? dataInicio, DateOnly? dataFim, CancellationToken cancellationToken)
         {
             UltimoUsuarioIdFiltro = usuarioCadastroId;
             UltimoIdFiltro = filtroId;
@@ -895,7 +1011,28 @@ public sealed class ReceitaServiceTests
             UltimaCompetenciaFiltro = competencia;
             UltimaDataInicioFiltro = dataInicio;
             UltimaDataFimFiltro = dataFim;
-            return Task.FromResult(FiltrarListagem(usuarioCadastroId, filtroId, descricao, competencia, dataInicio, dataFim));
+            return Task.FromResult(FiltrarListagemComCancelamento(usuarioCadastroId, filtroId, descricao, competencia, dataInicio, dataFim, cancellationToken));
+        }
+
+        private List<Receita> FiltrarListagemComCancelamento(
+            int? usuarioCadastroId,
+            string? filtroId,
+            string? descricao,
+            string? competencia,
+            DateOnly? dataInicio,
+            DateOnly? dataFim,
+            CancellationToken cancellationToken)
+        {
+            if (CancelarTokenNaProximaListagem)
+            {
+                CancelarTokenNaProximaListagem = false;
+                FonteCancelamento?.Cancel();
+            }
+
+            if (LancarCancelamentoNaListagemQuandoTokenCancelado && cancellationToken.IsCancellationRequested)
+                throw new OperationCanceledException(cancellationToken);
+
+            return FiltrarListagem(usuarioCadastroId, filtroId, descricao, competencia, dataInicio, dataFim);
         }
 
         private List<Receita> FiltrarListagem(int? usuarioCadastroId, string? filtroId, string? descricao, string? competencia, DateOnly? dataInicio, DateOnly? dataFim)
@@ -953,6 +1090,17 @@ public sealed class ReceitaServiceTests
         }
         public Task<Receita> AtualizarAsync(Receita receita, CancellationToken cancellationToken = default)
         {
+            _atualizacoesExecutadas++;
+
+            if (CancelarTokenNoUpdateNumero.HasValue &&
+                _atualizacoesExecutadas == CancelarTokenNoUpdateNumero.Value)
+            {
+                FonteCancelamento?.Cancel();
+            }
+
+            if (LancarCancelamentoAoAtualizarQuandoTokenCancelado && cancellationToken.IsCancellationRequested)
+                throw new OperationCanceledException(cancellationToken);
+
             ReceitasAtualizadas.Add(receita);
 
             var espelhoIndex = EspelhosPorOrigem.FindIndex(x => x.Id == receita.Id);
