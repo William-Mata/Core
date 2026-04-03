@@ -20,7 +20,7 @@ public sealed class DespesaServiceTests
         var repository = new DespesaRepositoryFake();
         var service = CriarService(repository, 1);
 
-        await service.ListarAsync(new ListarDespesasRequest("12", "Telefone", "03/2026", null, null));
+        await service.ListarAsync(new ListarDespesasRequest("12", "Telefone", "03/2026", null, null, false));
 
         Assert.Equal(1, repository.UltimoUsuarioIdFiltro);
         Assert.Equal("12", repository.UltimoIdFiltro);
@@ -36,7 +36,7 @@ public sealed class DespesaServiceTests
         var repository = new DespesaRepositoryFake();
         var service = CriarService(repository, 1);
 
-        await service.ListarAsync(new ListarDespesasRequest(null, null, null, null, null));
+        await service.ListarAsync(new ListarDespesasRequest(null, null, null, null, null, false));
 
         var hoje = DateOnly.FromDateTime(DateTime.Today);
         Assert.Equal(new DateOnly(hoje.Year, hoje.Month, 1), repository.UltimaDataInicioFiltro);
@@ -49,11 +49,107 @@ public sealed class DespesaServiceTests
         var repository = new DespesaRepositoryFake();
         var service = CriarService(repository, 1);
 
-        await service.ListarAsync(new ListarDespesasRequest(null, null, "04-2026", new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 31)));
+        await service.ListarAsync(new ListarDespesasRequest(null, null, "04-2026", new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 31), false));
 
         Assert.Equal("04-2026", repository.UltimaCompetenciaFiltro);
         Assert.Equal(new DateOnly(2026, 1, 1), repository.UltimaDataInicioFiltro);
         Assert.Equal(new DateOnly(2026, 1, 31), repository.UltimaDataFimFiltro);
+    }
+
+    [Fact]
+    public async Task DevePublicarMais10Recorrencias_AoListarCompetenciaComUltimaOcorrencia()
+    {
+        var publisher = new RecorrenciaPublisherFake();
+        var repository = new DespesaRepositoryFake
+        {
+            DespesasListadas =
+            [
+                new Despesa
+                {
+                    Id = 100,
+                    UsuarioCadastroId = 1,
+                    Descricao = "Academia",
+                    DataLancamento = new DateOnly(2026, 4, 10),
+                    DataVencimento = new DateOnly(2026, 4, 10),
+                    TipoDespesa = "saude",
+                    TipoPagamento = "pix",
+                    Recorrencia = Recorrencia.Mensal,
+                    QuantidadeRecorrencia = 2,
+                    ValorTotal = 120m,
+                    ValorLiquido = 120m,
+                    Status = StatusDespesa.Pendente
+                },
+                new Despesa
+                {
+                    Id = 101,
+                    UsuarioCadastroId = 1,
+                    Descricao = "Academia",
+                    DataLancamento = new DateOnly(2026, 5, 10),
+                    DataVencimento = new DateOnly(2026, 5, 10),
+                    TipoDespesa = "saude",
+                    TipoPagamento = "pix",
+                    Recorrencia = Recorrencia.Mensal,
+                    QuantidadeRecorrencia = 2,
+                    ValorTotal = 120m,
+                    ValorLiquido = 120m,
+                    Status = StatusDespesa.Pendente
+                }
+            ]
+        };
+        var service = CriarService(repository, new AreaRepoFake(), publisher, 1);
+
+        await service.ListarAsync(new ListarDespesasRequest(null, null, "05/2026", null, null, true));
+
+        Assert.NotNull(publisher.DespesaMessage);
+        Assert.Equal(12, publisher.DespesaMessage!.QuantidadeRecorrencia);
+        Assert.Equal(new DateOnly(2026, 4, 10), publisher.DespesaMessage.DataLancamento);
+    }
+
+    [Fact]
+    public async Task NaoDevePublicarMais10Recorrencias_QuandoJaExistirProximaOcorrencia()
+    {
+        var publisher = new RecorrenciaPublisherFake();
+        var repository = new DespesaRepositoryFake
+        {
+            DespesasListadas =
+            [
+                new Despesa
+                {
+                    Id = 100,
+                    UsuarioCadastroId = 1,
+                    Descricao = "Academia",
+                    DataLancamento = new DateOnly(2026, 4, 10),
+                    DataVencimento = new DateOnly(2026, 4, 10),
+                    TipoDespesa = "saude",
+                    TipoPagamento = "pix",
+                    Recorrencia = Recorrencia.Mensal,
+                    QuantidadeRecorrencia = 2,
+                    ValorTotal = 120m,
+                    ValorLiquido = 120m,
+                    Status = StatusDespesa.Pendente
+                },
+                new Despesa
+                {
+                    Id = 101,
+                    UsuarioCadastroId = 1,
+                    Descricao = "Academia",
+                    DataLancamento = new DateOnly(2026, 5, 10),
+                    DataVencimento = new DateOnly(2026, 5, 10),
+                    TipoDespesa = "saude",
+                    TipoPagamento = "pix",
+                    Recorrencia = Recorrencia.Mensal,
+                    QuantidadeRecorrencia = 2,
+                    ValorTotal = 120m,
+                    ValorLiquido = 120m,
+                    Status = StatusDespesa.Pendente
+                }
+            ]
+        };
+        var service = CriarService(repository, new AreaRepoFake(), publisher, 1);
+
+        await service.ListarAsync(new ListarDespesasRequest(null, null, "04/2026", null, null, true));
+
+        Assert.Null(publisher.DespesaMessage);
     }
 
     [Fact]
@@ -609,6 +705,7 @@ public sealed class DespesaServiceTests
     private sealed class DespesaRepositoryFake : IDespesaRepository
     {
         public Despesa? Despesa { get; set; }
+        public List<Despesa> DespesasListadas { get; set; } = [];
         public List<Despesa> DespesasCriadas { get; } = [];
         public int? UltimoUsuarioIdFiltro { get; private set; }
         public string? UltimoIdFiltro { get; private set; }
@@ -620,7 +717,9 @@ public sealed class DespesaServiceTests
         public List<Despesa> DespesasAtualizadas { get; } = [];
         public bool ValidarUsuarioNoObter { get; set; }
 
-        public Task<List<Despesa>> ListarAsync(CancellationToken cancellationToken = default) => Task.FromResult(new List<Despesa>());
+        public Task<List<Despesa>> ListarAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(FiltrarListagem(null, null, null, null, null, null));
+
         public Task<List<Despesa>> ListarAsync(string? filtroId, string? descricao, string? competencia, DateOnly? dataInicio, DateOnly? dataFim, CancellationToken cancellationToken = default)
         {
             UltimoIdFiltro = filtroId;
@@ -628,7 +727,7 @@ public sealed class DespesaServiceTests
             UltimaCompetenciaFiltro = competencia;
             UltimaDataInicioFiltro = dataInicio;
             UltimaDataFimFiltro = dataFim;
-            return Task.FromResult(new List<Despesa>());
+            return Task.FromResult(FiltrarListagem(null, filtroId, descricao, competencia, dataInicio, dataFim));
         }
         public Task<List<Despesa>> ListarPorUsuarioAsync(int usuarioCadastroId, string? filtroId, string? descricao, string? competencia, DateOnly? dataInicio, DateOnly? dataFim, CancellationToken cancellationToken = default) =>
             ListarPorUsuarioInternoAsync(usuarioCadastroId, filtroId, descricao, competencia, dataInicio, dataFim);
@@ -644,7 +743,48 @@ public sealed class DespesaServiceTests
             UltimaCompetenciaFiltro = competencia;
             UltimaDataInicioFiltro = dataInicio;
             UltimaDataFimFiltro = dataFim;
-            return Task.FromResult(new List<Despesa>());
+            return Task.FromResult(FiltrarListagem(usuarioCadastroId, filtroId, descricao, competencia, dataInicio, dataFim));
+        }
+
+        private List<Despesa> FiltrarListagem(int? usuarioCadastroId, string? filtroId, string? descricao, string? competencia, DateOnly? dataInicio, DateOnly? dataFim)
+        {
+            var query = DespesasListadas.AsEnumerable();
+
+            if (usuarioCadastroId.HasValue)
+                query = query.Where(x => x.UsuarioCadastroId == usuarioCadastroId.Value);
+
+            if (!string.IsNullOrWhiteSpace(filtroId))
+                query = query.Where(x => x.Id.ToString().Contains(filtroId.Trim(), StringComparison.Ordinal));
+
+            if (!string.IsNullOrWhiteSpace(descricao))
+                query = query.Where(x => x.Descricao.Contains(descricao.Trim(), StringComparison.OrdinalIgnoreCase));
+
+            if (dataInicio.HasValue)
+                query = query.Where(x => x.DataLancamento >= dataInicio.Value);
+
+            if (dataFim.HasValue)
+                query = query.Where(x => x.DataLancamento <= dataFim.Value);
+
+            if (TryParseCompetencia(competencia, out var ano, out var mes))
+                query = query.Where(x => x.DataLancamento.Year == ano && x.DataLancamento.Month == mes);
+
+            return query.OrderByDescending(x => x.DataLancamento).ToList();
+        }
+
+        private static bool TryParseCompetencia(string? competencia, out int ano, out int mes)
+        {
+            ano = 0;
+            mes = 0;
+            if (string.IsNullOrWhiteSpace(competencia))
+                return false;
+
+            var formatos = new[] { "MM/yyyy", "MM-yyyy", "yyyy/MM", "yyyy-MM" };
+            if (!DateTime.TryParseExact(competencia.Trim(), formatos, null, System.Globalization.DateTimeStyles.None, out var data))
+                return false;
+
+            ano = data.Year;
+            mes = data.Month;
+            return true;
         }
         public Task<List<Despesa>> ObterPorIdsAsync(IReadOnlyCollection<long> ids, CancellationToken cancellationToken = default) => Task.FromResult(new List<Despesa>());
         public Task<List<Despesa>> ObterPorIdsAsync(IReadOnlyCollection<long> ids, int usuarioCadastroId, CancellationToken cancellationToken = default) =>

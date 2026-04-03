@@ -20,7 +20,7 @@ public sealed class ReceitaServiceTests
         var repository = new ReceitaRepoFake();
         var service = CriarService(repository, new ContaRepoFake(), new AreaRepoFake(), 99);
 
-        await service.ListarAsync(new ListarReceitasRequest("10", "Salario", "04/2026", null, null));
+        await service.ListarAsync(new ListarReceitasRequest("10", "Salario", "04/2026", null, null, false));
 
         Assert.Equal(99, repository.UltimoUsuarioIdFiltro);
         Assert.Equal("10", repository.UltimoIdFiltro);
@@ -36,7 +36,7 @@ public sealed class ReceitaServiceTests
         var repository = new ReceitaRepoFake();
         var service = CriarService(repository, new ContaRepoFake(), new AreaRepoFake(), 99);
 
-        await service.ListarAsync(new ListarReceitasRequest(null, null, null, null, null));
+        await service.ListarAsync(new ListarReceitasRequest(null, null, null, null, null, false));
 
         var hoje = DateOnly.FromDateTime(DateTime.Today);
         Assert.Equal(new DateOnly(hoje.Year, hoje.Month, 1), repository.UltimaDataInicioFiltro);
@@ -49,11 +49,107 @@ public sealed class ReceitaServiceTests
         var repository = new ReceitaRepoFake();
         var service = CriarService(repository, new ContaRepoFake(), new AreaRepoFake(), 99);
 
-        await service.ListarAsync(new ListarReceitasRequest(null, null, "2026/04", new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 31)));
+        await service.ListarAsync(new ListarReceitasRequest(null, null, "2026/04", new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 31), false));
 
         Assert.Equal("2026/04", repository.UltimaCompetenciaFiltro);
         Assert.Equal(new DateOnly(2026, 1, 1), repository.UltimaDataInicioFiltro);
         Assert.Equal(new DateOnly(2026, 1, 31), repository.UltimaDataFimFiltro);
+    }
+
+    [Fact]
+    public async Task DevePublicarMais10Recorrencias_AoListarCompetenciaComUltimaOcorrencia()
+    {
+        var publisher = new RecorrenciaPublisherFake();
+        var repository = new ReceitaRepoFake
+        {
+            ReceitasListadas =
+            [
+                new Receita
+                {
+                    Id = 200,
+                    UsuarioCadastroId = 99,
+                    Descricao = "Freelance fixo",
+                    DataLancamento = new DateOnly(2026, 4, 5),
+                    DataVencimento = new DateOnly(2026, 4, 5),
+                    TipoReceita = "freelance",
+                    TipoRecebimento = "dinheiro",
+                    Recorrencia = Recorrencia.Mensal,
+                    QuantidadeRecorrencia = 2,
+                    ValorTotal = 500m,
+                    ValorLiquido = 500m,
+                    Status = StatusReceita.Pendente
+                },
+                new Receita
+                {
+                    Id = 201,
+                    UsuarioCadastroId = 99,
+                    Descricao = "Freelance fixo",
+                    DataLancamento = new DateOnly(2026, 5, 5),
+                    DataVencimento = new DateOnly(2026, 5, 5),
+                    TipoReceita = "freelance",
+                    TipoRecebimento = "dinheiro",
+                    Recorrencia = Recorrencia.Mensal,
+                    QuantidadeRecorrencia = 2,
+                    ValorTotal = 500m,
+                    ValorLiquido = 500m,
+                    Status = StatusReceita.Pendente
+                }
+            ]
+        };
+        var service = CriarService(repository, new ContaRepoFake(), new AreaRepoFake(), publisher, 99);
+
+        await service.ListarAsync(new ListarReceitasRequest(null, null, "05/2026", null, null, true));
+
+        Assert.NotNull(publisher.ReceitaMessage);
+        Assert.Equal(12, publisher.ReceitaMessage!.QuantidadeRecorrencia);
+        Assert.Equal(new DateOnly(2026, 4, 5), publisher.ReceitaMessage.DataLancamento);
+    }
+
+    [Fact]
+    public async Task NaoDevePublicarMais10Recorrencias_QuandoJaExistirProximaOcorrencia()
+    {
+        var publisher = new RecorrenciaPublisherFake();
+        var repository = new ReceitaRepoFake
+        {
+            ReceitasListadas =
+            [
+                new Receita
+                {
+                    Id = 200,
+                    UsuarioCadastroId = 99,
+                    Descricao = "Freelance fixo",
+                    DataLancamento = new DateOnly(2026, 4, 5),
+                    DataVencimento = new DateOnly(2026, 4, 5),
+                    TipoReceita = "freelance",
+                    TipoRecebimento = "dinheiro",
+                    Recorrencia = Recorrencia.Mensal,
+                    QuantidadeRecorrencia = 2,
+                    ValorTotal = 500m,
+                    ValorLiquido = 500m,
+                    Status = StatusReceita.Pendente
+                },
+                new Receita
+                {
+                    Id = 201,
+                    UsuarioCadastroId = 99,
+                    Descricao = "Freelance fixo",
+                    DataLancamento = new DateOnly(2026, 5, 5),
+                    DataVencimento = new DateOnly(2026, 5, 5),
+                    TipoReceita = "freelance",
+                    TipoRecebimento = "dinheiro",
+                    Recorrencia = Recorrencia.Mensal,
+                    QuantidadeRecorrencia = 2,
+                    ValorTotal = 500m,
+                    ValorLiquido = 500m,
+                    Status = StatusReceita.Pendente
+                }
+            ]
+        };
+        var service = CriarService(repository, new ContaRepoFake(), new AreaRepoFake(), publisher, 99);
+
+        await service.ListarAsync(new ListarReceitasRequest(null, null, "04/2026", null, null, true));
+
+        Assert.Null(publisher.ReceitaMessage);
     }
 
     [Fact]
@@ -570,6 +666,7 @@ public sealed class ReceitaServiceTests
     private sealed class ReceitaRepoFake : IReceitaRepository
     {
         public Receita? Receita { get; set; }
+        public List<Receita> ReceitasListadas { get; set; } = [];
         public List<Receita> ReceitasCriadas { get; } = [];
         public int? UltimoUsuarioIdFiltro { get; private set; }
         public string? UltimoIdFiltro { get; private set; }
@@ -581,7 +678,9 @@ public sealed class ReceitaServiceTests
         public List<Receita> ReceitasAtualizadas { get; } = [];
         public bool ValidarUsuarioNoObter { get; set; }
 
-        public Task<List<Receita>> ListarAsync(CancellationToken cancellationToken = default) => Task.FromResult(new List<Receita>());
+        public Task<List<Receita>> ListarAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(FiltrarListagem(null, null, null, null, null, null));
+
         public Task<List<Receita>> ListarAsync(string? filtroId, string? descricao, string? competencia, DateOnly? dataInicio, DateOnly? dataFim, CancellationToken cancellationToken = default)
         {
             UltimoIdFiltro = filtroId;
@@ -589,7 +688,7 @@ public sealed class ReceitaServiceTests
             UltimaCompetenciaFiltro = competencia;
             UltimaDataInicioFiltro = dataInicio;
             UltimaDataFimFiltro = dataFim;
-            return Task.FromResult(new List<Receita>());
+            return Task.FromResult(FiltrarListagem(null, filtroId, descricao, competencia, dataInicio, dataFim));
         }
         public Task<List<Receita>> ListarPorUsuarioAsync(int usuarioCadastroId, string? filtroId, string? descricao, string? competencia, DateOnly? dataInicio, DateOnly? dataFim, CancellationToken cancellationToken = default) =>
             ListarPorUsuarioInternoAsync(usuarioCadastroId, filtroId, descricao, competencia, dataInicio, dataFim);
@@ -605,7 +704,48 @@ public sealed class ReceitaServiceTests
             UltimaCompetenciaFiltro = competencia;
             UltimaDataInicioFiltro = dataInicio;
             UltimaDataFimFiltro = dataFim;
-            return Task.FromResult(new List<Receita>());
+            return Task.FromResult(FiltrarListagem(usuarioCadastroId, filtroId, descricao, competencia, dataInicio, dataFim));
+        }
+
+        private List<Receita> FiltrarListagem(int? usuarioCadastroId, string? filtroId, string? descricao, string? competencia, DateOnly? dataInicio, DateOnly? dataFim)
+        {
+            var query = ReceitasListadas.AsEnumerable();
+
+            if (usuarioCadastroId.HasValue)
+                query = query.Where(x => x.UsuarioCadastroId == usuarioCadastroId.Value);
+
+            if (!string.IsNullOrWhiteSpace(filtroId))
+                query = query.Where(x => x.Id.ToString().Contains(filtroId.Trim(), StringComparison.Ordinal));
+
+            if (!string.IsNullOrWhiteSpace(descricao))
+                query = query.Where(x => x.Descricao.Contains(descricao.Trim(), StringComparison.OrdinalIgnoreCase));
+
+            if (dataInicio.HasValue)
+                query = query.Where(x => x.DataLancamento >= dataInicio.Value);
+
+            if (dataFim.HasValue)
+                query = query.Where(x => x.DataLancamento <= dataFim.Value);
+
+            if (TryParseCompetencia(competencia, out var ano, out var mes))
+                query = query.Where(x => x.DataLancamento.Year == ano && x.DataLancamento.Month == mes);
+
+            return query.OrderByDescending(x => x.DataLancamento).ToList();
+        }
+
+        private static bool TryParseCompetencia(string? competencia, out int ano, out int mes)
+        {
+            ano = 0;
+            mes = 0;
+            if (string.IsNullOrWhiteSpace(competencia))
+                return false;
+
+            var formatos = new[] { "MM/yyyy", "MM-yyyy", "yyyy/MM", "yyyy-MM" };
+            if (!DateTime.TryParseExact(competencia.Trim(), formatos, null, System.Globalization.DateTimeStyles.None, out var data))
+                return false;
+
+            ano = data.Year;
+            mes = data.Month;
+            return true;
         }
         public Task<Receita?> ObterPorIdAsync(long id, CancellationToken cancellationToken = default) => Task.FromResult(Receita);
         public Task<Receita?> ObterPorIdAsync(long id, int usuarioCadastroId, CancellationToken cancellationToken = default) =>
