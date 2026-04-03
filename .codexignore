@@ -1,0 +1,48 @@
+# .codexignore — Core (.NET)
+# Arquivos e pastas ignorados pelo Codex para reduzir contexto e economizar tokens
+
+# Build e compilação
+**/bin/
+**/obj/
+**/publish/
+**/.vs/
+**/.idea/
+
+# Pacotes e dependências
+**/packages/
+**/*.nupkg
+
+# Testes — artefatos gerados
+**/TestResults/
+**/coverage/
+**/*.trx
+**/*.coverage
+
+# Banco de dados local
+**/*.mdf
+**/*.ldf
+**/*.bak
+
+# Configurações locais e secrets
+**/appsettings.Development.json
+**/appsettings.Production.json
+**/appsettings.Staging.json
+**/*.user
+**/*.suo
+**/.env
+
+# Logs
+**/logs/
+**/*.log
+
+# Migrações antigas (manter apenas a pasta, ignorar arquivos de snapshot)
+**/Migrations/*Snapshot*
+
+# Artefatos residuais de testes (pasta legada)
+tests/
+
+# Arquivos de solução temporários
+**/*.DotSettings.user
+
+# Docker (se não for relevante para a tarefa)
+**/docker-compose.override.yml
