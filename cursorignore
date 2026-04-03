@@ -1,0 +1,58 @@
+# Arquivo pensado para reduzir contexto automático em ferramentas de IA
+# e economizar tokens sem esconder o código-fonte principal.
+# Se precisar que a IA leia algum destes itens, remova a regra temporariamente.
+
+# Build / artefatos
+**/bin/**
+**/obj/**
+**/out/**
+**/publish/**
+**/TestResults/**
+**/coverage/**
+**/*.coverage
+**/*.coveragexml
+**/*.trx
+**/*.log
+
+# IDE / workspace local
+.vs/**
+.vscode/**
+.idea/**
+
+# Dependências e caches
+node_modules/**
+packages/**
+.nuget/**
+.artifacts/**
+.dotnet/**
+.dotnet-cli/**
+.dotnet_cli/**
+
+# Configurações locais e possíveis segredos
+**/appsettings.Development.json
+**/appsettings.Local.json
+**/appsettings.*.local.json
+**/.env
+**/.env.*
+Core.Api/appsettings.json
+
+# Documentação extensa e material de apoio
+/documentações tecnica/**
+/query's/**
+/skills/**
+/.codex/**
+
+# Arquivos de banco e backup
+**/*.mdf
+**/*.ldf
+**/*.ndf
+**/*backup*
+**/*Backup*
+
+# Logs e arquivos temporários
+**/*.tmp
+**/*.cache
+**/~$*
+**/*.user
+**/*.suo
+**/*.rsuser
