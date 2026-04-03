@@ -586,6 +586,197 @@ public sealed class ReceitaServiceTests
         Assert.Equal("quantidade_recorrencia_invalida", ex.Message);
     }
 
+    [Fact]
+    public async Task DeveAtualizarEssaEAsProximasPendentes_EmSerieRecorrente()
+    {
+        var repository = new ReceitaRepoFake
+        {
+            Receita = new Receita
+            {
+                Id = 2,
+                UsuarioCadastroId = 99,
+                Descricao = "Assinatura",
+                DataLancamento = new DateOnly(2026, 2, 1),
+                DataVencimento = new DateOnly(2026, 2, 2),
+                TipoReceita = "freelance",
+                TipoRecebimento = "dinheiro",
+                Recorrencia = Recorrencia.Mensal,
+                QuantidadeRecorrencia = 3,
+                ValorTotal = 1000m,
+                ValorLiquido = 1000m,
+                Status = StatusReceita.Pendente
+            },
+            ReceitasListadas =
+            [
+                new Receita
+                {
+                    Id = 1,
+                    UsuarioCadastroId = 99,
+                    Descricao = "Assinatura",
+                    DataLancamento = new DateOnly(2026, 1, 1),
+                    DataVencimento = new DateOnly(2026, 1, 2),
+                    TipoReceita = "freelance",
+                    TipoRecebimento = "dinheiro",
+                    Recorrencia = Recorrencia.Mensal,
+                    QuantidadeRecorrencia = 3,
+                    ValorTotal = 1000m,
+                    ValorLiquido = 1000m,
+                    Status = StatusReceita.Efetivada
+                },
+                new Receita
+                {
+                    Id = 2,
+                    UsuarioCadastroId = 99,
+                    Descricao = "Assinatura",
+                    DataLancamento = new DateOnly(2026, 2, 1),
+                    DataVencimento = new DateOnly(2026, 2, 2),
+                    TipoReceita = "freelance",
+                    TipoRecebimento = "dinheiro",
+                    Recorrencia = Recorrencia.Mensal,
+                    QuantidadeRecorrencia = 3,
+                    ValorTotal = 1000m,
+                    ValorLiquido = 1000m,
+                    Status = StatusReceita.Pendente
+                },
+                new Receita
+                {
+                    Id = 3,
+                    UsuarioCadastroId = 99,
+                    Descricao = "Assinatura",
+                    DataLancamento = new DateOnly(2026, 3, 1),
+                    DataVencimento = new DateOnly(2026, 3, 2),
+                    TipoReceita = "freelance",
+                    TipoRecebimento = "dinheiro",
+                    Recorrencia = Recorrencia.Mensal,
+                    QuantidadeRecorrencia = 3,
+                    ValorTotal = 1000m,
+                    ValorLiquido = 1000m,
+                    Status = StatusReceita.Pendente
+                }
+            ]
+        };
+        var service = CriarService(repository, new ContaRepoFake(), new AreaRepoFake(), 99);
+
+        var request = new AtualizarReceitaRequest(
+            "Receita Atualizada",
+            null,
+            new DateOnly(2026, 3, 10),
+            new DateOnly(2026, 3, 12),
+            "freelance",
+            "dinheiro",
+            Recorrencia.Mensal,
+            1000m,
+            0m,
+            0m,
+            0m,
+            0m,
+            [],
+            null,
+            null,
+            [],
+            3,
+            false);
+
+        await service.AtualizarAsync(2, request, EscopoRecorrencia.EssaEAsProximas);
+
+        Assert.DoesNotContain(repository.ReceitasAtualizadas, x => x.Id == 1);
+
+        var atualizadaBase = repository.ReceitasAtualizadas.Last(x => x.Id == 2);
+        var atualizadaProxima = repository.ReceitasAtualizadas.Last(x => x.Id == 3);
+
+        Assert.Equal(new DateOnly(2026, 3, 10), atualizadaBase.DataLancamento);
+        Assert.Equal(new DateOnly(2026, 3, 12), atualizadaBase.DataVencimento);
+        Assert.Equal(new DateOnly(2026, 4, 10), atualizadaProxima.DataLancamento);
+        Assert.Equal(new DateOnly(2026, 4, 12), atualizadaProxima.DataVencimento);
+    }
+
+    [Fact]
+    public async Task DeveEncerrarRecorrenciaFixa_AoCancelarTodasPendentes()
+    {
+        var repository = new ReceitaRepoFake
+        {
+            Receita = new Receita
+            {
+                Id = 2,
+                UsuarioCadastroId = 99,
+                Descricao = "Plano",
+                DataLancamento = new DateOnly(2026, 2, 1),
+                DataVencimento = new DateOnly(2026, 2, 1),
+                TipoReceita = "freelance",
+                TipoRecebimento = "dinheiro",
+                Recorrencia = Recorrencia.Mensal,
+                RecorrenciaFixa = true,
+                QuantidadeRecorrencia = 100,
+                ValorTotal = 1000m,
+                ValorLiquido = 1000m,
+                Status = StatusReceita.Pendente
+            },
+            ReceitasListadas =
+            [
+                new Receita
+                {
+                    Id = 1,
+                    UsuarioCadastroId = 99,
+                    Descricao = "Plano",
+                    DataLancamento = new DateOnly(2026, 1, 1),
+                    DataVencimento = new DateOnly(2026, 1, 1),
+                    TipoReceita = "freelance",
+                    TipoRecebimento = "dinheiro",
+                    Recorrencia = Recorrencia.Mensal,
+                    RecorrenciaFixa = true,
+                    QuantidadeRecorrencia = 100,
+                    ValorTotal = 1000m,
+                    ValorLiquido = 1000m,
+                    Status = StatusReceita.Efetivada
+                },
+                new Receita
+                {
+                    Id = 2,
+                    UsuarioCadastroId = 99,
+                    Descricao = "Plano",
+                    DataLancamento = new DateOnly(2026, 2, 1),
+                    DataVencimento = new DateOnly(2026, 2, 1),
+                    TipoReceita = "freelance",
+                    TipoRecebimento = "dinheiro",
+                    Recorrencia = Recorrencia.Mensal,
+                    RecorrenciaFixa = true,
+                    QuantidadeRecorrencia = 100,
+                    ValorTotal = 1000m,
+                    ValorLiquido = 1000m,
+                    Status = StatusReceita.Pendente
+                },
+                new Receita
+                {
+                    Id = 3,
+                    UsuarioCadastroId = 99,
+                    Descricao = "Plano",
+                    DataLancamento = new DateOnly(2026, 3, 1),
+                    DataVencimento = new DateOnly(2026, 3, 1),
+                    TipoReceita = "freelance",
+                    TipoRecebimento = "dinheiro",
+                    Recorrencia = Recorrencia.Mensal,
+                    RecorrenciaFixa = true,
+                    QuantidadeRecorrencia = 100,
+                    ValorTotal = 1000m,
+                    ValorLiquido = 1000m,
+                    Status = StatusReceita.Pendente
+                }
+            ]
+        };
+        var service = CriarService(repository, new ContaRepoFake(), new AreaRepoFake(), 99);
+
+        await service.CancelarAsync(2, EscopoRecorrencia.TodasPendentes);
+
+        var itemBase = repository.ReceitasListadas.Single(x => x.Id == 2);
+        var itemProximo = repository.ReceitasListadas.Single(x => x.Id == 3);
+        var itemEfetivado = repository.ReceitasListadas.Single(x => x.Id == 1);
+
+        Assert.Equal(StatusReceita.Cancelada, itemBase.Status);
+        Assert.Equal(StatusReceita.Cancelada, itemProximo.Status);
+        Assert.Equal(StatusReceita.Efetivada, itemEfetivado.Status);
+        Assert.All(repository.ReceitasListadas, x => Assert.False(x.RecorrenciaFixa));
+    }
+
     private static CriarReceitaRequest CriarRequestPadrao(
         string tipoRecebimento = "dinheiro",
         string? contaBancaria = null,

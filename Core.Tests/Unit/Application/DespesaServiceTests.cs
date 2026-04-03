@@ -621,6 +621,184 @@ public sealed class DespesaServiceTests
         Assert.Equal("quantidade_recorrencia_invalida", ex.Message);
     }
 
+    [Fact]
+    public async Task DeveAtualizarEssaEAsProximasPendentes_EmSerieRecorrente()
+    {
+        var repository = new DespesaRepositoryFake
+        {
+            Despesa = new Despesa
+            {
+                Id = 2,
+                UsuarioCadastroId = 1,
+                Descricao = "Academia",
+                DataLancamento = new DateOnly(2026, 2, 1),
+                DataVencimento = new DateOnly(2026, 2, 2),
+                TipoDespesa = "alimentacao",
+                TipoPagamento = "pix",
+                Recorrencia = Recorrencia.Mensal,
+                QuantidadeRecorrencia = 3,
+                ValorTotal = 100m,
+                ValorLiquido = 100m,
+                Status = StatusDespesa.Pendente
+            },
+            DespesasListadas =
+            [
+                new Despesa
+                {
+                    Id = 1,
+                    UsuarioCadastroId = 1,
+                    Descricao = "Academia",
+                    DataLancamento = new DateOnly(2026, 1, 1),
+                    DataVencimento = new DateOnly(2026, 1, 2),
+                    TipoDespesa = "alimentacao",
+                    TipoPagamento = "pix",
+                    Recorrencia = Recorrencia.Mensal,
+                    QuantidadeRecorrencia = 3,
+                    ValorTotal = 100m,
+                    ValorLiquido = 100m,
+                    Status = StatusDespesa.Efetivada
+                },
+                new Despesa
+                {
+                    Id = 2,
+                    UsuarioCadastroId = 1,
+                    Descricao = "Academia",
+                    DataLancamento = new DateOnly(2026, 2, 1),
+                    DataVencimento = new DateOnly(2026, 2, 2),
+                    TipoDespesa = "alimentacao",
+                    TipoPagamento = "pix",
+                    Recorrencia = Recorrencia.Mensal,
+                    QuantidadeRecorrencia = 3,
+                    ValorTotal = 100m,
+                    ValorLiquido = 100m,
+                    Status = StatusDespesa.Pendente
+                },
+                new Despesa
+                {
+                    Id = 3,
+                    UsuarioCadastroId = 1,
+                    Descricao = "Academia",
+                    DataLancamento = new DateOnly(2026, 3, 1),
+                    DataVencimento = new DateOnly(2026, 3, 2),
+                    TipoDespesa = "alimentacao",
+                    TipoPagamento = "pix",
+                    Recorrencia = Recorrencia.Mensal,
+                    QuantidadeRecorrencia = 3,
+                    ValorTotal = 100m,
+                    ValorLiquido = 100m,
+                    Status = StatusDespesa.Pendente
+                }
+            ]
+        };
+        var service = CriarService(repository, 1);
+
+        await service.AtualizarAsync(
+            2,
+            CriarAtualizacaoPadrao(
+                dataLancamento: new DateOnly(2026, 3, 10),
+                dataVencimento: new DateOnly(2026, 3, 12),
+                recorrencia: Recorrencia.Mensal,
+                quantidadeRecorrencia: 3),
+            EscopoRecorrencia.EssaEAsProximas);
+
+        Assert.DoesNotContain(repository.DespesasAtualizadas, x => x.Id == 1);
+
+        var atualizadaBase = repository.DespesasAtualizadas.Last(x => x.Id == 2);
+        var atualizadaProxima = repository.DespesasAtualizadas.Last(x => x.Id == 3);
+
+        Assert.Equal(new DateOnly(2026, 3, 10), atualizadaBase.DataLancamento);
+        Assert.Equal(new DateOnly(2026, 3, 12), atualizadaBase.DataVencimento);
+        Assert.Equal(new DateOnly(2026, 4, 10), atualizadaProxima.DataLancamento);
+        Assert.Equal(new DateOnly(2026, 4, 12), atualizadaProxima.DataVencimento);
+    }
+
+    [Fact]
+    public async Task DeveEncerrarRecorrenciaFixa_AoCancelarTodasPendentes()
+    {
+        var repository = new DespesaRepositoryFake
+        {
+            Despesa = new Despesa
+            {
+                Id = 2,
+                UsuarioCadastroId = 1,
+                Descricao = "Mensalidade",
+                DataLancamento = new DateOnly(2026, 2, 1),
+                DataVencimento = new DateOnly(2026, 2, 1),
+                TipoDespesa = "servicos",
+                TipoPagamento = "pix",
+                Recorrencia = Recorrencia.Mensal,
+                RecorrenciaFixa = true,
+                QuantidadeRecorrencia = 100,
+                ValorTotal = 100m,
+                ValorLiquido = 100m,
+                Status = StatusDespesa.Pendente
+            },
+            DespesasListadas =
+            [
+                new Despesa
+                {
+                    Id = 1,
+                    UsuarioCadastroId = 1,
+                    Descricao = "Mensalidade",
+                    DataLancamento = new DateOnly(2026, 1, 1),
+                    DataVencimento = new DateOnly(2026, 1, 1),
+                    TipoDespesa = "servicos",
+                    TipoPagamento = "pix",
+                    Recorrencia = Recorrencia.Mensal,
+                    RecorrenciaFixa = true,
+                    QuantidadeRecorrencia = 100,
+                    ValorTotal = 100m,
+                    ValorLiquido = 100m,
+                    Status = StatusDespesa.Efetivada
+                },
+                new Despesa
+                {
+                    Id = 2,
+                    UsuarioCadastroId = 1,
+                    Descricao = "Mensalidade",
+                    DataLancamento = new DateOnly(2026, 2, 1),
+                    DataVencimento = new DateOnly(2026, 2, 1),
+                    TipoDespesa = "servicos",
+                    TipoPagamento = "pix",
+                    Recorrencia = Recorrencia.Mensal,
+                    RecorrenciaFixa = true,
+                    QuantidadeRecorrencia = 100,
+                    ValorTotal = 100m,
+                    ValorLiquido = 100m,
+                    Status = StatusDespesa.Pendente
+                },
+                new Despesa
+                {
+                    Id = 3,
+                    UsuarioCadastroId = 1,
+                    Descricao = "Mensalidade",
+                    DataLancamento = new DateOnly(2026, 3, 1),
+                    DataVencimento = new DateOnly(2026, 3, 1),
+                    TipoDespesa = "servicos",
+                    TipoPagamento = "pix",
+                    Recorrencia = Recorrencia.Mensal,
+                    RecorrenciaFixa = true,
+                    QuantidadeRecorrencia = 100,
+                    ValorTotal = 100m,
+                    ValorLiquido = 100m,
+                    Status = StatusDespesa.Pendente
+                }
+            ]
+        };
+        var service = CriarService(repository, 1);
+
+        await service.CancelarAsync(2, EscopoRecorrencia.TodasPendentes);
+
+        var itemBase = repository.DespesasListadas.Single(x => x.Id == 2);
+        var itemProximo = repository.DespesasListadas.Single(x => x.Id == 3);
+        var itemEfetivado = repository.DespesasListadas.Single(x => x.Id == 1);
+
+        Assert.Equal(StatusDespesa.Cancelada, itemBase.Status);
+        Assert.Equal(StatusDespesa.Cancelada, itemProximo.Status);
+        Assert.Equal(StatusDespesa.Efetivada, itemEfetivado.Status);
+        Assert.All(repository.DespesasListadas, x => Assert.False(x.RecorrenciaFixa));
+    }
+
     private static CriarDespesaRequest CriarRequestPadrao(
         string descricao = "Despesa",
         DateOnly? dataLancamento = null,
