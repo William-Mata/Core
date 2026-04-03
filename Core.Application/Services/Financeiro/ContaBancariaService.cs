@@ -13,20 +13,49 @@ public sealed class ContaBancariaService(
     IHistoricoTransacaoFinanceiraRepository historicoRepository,
     IUsuarioAutenticadoProvider usuarioAutenticadoProvider)
 {
-    public async Task<IReadOnlyCollection<ContaBancariaDto>> ListarAsync(CancellationToken cancellationToken = default) =>
-        (await repository.ListarAsync(ObterUsuarioAutenticadoId(), cancellationToken)).Select(Map).ToArray();
+    public async Task<IReadOnlyCollection<ContaBancariaDto>> ListarAsync(CancellationToken cancellationToken = default)
+    {
+        if (cancellationToken.IsCancellationRequested)
+            return [];
+
+        var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
+        try
+        {
+            return (await repository.ListarAsync(usuarioAutenticadoId, cancellationToken)).Select(Map).ToArray();
+        }
+        catch (OperationCanceledException)
+        {
+            if (cancellationToken.IsCancellationRequested)
+                return [];
+
+            throw;
+        }
+    }
 
     public async Task<ContaBancariaDto> ObterAsync(long id, CancellationToken cancellationToken = default) =>
         Map(await repository.ObterPorIdAsync(id, ObterUsuarioAutenticadoId(), cancellationToken) ?? throw new NotFoundException("conta_bancaria_nao_encontrada"));
 
     public async Task<IReadOnlyCollection<LancamentoVinculadoDto>> ListarLancamentosAsync(long id, string? competencia, CancellationToken cancellationToken = default)
     {
+        if (cancellationToken.IsCancellationRequested)
+            return [];
+
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
         var conta = await repository.ObterPorIdAsync(id, usuarioAutenticadoId, cancellationToken) ?? throw new NotFoundException("conta_bancaria_nao_encontrada");
 
-        return (await historicoRepository.ListarPorContaBancariaCompetenciaAsync(conta.Id, usuarioAutenticadoId, competencia, cancellationToken))
-            .Select(MapLancamento)
-            .ToArray();
+        try
+        {
+            return (await historicoRepository.ListarPorContaBancariaCompetenciaAsync(conta.Id, usuarioAutenticadoId, competencia, cancellationToken))
+                .Select(MapLancamento)
+                .ToArray();
+        }
+        catch (OperationCanceledException)
+        {
+            if (cancellationToken.IsCancellationRequested)
+                return [];
+
+            throw;
+        }
     }
 
     public async Task<ContaBancariaDto> CriarAsync(CriarContaBancariaRequest request, CancellationToken cancellationToken = default)

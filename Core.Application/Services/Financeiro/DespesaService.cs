@@ -29,6 +29,9 @@ public sealed partial class DespesaService(
 
     public async Task<IReadOnlyCollection<DespesaListaDto>> ListarAsync(ListarDespesasRequest request, CancellationToken cancellationToken = default)
     {
+        if (cancellationToken.IsCancellationRequested)
+            return [];
+
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
         var dataInicio = request.DataInicio;
         var dataFim = request.DataFim;
@@ -43,30 +46,54 @@ public sealed partial class DespesaService(
             dataFim = periodoAtual.DataFim;
         }
 
-        var despesas = await repository.ListarPorUsuarioAsync(
-            usuarioAutenticadoId,
-            request.Id,
-            request.Descricao,
-            request.Competencia,
-            dataInicio,
-            dataFim,
-            cancellationToken);
+        try
+        {
+            var despesas = await repository.ListarPorUsuarioAsync(
+                usuarioAutenticadoId,
+                request.Id,
+                request.Descricao,
+                request.Competencia,
+                dataInicio,
+                dataFim,
+                cancellationToken);
+            if (!cancellationToken.IsCancellationRequested && request.VerificarUltimaRecorrencia)
+            {
+                await VerificarUltimasRecorrenciasERecuperarFalhasAsync(usuarioAutenticadoId, request.Competencia, cancellationToken);
+            }
 
-        if (request.VerificarUltimaRecorrencia)
-            await VerificarUltimasRecorrenciasERecuperarFalhasAsync(usuarioAutenticadoId, request.Competencia, cancellationToken);
+            return despesas
+                .Where(x => !(x.DespesaOrigemId.HasValue && (x.Status == StatusDespesa.PendenteAprovacao || x.Status == StatusDespesa.Rejeitado)))
+                .Select(MapLista)
+                .ToArray();
+        }
+        catch (OperationCanceledException)
+        {
+            if (cancellationToken.IsCancellationRequested)
+                return [];
 
-        return despesas
-            .Where(x => !(x.DespesaOrigemId.HasValue && (x.Status == StatusDespesa.PendenteAprovacao || x.Status == StatusDespesa.Rejeitado)))
-            .Select(MapLista)
-            .ToArray();
+            throw;
+        }
     }
 
     public async Task<IReadOnlyCollection<DespesaDto>> ListarPendentesAprovacaoAsync(CancellationToken cancellationToken = default)
     {
+        if (cancellationToken.IsCancellationRequested)
+            return [];
+
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
-        return (await repository.ListarPendentesAprovacaoPorUsuarioAsync(usuarioAutenticadoId, cancellationToken))
-            .Select(Map)
-            .ToArray();
+        try
+        {
+            return (await repository.ListarPendentesAprovacaoPorUsuarioAsync(usuarioAutenticadoId, cancellationToken))
+                .Select(Map)
+                .ToArray();
+        }
+        catch (OperationCanceledException)
+        {
+            if (cancellationToken.IsCancellationRequested)
+                return [];
+
+            throw;
+        }
     }
 
     public async Task<DespesaDto> ObterAsync(long id, CancellationToken cancellationToken = default) =>

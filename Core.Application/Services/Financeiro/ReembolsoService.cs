@@ -19,6 +19,9 @@ public sealed class ReembolsoService(
 {
     public async Task<IReadOnlyCollection<ReembolsoListaDto>> ListarAsync(ListarReembolsosRequest request, CancellationToken cancellationToken = default)
     {
+        if (cancellationToken.IsCancellationRequested)
+            return [];
+
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
         var dataInicio = request.DataInicio;
         var dataFim = request.DataFim;
@@ -33,16 +36,26 @@ public sealed class ReembolsoService(
             dataFim = periodoAtual.DataFim;
         }
 
-        return (await repository.ListarAsync(
-                usuarioAutenticadoId,
-                request.Id,
-                request.Descricao,
-                request.Competencia,
-                dataInicio,
-                dataFim,
-                cancellationToken))
-            .Select(MapLista)
-            .ToArray();
+        try
+        {
+            return (await repository.ListarAsync(
+                    usuarioAutenticadoId,
+                    request.Id,
+                    request.Descricao,
+                    request.Competencia,
+                    dataInicio,
+                    dataFim,
+                    cancellationToken))
+                .Select(MapLista)
+                .ToArray();
+        }
+        catch (OperationCanceledException)
+        {
+            if (cancellationToken.IsCancellationRequested)
+                return [];
+
+            throw;
+        }
     }
 
     public async Task<ReembolsoDto> ObterAsync(long id, CancellationToken cancellationToken = default) =>

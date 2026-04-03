@@ -29,6 +29,9 @@ public sealed partial class ReceitaService(
 
     public async Task<IReadOnlyCollection<ReceitaListaDto>> ListarAsync(ListarReceitasRequest request, CancellationToken cancellationToken = default)
     {
+        if (cancellationToken.IsCancellationRequested)
+            return [];
+
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
         var dataInicio = request.DataInicio;
         var dataFim = request.DataFim;
@@ -43,30 +46,54 @@ public sealed partial class ReceitaService(
             dataFim = periodoAtual.DataFim;
         }
 
-        var receitas = await repository.ListarPorUsuarioAsync(
-            usuarioAutenticadoId,
-            request.Id,
-            request.Descricao,
-            request.Competencia,
-            dataInicio,
-            dataFim,
-            cancellationToken);
+        try
+        {
+            var receitas = await repository.ListarPorUsuarioAsync(
+                usuarioAutenticadoId,
+                request.Id,
+                request.Descricao,
+                request.Competencia,
+                dataInicio,
+                dataFim,
+                cancellationToken);
+            if (!cancellationToken.IsCancellationRequested && request.VerificarUltimaRecorrencia)
+            {
+                await VerificarUltimasRecorrenciasERecuperarFalhasAsync(usuarioAutenticadoId, request.Competencia, cancellationToken);
+            }
 
-        if (request.VerificarUltimaRecorrencia)
-            await VerificarUltimasRecorrenciasERecuperarFalhasAsync(usuarioAutenticadoId, request.Competencia, cancellationToken);
+            return receitas
+                .Where(x => !(x.ReceitaOrigemId.HasValue && (x.Status == StatusReceita.PendenteAprovacao || x.Status == StatusReceita.Rejeitado)))
+                .Select(MapLista)
+                .ToArray();
+        }
+        catch (OperationCanceledException)
+        {
+            if (cancellationToken.IsCancellationRequested)
+                return [];
 
-        return receitas
-            .Where(x => !(x.ReceitaOrigemId.HasValue && (x.Status == StatusReceita.PendenteAprovacao || x.Status == StatusReceita.Rejeitado)))
-            .Select(MapLista)
-            .ToArray();
+            throw;
+        }
     }
 
     public async Task<IReadOnlyCollection<ReceitaDto>> ListarPendentesAprovacaoAsync(CancellationToken cancellationToken = default)
     {
+        if (cancellationToken.IsCancellationRequested)
+            return [];
+
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
-        return (await repository.ListarPendentesAprovacaoPorUsuarioAsync(usuarioAutenticadoId, cancellationToken))
-            .Select(Map)
-            .ToArray();
+        try
+        {
+            return (await repository.ListarPendentesAprovacaoPorUsuarioAsync(usuarioAutenticadoId, cancellationToken))
+                .Select(Map)
+                .ToArray();
+        }
+        catch (OperationCanceledException)
+        {
+            if (cancellationToken.IsCancellationRequested)
+                return [];
+
+            throw;
+        }
     }
 
     public async Task<ReceitaDto> ObterAsync(long id, CancellationToken cancellationToken = default) =>
@@ -336,9 +363,20 @@ public sealed partial class ReceitaService(
 
         foreach (var alvo in alvos)
         {
+            if (cancellationToken.IsCancellationRequested)
+                break;
+
             alvo.Status = StatusReceita.Cancelada;
             alvo.Logs.Add(new ReceitaLog { ReceitaId = alvo.Id, UsuarioCadastroId = usuarioAutenticadoId, Acao = AcaoLogs.Exclusao, Descricao = "Receita cancelada." });
-            var atualizado = await repository.AtualizarAsync(alvo, cancellationToken);
+            Receita atualizado;
+            try
+            {
+                atualizado = await repository.AtualizarAsync(alvo, cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                break;
+            }
 
             if (atualizado.Id == id)
                 receitaAtualizada = atualizado;
@@ -348,8 +386,18 @@ public sealed partial class ReceitaService(
         {
             foreach (var item in serie.Where(x => x.RecorrenciaFixa))
             {
+                if (cancellationToken.IsCancellationRequested)
+                    break;
+
                 item.RecorrenciaFixa = false;
-                await repository.AtualizarAsync(item, cancellationToken);
+                try
+                {
+                    await repository.AtualizarAsync(item, cancellationToken);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    break;
+                }
             }
         }
 

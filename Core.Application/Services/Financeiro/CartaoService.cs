@@ -13,20 +13,49 @@ public sealed class CartaoService(
     IHistoricoTransacaoFinanceiraRepository historicoRepository,
     IUsuarioAutenticadoProvider usuarioAutenticadoProvider)
 {
-    public async Task<IReadOnlyCollection<CartaoDto>> ListarAsync(CancellationToken cancellationToken = default) =>
-        (await repository.ListarAsync(ObterUsuarioAutenticadoId(), cancellationToken)).Select(Map).ToArray();
+    public async Task<IReadOnlyCollection<CartaoDto>> ListarAsync(CancellationToken cancellationToken = default)
+    {
+        if (cancellationToken.IsCancellationRequested)
+            return [];
+
+        var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
+        try
+        {
+            return (await repository.ListarAsync(usuarioAutenticadoId, cancellationToken)).Select(Map).ToArray();
+        }
+        catch (OperationCanceledException)
+        {
+            if (cancellationToken.IsCancellationRequested)
+                return [];
+
+            throw;
+        }
+    }
 
     public async Task<CartaoDto> ObterAsync(long id, CancellationToken cancellationToken = default) =>
         Map(await repository.ObterPorIdAsync(id, ObterUsuarioAutenticadoId(), cancellationToken) ?? throw new NotFoundException("cartao_nao_encontrado"));
 
     public async Task<IReadOnlyCollection<LancamentoVinculadoDto>> ListarLancamentosAsync(long id, string? competencia, CancellationToken cancellationToken = default)
     {
+        if (cancellationToken.IsCancellationRequested)
+            return [];
+
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
         var cartao = await repository.ObterPorIdAsync(id, usuarioAutenticadoId, cancellationToken) ?? throw new NotFoundException("cartao_nao_encontrado");
 
-        return (await historicoRepository.ListarPorCartaoCompetenciaAsync(cartao.Id, usuarioAutenticadoId, competencia, cancellationToken))
-            .Select(MapLancamento)
-            .ToArray();
+        try
+        {
+            return (await historicoRepository.ListarPorCartaoCompetenciaAsync(cartao.Id, usuarioAutenticadoId, competencia, cancellationToken))
+                .Select(MapLancamento)
+                .ToArray();
+        }
+        catch (OperationCanceledException)
+        {
+            if (cancellationToken.IsCancellationRequested)
+                return [];
+
+            throw;
+        }
     }
 
     public async Task<CartaoDto> CriarAsync(CriarCartaoRequest request, CancellationToken cancellationToken = default)
