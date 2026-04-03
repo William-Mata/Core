@@ -17,8 +17,9 @@ public sealed class DespesaController(DespesaService service) : ControllerBase
         [FromQuery] string? competencia,
         [FromQuery] DateOnly? dataInicio,
         [FromQuery] DateOnly? dataFim,
+        [FromQuery] bool verificarUltimaRecorrencia,
         CancellationToken cancellationToken) =>
-        Ok(await service.ListarAsync(new ListarDespesasRequest(id, descricao, competencia, dataInicio, dataFim), cancellationToken));
+        Ok(await service.ListarAsync(new ListarDespesasRequest(id, descricao, competencia, dataInicio, dataFim, verificarUltimaRecorrencia), cancellationToken));
 
     [HttpGet("{id:long}")]
     public async Task<IActionResult> Obter(long id, CancellationToken cancellationToken) => Ok(await service.ObterAsync(id, cancellationToken));

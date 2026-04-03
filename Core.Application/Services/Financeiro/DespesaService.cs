@@ -43,14 +43,19 @@ public sealed partial class DespesaService(
             dataFim = periodoAtual.DataFim;
         }
 
-        return (await repository.ListarPorUsuarioAsync(
-                usuarioAutenticadoId,
-                request.Id,
-                request.Descricao,
-                request.Competencia,
-                dataInicio,
-                dataFim,
-                cancellationToken))
+        var despesas = await repository.ListarPorUsuarioAsync(
+            usuarioAutenticadoId,
+            request.Id,
+            request.Descricao,
+            request.Competencia,
+            dataInicio,
+            dataFim,
+            cancellationToken);
+
+        if (request.VerificarUltimaRecorrencia)
+            await VerificarUltimasRecorrenciasERecuperarFalhasAsync(usuarioAutenticadoId, request.Competencia, cancellationToken);
+
+        return despesas
             .Where(x => !(x.DespesaOrigemId.HasValue && (x.Status == StatusDespesa.PendenteAprovacao || x.Status == StatusDespesa.Rejeitado)))
             .Select(MapLista)
             .ToArray();
@@ -132,6 +137,7 @@ public sealed partial class DespesaService(
                 usuarioAutenticadoId,
                 req.Descricao.Trim(),
                 req.Observacao,
+                despesaCriada.DataHoraCadastro,
                 req.DataLancamento,
                 req.DataVencimento,
                 req.TipoDespesa,
@@ -345,6 +351,134 @@ public sealed partial class DespesaService(
 
     private int ObterUsuarioAutenticadoId() =>
         usuarioAutenticadoProvider.ObterUsuarioId() ?? throw new DomainException("usuario_nao_autenticado");
+
+    private async Task VerificarUltimasRecorrenciasERecuperarFalhasAsync(
+        int usuarioAutenticadoId,
+        string? competencia,
+        CancellationToken cancellationToken)
+    {
+        var todasDespesas = await repository.ListarPorUsuarioAsync(
+            usuarioAutenticadoId,
+            null,
+            null,
+            null,
+            null,
+            null,
+            cancellationToken);
+
+        var candidatas = todasDespesas
+            .Where(x => x.DespesaOrigemId is null)
+            .Where(x => x.Recorrencia != Recorrencia.Unica)
+            .GroupBy(x => new
+            {
+                x.Descricao,
+                x.TipoDespesa,
+                x.TipoPagamento,
+                x.Recorrencia,
+                x.RecorrenciaFixa,
+                x.ContaBancariaId,
+                x.CartaoId
+            })
+            .ToArray();
+
+        var periodoCompetencia = CompetenciaPeriodoHelper.Resolver(competencia, null, null);
+
+        foreach (var grupo in candidatas)
+        {
+            var origem = grupo
+                .OrderBy(x => x.DataLancamento)
+                .ThenBy(x => x.Id)
+                .First();
+
+            var alvoBase = grupo.Max(x => x.QuantidadeRecorrencia.GetValueOrDefault(1));
+            if (origem.RecorrenciaFixa)
+                alvoBase = Math.Max(100, alvoBase);
+
+            if (alvoBase <= 1)
+                continue;
+
+            if (SeriePossuiLacuna(grupo, origem, alvoBase))
+            {
+                await PublicarRecorrenciaDaOrigemAsync(usuarioAutenticadoId, origem, alvoBase, cancellationToken);
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(competencia))
+                continue;
+
+            if (!origem.RecorrenciaFixa && alvoBase >= 100)
+                continue;
+
+            var dataUltima = AvancarData(origem.DataLancamento, origem.Recorrencia, alvoBase - 1);
+            if (dataUltima < periodoCompetencia.DataInicio || dataUltima > periodoCompetencia.DataFim)
+                continue;
+
+            var novaQuantidade = origem.RecorrenciaFixa
+                ? alvoBase + 100
+                : Math.Min(100, alvoBase + 10);
+
+            await PublicarRecorrenciaDaOrigemAsync(usuarioAutenticadoId, origem, novaQuantidade, cancellationToken);
+        }
+    }
+
+    private static bool SeriePossuiLacuna(IEnumerable<Despesa> grupo, Despesa origem, int alvo)
+    {
+        for (var numero = 2; numero <= alvo; numero++)
+        {
+            var dataLancamentoEsperada = AvancarData(origem.DataLancamento, origem.Recorrencia, numero - 1);
+            var dataVencimentoEsperada = AvancarData(origem.DataVencimento, origem.Recorrencia, numero - 1);
+
+            var existe = grupo.Any(x =>
+                x.DataLancamento == dataLancamentoEsperada &&
+                x.DataVencimento == dataVencimentoEsperada);
+
+            if (!existe)
+                return true;
+        }
+
+        return false;
+    }
+
+    private async Task PublicarRecorrenciaDaOrigemAsync(int usuarioAutenticadoId, Despesa origem, int quantidadeRecorrencia, CancellationToken cancellationToken)
+    {
+        var mensagem = new DespesaRecorrenciaBackgroundMessage(
+            usuarioAutenticadoId,
+            origem.Descricao,
+            origem.Observacao,
+            origem.DataHoraCadastro,
+            origem.DataLancamento,
+            origem.DataVencimento,
+            origem.TipoDespesa,
+            origem.TipoPagamento,
+            origem.Recorrencia,
+            origem.RecorrenciaFixa,
+            quantidadeRecorrencia,
+            origem.ValorTotal,
+            origem.Desconto,
+            origem.Acrescimo,
+            origem.Imposto,
+            origem.Juros,
+            origem.ContaBancariaId,
+            origem.CartaoId,
+            [],
+            [],
+            []);
+
+        await recorrenciaBackgroundPublisher.PublicarDespesaAsync(mensagem, cancellationToken);
+    }
+
+    private static DateOnly AvancarData(DateOnly data, Recorrencia recorrencia, int repeticoes) =>
+        recorrencia switch
+        {
+            Recorrencia.Diaria => data.AddDays(repeticoes),
+            Recorrencia.Semanal => data.AddDays(7 * repeticoes),
+            Recorrencia.Quinzenal => data.AddDays(15 * repeticoes),
+            Recorrencia.Mensal => data.AddMonths(repeticoes),
+            Recorrencia.Trimestral => data.AddMonths(3 * repeticoes),
+            Recorrencia.Semestral => data.AddMonths(6 * repeticoes),
+            Recorrencia.Anual => data.AddYears(repeticoes),
+            _ => data
+        };
 
     private static void ValidarComum(string descricao, DateOnly dataLanc, DateOnly dataVenc, string tipoDespesa, string tipoPagamento, Recorrencia recorrencia, bool recorrenciaFixa, int? quantidadeRecorrencia, decimal valorTotal)
     {

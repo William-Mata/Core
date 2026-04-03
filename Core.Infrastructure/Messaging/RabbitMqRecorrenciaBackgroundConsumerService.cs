@@ -121,7 +121,9 @@ public sealed class RabbitMqRecorrenciaBackgroundConsumerService(
 
     private async Task ProcessarDespesaAsync(DespesaRecorrenciaBackgroundMessage payload, CancellationToken cancellationToken)
     {
-        var alvo = payload.RecorrenciaFixa ? 100 : payload.QuantidadeRecorrencia.GetValueOrDefault(1);
+        var alvo = payload.RecorrenciaFixa
+            ? Math.Max(100, payload.QuantidadeRecorrencia.GetValueOrDefault(100))
+            : payload.QuantidadeRecorrencia.GetValueOrDefault(1);
         if (alvo <= 1) return;
 
         using var scope = scopeFactory.CreateScope();
@@ -146,6 +148,7 @@ public sealed class RabbitMqRecorrenciaBackgroundConsumerService(
 
             var origem = new Despesa
             {
+                DataHoraCadastro = payload.DataHoraCadastroOrigem,
                 UsuarioCadastroId = payload.UsuarioId,
                 Descricao = payload.Descricao,
                 Observacao = payload.Observacao,
@@ -193,7 +196,7 @@ public sealed class RabbitMqRecorrenciaBackgroundConsumerService(
                     {
                         UsuarioCadastroId = payload.UsuarioId,
                         Acao = AcaoLogs.Cadastro,
-                        Descricao = "Despesa recorrente gerada em background."
+                        Descricao = "Despesa criada com status pendente."
                     }
                 ]
             };
@@ -227,6 +230,7 @@ public sealed class RabbitMqRecorrenciaBackgroundConsumerService(
             {
                 dbContext.Despesas.Add(new Despesa
                 {
+                    DataHoraCadastro = payload.DataHoraCadastroOrigem,
                     DespesaOrigemId = origem.Id,
                     UsuarioCadastroId = amigo.AmigoId,
                     Descricao = origem.Descricao,
@@ -266,7 +270,9 @@ public sealed class RabbitMqRecorrenciaBackgroundConsumerService(
 
     private async Task ProcessarReceitaAsync(ReceitaRecorrenciaBackgroundMessage payload, CancellationToken cancellationToken)
     {
-        var alvo = payload.RecorrenciaFixa ? 100 : payload.QuantidadeRecorrencia.GetValueOrDefault(1);
+        var alvo = payload.RecorrenciaFixa
+            ? Math.Max(100, payload.QuantidadeRecorrencia.GetValueOrDefault(100))
+            : payload.QuantidadeRecorrencia.GetValueOrDefault(1);
         if (alvo <= 1) return;
 
         using var scope = scopeFactory.CreateScope();
@@ -291,6 +297,7 @@ public sealed class RabbitMqRecorrenciaBackgroundConsumerService(
 
             var origem = new Receita
             {
+                DataHoraCadastro = payload.DataHoraCadastroOrigem,
                 UsuarioCadastroId = payload.UsuarioId,
                 Descricao = payload.Descricao,
                 Observacao = payload.Observacao,
@@ -338,7 +345,7 @@ public sealed class RabbitMqRecorrenciaBackgroundConsumerService(
                     {
                         UsuarioCadastroId = payload.UsuarioId,
                         Acao = AcaoLogs.Cadastro,
-                        Descricao = "Receita recorrente gerada em background."
+                        Descricao = "Receita criada com status pendente."
                     }
                 ]
             };
@@ -372,6 +379,7 @@ public sealed class RabbitMqRecorrenciaBackgroundConsumerService(
             {
                 dbContext.Receitas.Add(new Receita
                 {
+                    DataHoraCadastro = payload.DataHoraCadastroOrigem,
                     ReceitaOrigemId = origem.Id,
                     UsuarioCadastroId = amigo.AmigoId,
                     Descricao = origem.Descricao,

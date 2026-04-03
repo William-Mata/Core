@@ -61,7 +61,7 @@ public sealed class RabbitMqRecorrenciaBackgroundPublisher(
                 body: body,
                 cancellationToken: cancellationToken);
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException ex) when (cancellationToken.IsCancellationRequested)
         {
             throw;
         }

@@ -2,7 +2,7 @@ using Core.Domain.Enums;
 
 namespace Core.Application.DTOs.Financeiro;
 
-public sealed record ListarDespesasRequest(string? Id, string? Descricao, string? Competencia, DateOnly? DataInicio, DateOnly? DataFim);
+public sealed record ListarDespesasRequest(string? Id, string? Descricao, string? Competencia, DateOnly? DataInicio, DateOnly? DataFim, bool VerificarUltimaRecorrencia);
 public sealed record DespesaLogDto(long Id, DateOnly Data, AcaoLogs Acao, string Descricao);
 public sealed record DespesaAreaRateioDto(long AreaId, string AreaNome, long SubAreaId, string SubAreaNome, decimal? Valor);
 public sealed record AmigoRateioDto(int? AmigoId, string Nome, decimal? Valor);
