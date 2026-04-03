@@ -22,6 +22,13 @@ Todos os endpoints exigem autenticacao (`[Authorize]`).
 - `POST /api/financeiro/receitas/{id}/cancelar`
 - `POST /api/financeiro/receitas/{id}/estornar`
 
+`PUT` e `POST /cancelar` aceitam query param opcional `escopoRecorrencia`:
+- `1` Apenas essa
+- `2` Essa e as proximas
+- `3` Todas pendentes
+
+Quando informado com valor fora do enum, a API retorna `escopo_recorrencia_invalido` (400).
+
 ## Contrato de listagem
 ### Query params
 - `id` (opcional)
@@ -29,11 +36,13 @@ Todos os endpoints exigem autenticacao (`[Authorize]`).
 - `competencia` (opcional)
 - `dataInicio` (opcional, `yyyy-MM-dd`)
 - `dataFim` (opcional, `yyyy-MM-dd`)
+- `verificarUltimaRecorrencia` (opcional, `bool`, default `false`)
 
 ### Regras
 - se `dataInicio` e `dataFim` vierem juntas, `dataFim >= dataInicio` (`periodo_invalido`)
 - sem `competencia`, `dataInicio` e `dataFim`, a API aplica automaticamente a competencia atual
 - receitas espelho de rateio com status `pendenteaprovacao` ou `rejeitado` nao entram na listagem principal
+- `verificarUltimaRecorrencia` e repassado para o service como parte do filtro de listagem
 
 ### Exemplo de response de sucesso (200)
 ```json
@@ -122,6 +131,8 @@ Todos os endpoints exigem autenticacao (`[Authorize]`).
 - status inicial sempre `pendente`
 - `valorLiquido` calculado no backend: `valorTotal - desconto + acrescimo + imposto + juros`
 - atualizacao somente em status `pendente` (`status_invalido`)
+- em recorrencias, o backend aplica `escopoRecorrencia` somente sobre itens `pendente`
+- ao editar `essa e as proximas` ou `todas pendentes`, os novos dados sao replicados e as datas sao recalculadas respeitando a recorrencia
 
 ### Regras de recorrencia
 - `recorrenciaFixa = true` nao permite `recorrencia = Unica` (`recorrencia_fixa_invalida`)
@@ -186,6 +197,11 @@ Todos os endpoints exigem autenticacao (`[Authorize]`).
 Regras:
 - permitido somente em status `pendente`
 - define `status = cancelada`
+- para recorrencia:
+  - `1`: cancela apenas a receita atual
+  - `2`: cancela a atual e as proximas pendentes da serie
+  - `3`: cancela todas as pendentes da serie
+- em recorrencia fixa, cancelar `todas pendentes` encerra a geracao futura da serie
 
 ## Estorno
 `POST /api/financeiro/receitas/{id}/estornar`
@@ -238,6 +254,3 @@ Regras:
 - recurso nao encontrado: `404`
 - erro interno: `500`
 - payload de erro segue `application/problem+json` com `code` e `traceId`
-
-## Pendencias
-- assim como em despesa, existem regras de aprovacao/rejeicao de espelhos no service (`AprovarRateioAsync`/`RejeitarRateioAsync`), mas esses endpoints nao estao neste controller.

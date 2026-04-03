@@ -190,6 +190,3 @@ Campos principais de `Reembolso`:
 - erro interno: `500`
 
 Formato padrao de erro: `application/problem+json` com `code` e `traceId`.
-
-## Pendencias
-- o documento anterior citava consumo direto de `GET /api/financeiro/despesas` para seletor da tela; essa regra depende da implementacao do front e nao esta acoplada ao controller de reembolso.
