@@ -8,7 +8,7 @@ namespace Core.Api.Controllers.Financeiro;
 [ApiController]
 [Route("api/financeiro/amigos")]
 [Authorize]
-public sealed class AmigoFinanceiroController(AmigoFinanceiroService service) : ControllerBase
+public sealed class AmigoController(AmigoService service) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> Listar(CancellationToken cancellationToken) =>

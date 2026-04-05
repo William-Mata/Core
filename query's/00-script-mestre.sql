@@ -1411,11 +1411,19 @@ BEGIN
         UsuarioCadastroId INT NOT NULL,
         UsuarioOrigemId INT NOT NULL,
         UsuarioDestinoId INT NOT NULL,
+        Mensagem NVARCHAR(500) NULL,
         Status NVARCHAR(20) NOT NULL CONSTRAINT DF_ConviteAmizade_Status DEFAULT (N'Pendente'),
         DataHoraResposta DATETIME2(0) NULL,
         CONSTRAINT PK_ConviteAmizade PRIMARY KEY CLUSTERED (Id),
         CONSTRAINT CK_ConviteAmizade_Status CHECK (Status IN (N'Pendente', N'Aceito', N'Rejeitado'))
     );
+END;
+GO
+
+IF COL_LENGTH(N'dbo.ConviteAmizade', N'Mensagem') IS NULL
+BEGIN
+    ALTER TABLE dbo.ConviteAmizade
+        ADD Mensagem NVARCHAR(500) NULL;
 END;
 GO
 

@@ -9,6 +9,7 @@ public sealed class ConviteAmizade
     public int UsuarioCadastroId { get; set; }
     public int UsuarioOrigemId { get; set; }
     public int UsuarioDestinoId { get; set; }
+    public string? Mensagem { get; set; }
     public StatusConviteAmizade Status { get; set; } = StatusConviteAmizade.Pendente;
     public DateTime? DataHoraResposta { get; set; }
 }

@@ -1,14 +1,11 @@
 namespace Core.Application.DTOs.Financeiro;
 
-public sealed record EnviarConviteAmizadeRequest(int UsuarioDestinoId);
+public sealed record EnviarConviteAmizadeRequest(string Email, string? Mensagem);
 
 public sealed record ConviteAmizadeDto(
     long Id,
-    int UsuarioOrigemId,
     string UsuarioOrigemNome,
-    int UsuarioDestinoId,
-    string UsuarioDestinoNome,
+    string UsuarioOrigemEmail,
     string Status,
-    string Direcao,
-    DateTime DataHoraCadastro,
-    DateTime? DataHoraResposta);
+    string? Mensagem,
+    DateTime DataHoraCadastro);

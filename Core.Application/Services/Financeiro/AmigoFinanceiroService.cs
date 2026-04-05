@@ -8,7 +8,7 @@ using Core.Domain.Interfaces.Financeiro;
 
 namespace Core.Application.Services.Financeiro;
 
-public sealed class AmigoFinanceiroService(
+public sealed class AmigoService(
     IAmizadeRepository amizadeRepository,
     IUsuarioRepository usuarioRepository,
     IUsuarioAutenticadoProvider usuarioAutenticadoProvider)
@@ -26,31 +26,32 @@ public sealed class AmigoFinanceiroService(
     public async Task<ConviteAmizadeDto> EnviarConviteAsync(EnviarConviteAmizadeRequest request, CancellationToken cancellationToken = default)
     {
         var usuarioId = usuarioAutenticadoProvider.ObterUsuarioId() ?? throw new DomainException("usuario_nao_autenticado");
-        var usuarioDestinoId = request.UsuarioDestinoId;
+        var usuarioLogado = await usuarioRepository.ObterPorIdAsync(usuarioId);
+        var usuarioDestinoEmail = request.Email;
 
-        if (usuarioDestinoId <= 0 || usuarioDestinoId == usuarioId)
+        if (string.IsNullOrEmpty(usuarioDestinoEmail) || usuarioLogado?.Email == usuarioDestinoEmail)
         {
             throw new DomainException("usuario_destino_invalido");
         }
 
         var usuarioOrigem = await usuarioRepository.ObterPorIdAsync(usuarioId, cancellationToken) ?? throw new DomainException("usuario_nao_encontrado");
-        var usuarioDestino = await usuarioRepository.ObterPorIdAsync(usuarioDestinoId, cancellationToken);
+        var usuarioDestino = await usuarioRepository.ObterPorEmailAsync(usuarioDestinoEmail, cancellationToken);
         if (usuarioDestino is null || !usuarioDestino.Ativo)
         {
             throw new DomainException("usuario_destino_invalido");
         }
 
-        if (await amizadeRepository.ExisteAmizadeAsync(usuarioId, usuarioDestinoId, cancellationToken))
+        if (await amizadeRepository.ExisteAmizadeAsync(usuarioId, usuarioDestino.Id, cancellationToken))
         {
             throw new DomainException("amizade_ja_existente");
         }
 
-        if (await amizadeRepository.ObterConvitePendenteAsync(usuarioId, usuarioDestinoId, cancellationToken) is not null)
+        if (await amizadeRepository.ObterConvitePendenteAsync(usuarioId, usuarioDestino.Id, cancellationToken) is not null)
         {
             throw new DomainException("convite_ja_enviado");
         }
 
-        if (await amizadeRepository.ObterConvitePendenteAsync(usuarioDestinoId, usuarioId, cancellationToken) is not null)
+        if (await amizadeRepository.ObterConvitePendenteAsync(usuarioDestino.Id, usuarioId, cancellationToken) is not null)
         {
             throw new DomainException("convite_pendente_existente");
         }
@@ -59,7 +60,8 @@ public sealed class AmigoFinanceiroService(
         {
             UsuarioCadastroId = usuarioId,
             UsuarioOrigemId = usuarioId,
-            UsuarioDestinoId = usuarioDestinoId,
+            UsuarioDestinoId = usuarioDestino.Id,
+            Mensagem = request.Mensagem,
             Status = StatusConviteAmizade.Pendente
         };
 
@@ -67,14 +69,11 @@ public sealed class AmigoFinanceiroService(
 
         return new ConviteAmizadeDto(
             criado.Id,
-            criado.UsuarioOrigemId,
             usuarioOrigem.Nome,
-            criado.UsuarioDestinoId,
-            usuarioDestino.Nome,
+            usuarioOrigem.Email,
             criado.Status.ToString().ToLowerInvariant(),
-            "enviado",
-            criado.DataHoraCadastro,
-            criado.DataHoraResposta);
+            request.Mensagem,
+            criado.DataHoraCadastro);
     }
 
     public async Task<IReadOnlyCollection<ConviteAmizadeDto>> ListarConvitesAsync(CancellationToken cancellationToken = default)
@@ -93,20 +92,17 @@ public sealed class AmigoFinanceiroService(
         return convites
             .Select(convite =>
             {
-                var origemNome = usuariosPorId.TryGetValue(convite.UsuarioOrigemId, out var origem) ? origem.Nome : string.Empty;
-                var destinoNome = usuariosPorId.TryGetValue(convite.UsuarioDestinoId, out var destino) ? destino.Nome : string.Empty;
-                var direcao = convite.UsuarioOrigemId == usuarioId ? "enviado" : "recebido";
+                var origem = usuariosPorId.TryGetValue(convite.UsuarioOrigemId, out var usuarioOrigem)
+                    ? usuarioOrigem
+                    : null;
 
                 return new ConviteAmizadeDto(
                     convite.Id,
-                    convite.UsuarioOrigemId,
-                    origemNome,
-                    convite.UsuarioDestinoId,
-                    destinoNome,
+                    origem?.Nome ?? string.Empty,
+                    origem?.Email ?? string.Empty,
                     convite.Status.ToString().ToLowerInvariant(),
-                    direcao,
-                    convite.DataHoraCadastro,
-                    convite.DataHoraResposta);
+                    convite.Mensagem,
+                    convite.DataHoraCadastro);
             })
             .ToArray();
     }
@@ -161,18 +157,13 @@ public sealed class AmigoFinanceiroService(
         }
 
         var usuarioOrigem = await usuarioRepository.ObterPorIdAsync(convite.UsuarioOrigemId, cancellationToken) ?? throw new DomainException("usuario_nao_encontrado");
-        var usuarioDestino = await usuarioRepository.ObterPorIdAsync(convite.UsuarioDestinoId, cancellationToken) ?? throw new DomainException("usuario_nao_encontrado");
-
         return new ConviteAmizadeDto(
             convite.Id,
-            convite.UsuarioOrigemId,
             usuarioOrigem.Nome,
-            convite.UsuarioDestinoId,
-            usuarioDestino.Nome,
+            usuarioOrigem.Email,
             convite.Status.ToString().ToLowerInvariant(),
-            "recebido",
-            convite.DataHoraCadastro,
-            convite.DataHoraResposta);
+            convite.Mensagem,
+            convite.DataHoraCadastro);
     }
 
     private static (int UsuarioAId, int UsuarioBId) OrdenarPar(int usuarioId, int amigoId) =>

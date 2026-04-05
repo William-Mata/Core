@@ -38,7 +38,7 @@ public sealed class AmizadeRepository(AppDbContext dbContext) : IAmizadeReposito
         return await dbContext.ConvitesAmizade
             .AsNoTracking()
             .Where(x => x.Status == StatusConviteAmizade.Pendente)
-            .Where(x => x.UsuarioOrigemId == usuarioId || x.UsuarioDestinoId == usuarioId)
+            .Where(x => x.UsuarioDestinoId == usuarioId)
             .OrderByDescending(x => x.DataHoraCadastro)
             .ToArrayAsync(cancellationToken);
     }
