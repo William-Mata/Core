@@ -1,0 +1,4 @@
+interface:
+  display_name: "API Rules Documentation"
+  short_description: "Documentar regras e consumo da API"
+  default_prompt: "Use $api-rules-documentation para mapear as regras aplicadas no backend e atualizar a documentacao tecnica de consumo da API."
