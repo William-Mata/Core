@@ -104,7 +104,7 @@ public sealed partial class DespesaService(
         ValidarComum(req.Descricao, req.DataLancamento, req.DataVencimento, req.TipoDespesa, req.TipoPagamento, recorrencia, recorrenciaFixa, quantidadeRecorrencia, req.ValorTotal);
         await ValidarAreasRateioAsync(req.AreasSubAreasRateio ?? [], cancellationToken);
         var liquido = Liquido(req.ValorTotal, req.Desconto, req.Acrescimo, req.Imposto, req.Juros);
-        var tipoRateioAmigos = ObterTipoRateioAmigos(req.AmigosRateio);
+        var tipoRateioAmigos = ObterTipoRateioAmigos(req.AmigosRateio, req.TipoRateioAmigos);
         var valorTotalRateioAmigos = ObterValorTotalRateioAmigos(req.AmigosRateio, req.ValorTotalRateioAmigos, liquido);
         var amigos = NormalizarAmigos(req.AmigosRateio, valorTotalRateioAmigos);
         ValidarRateioAmigos(amigos, valorTotalRateioAmigos);
@@ -209,7 +209,7 @@ public sealed partial class DespesaService(
         ValidarComum(req.Descricao, req.DataLancamento, req.DataVencimento, req.TipoDespesa, req.TipoPagamento, recorrencia, recorrenciaFixa, quantidadeRecorrencia, req.ValorTotal);
         await ValidarAreasRateioAsync(req.AreasSubAreasRateio ?? [], cancellationToken);
         var liquido = Liquido(req.ValorTotal, req.Desconto, req.Acrescimo, req.Imposto, req.Juros);
-        var tipoRateioAmigos = ObterTipoRateioAmigos(req.AmigosRateio);
+        var tipoRateioAmigos = ObterTipoRateioAmigos(req.AmigosRateio, req.TipoRateioAmigos);
         var valorTotalRateioAmigos = ObterValorTotalRateioAmigos(req.AmigosRateio, req.ValorTotalRateioAmigos, liquido);
         var amigos = NormalizarAmigos(req.AmigosRateio, valorTotalRateioAmigos);
         ValidarRateioAmigos(amigos, valorTotalRateioAmigos);
@@ -740,10 +740,15 @@ public sealed partial class DespesaService(
         return valorTotalRateioAmigos.Value;
     }
 
-    private static TipoRateioAmigos? ObterTipoRateioAmigos(IReadOnlyCollection<AmigoRateioRequest>? amigosRateio)
+    private static TipoRateioAmigos? ObterTipoRateioAmigos(
+        IReadOnlyCollection<AmigoRateioRequest>? amigosRateio,
+        TipoRateioAmigos? tipoRateioAmigosRequest)
     {
         if (amigosRateio is null || amigosRateio.Count == 0)
             return null;
+
+        if (tipoRateioAmigosRequest.HasValue)
+            return tipoRateioAmigosRequest.Value;
 
         var possuiValorInformado = amigosRateio.Any(x => x.Valor.HasValue);
         var possuiValorNaoInformado = amigosRateio.Any(x => !x.Valor.HasValue);
@@ -1075,6 +1080,7 @@ public sealed partial class DespesaService(
             despesa.QuantidadeRecorrencia,
             despesa.RecorrenciaFixa,
             despesa.ValorTotal,
+            despesa.ValorTotalRateioAmigos,
             despesa.ValorLiquido,
             despesa.Desconto,
             despesa.Acrescimo,
@@ -1082,6 +1088,7 @@ public sealed partial class DespesaService(
             despesa.Juros,
             despesa.ValorEfetivacao,
             despesa.Status.ToString().ToLowerInvariant(),
+            despesa.TipoRateioAmigos,
             despesa.AmigosRateio.Select(x => new AmigoRateioDto(x.AmigoId, x.AmigoNome, x.Valor)).ToArray(),
             despesa.AreasRateio.Select(x => new DespesaAreaRateioDto(
                 x.AreaId,
@@ -1089,6 +1096,8 @@ public sealed partial class DespesaService(
                 x.SubAreaId,
                 x.SubArea?.Nome ?? string.Empty,
                 x.Valor)).ToArray(),
+            despesa.ContaBancariaId,
+            despesa.CartaoId,
             despesa.Documentos.Select(x => new DocumentoDto(x.NomeArquivo, x.CaminhoArquivo, x.ContentType, x.TamanhoBytes)).ToArray(),
             new MeioFinanceiroVinculoDto(despesa.ContaBancariaId, despesa.CartaoId),
             despesa.Logs.Select(x => new DespesaLogDto(x.Id, DateOnly.FromDateTime(x.DataHoraCadastro), x.Acao, x.Descricao)).ToArray());

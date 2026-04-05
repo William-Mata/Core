@@ -101,7 +101,7 @@ public sealed partial class ReceitaService(
         await ValidarComumAsync(req.Descricao, req.DataLancamento, req.DataVencimento, req.TipoReceita, req.TipoRecebimento, req.Recorrencia, req.RecorrenciaFixa, req.QuantidadeRecorrencia, req.ValorTotal, req.ContaBancaria, req.Vinculo, usuarioAutenticadoId, cancellationToken);
         await ValidarAreasRateioAsync(req.AreasSubAreasRateio, cancellationToken);
         var liquido = Liquido(req.ValorTotal, req.Desconto, req.Acrescimo, req.Imposto, req.Juros);
-        var tipoRateioAmigos = ObterTipoRateioAmigos(req.AmigosRateio);
+        var tipoRateioAmigos = ObterTipoRateioAmigos(req.AmigosRateio, req.TipoRateioAmigos);
         var valorTotalRateioAmigos = ObterValorTotalRateioAmigos(req.AmigosRateio, req.ValorTotalRateioAmigos, liquido);
         var amigos = NormalizarAmigos(req.AmigosRateio, valorTotalRateioAmigos);
         ValidarRateioAmigos(amigos, valorTotalRateioAmigos);
@@ -201,7 +201,7 @@ public sealed partial class ReceitaService(
         await ValidarComumAsync(req.Descricao, req.DataLancamento, req.DataVencimento, req.TipoReceita, req.TipoRecebimento, req.Recorrencia, req.RecorrenciaFixa, req.QuantidadeRecorrencia, req.ValorTotal, req.ContaBancaria, req.Vinculo, usuarioAutenticadoId, cancellationToken);
         await ValidarAreasRateioAsync(req.AreasSubAreasRateio, cancellationToken);
         var liquido = Liquido(req.ValorTotal, req.Desconto, req.Acrescimo, req.Imposto, req.Juros);
-        var tipoRateioAmigos = ObterTipoRateioAmigos(req.AmigosRateio);
+        var tipoRateioAmigos = ObterTipoRateioAmigos(req.AmigosRateio, req.TipoRateioAmigos);
         var valorTotalRateioAmigos = ObterValorTotalRateioAmigos(req.AmigosRateio, req.ValorTotalRateioAmigos, liquido);
         var amigos = NormalizarAmigos(req.AmigosRateio, valorTotalRateioAmigos);
         ValidarRateioAmigos(amigos, valorTotalRateioAmigos);
@@ -681,10 +681,15 @@ public sealed partial class ReceitaService(
         return valorTotalRateioAmigos.Value;
     }
 
-    private static TipoRateioAmigos? ObterTipoRateioAmigos(IReadOnlyCollection<AmigoRateioRequest>? amigosRateio)
+    private static TipoRateioAmigos? ObterTipoRateioAmigos(
+        IReadOnlyCollection<AmigoRateioRequest>? amigosRateio,
+        TipoRateioAmigos? tipoRateioAmigosRequest)
     {
         if (amigosRateio is null || amigosRateio.Count == 0)
             return null;
+
+        if (tipoRateioAmigosRequest.HasValue)
+            return tipoRateioAmigosRequest.Value;
 
         var possuiValorInformado = amigosRateio.Any(x => x.Valor.HasValue);
         var possuiValorNaoInformado = amigosRateio.Any(x => !x.Valor.HasValue);
@@ -1069,6 +1074,7 @@ public sealed partial class ReceitaService(
             receita.QuantidadeRecorrencia,
             receita.RecorrenciaFixa,
             receita.ValorTotal,
+            receita.ValorTotalRateioAmigos,
             receita.ValorLiquido,
             receita.Desconto,
             receita.Acrescimo,
@@ -1084,6 +1090,8 @@ public sealed partial class ReceitaService(
                 x.SubArea?.Nome ?? string.Empty,
                 x.Valor)).ToArray(),
             receita.ContaBancariaId?.ToString(),
+            receita.ContaBancariaId,
+            receita.CartaoId,
             receita.Documentos.Select(x => new DocumentoDto(x.NomeArquivo, x.CaminhoArquivo, x.ContentType, x.TamanhoBytes)).ToArray(),
             new MeioFinanceiroVinculoDto(receita.ContaBancariaId, receita.CartaoId),
             receita.Logs.Select(x => new ReceitaLogDto(x.Id, DateOnly.FromDateTime(x.DataHoraCadastro), x.Acao, x.Descricao)).ToArray());
