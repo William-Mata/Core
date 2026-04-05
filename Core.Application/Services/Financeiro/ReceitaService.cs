@@ -104,7 +104,7 @@ public sealed partial class ReceitaService(
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
         await ValidarComumAsync(req.Descricao, req.DataLancamento, req.DataVencimento, req.TipoReceita, req.TipoRecebimento, req.Recorrencia, req.RecorrenciaFixa, req.QuantidadeRecorrencia, req.ValorTotal, req.ContaBancaria, req.Vinculo, usuarioAutenticadoId, cancellationToken);
         await ValidarAreasRateioAsync(req.AreasSubAreasRateio, cancellationToken);
-        var amigos = NormalizarAmigos(req.AmigosRateio);
+        var amigos = NormalizarAmigos(req.AmigosRateio, req.ValorTotal);
         ValidarRateioAmigos(amigos, req.ValorTotal);
         ValidarRateioAreas(req.AreasSubAreasRateio, req.ValorTotal);
         var amigosValidados = await ValidarAmigosAceitosAsync(amigos, usuarioAutenticadoId, cancellationToken);
@@ -198,7 +198,7 @@ public sealed partial class ReceitaService(
         if (!Enum.IsDefined(escopoRecorrencia)) throw new DomainException("escopo_recorrencia_invalido");
         await ValidarComumAsync(req.Descricao, req.DataLancamento, req.DataVencimento, req.TipoReceita, req.TipoRecebimento, req.Recorrencia, req.RecorrenciaFixa, req.QuantidadeRecorrencia, req.ValorTotal, req.ContaBancaria, req.Vinculo, usuarioAutenticadoId, cancellationToken);
         await ValidarAreasRateioAsync(req.AreasSubAreasRateio, cancellationToken);
-        var amigos = NormalizarAmigos(req.AmigosRateio);
+        var amigos = NormalizarAmigos(req.AmigosRateio, req.ValorTotal);
         ValidarRateioAmigos(amigos, req.ValorTotal);
         ValidarRateioAreas(req.AreasSubAreasRateio, req.ValorTotal);
         var amigosValidados = await ValidarAmigosAceitosAsync(amigos, usuarioAutenticadoId, cancellationToken);
@@ -670,7 +670,7 @@ public sealed partial class ReceitaService(
     private static bool ContaObrigatoria(string tipoRecebimento) => tipoRecebimento is "pix" or "transferencia" or "contaCorrente";
     private static decimal Liquido(decimal valorTotal, decimal desconto, decimal acrescimo, decimal imposto, decimal juros) => valorTotal - desconto + acrescimo + imposto + juros;
 
-    private static IReadOnlyCollection<AmigoRateioRequest> NormalizarAmigos(IReadOnlyCollection<AmigoRateioRequest>? amigosRateio)
+    private static IReadOnlyCollection<AmigoRateioRequest> NormalizarAmigos(IReadOnlyCollection<AmigoRateioRequest>? amigosRateio, decimal valorTotal)
     {
         if (amigosRateio is null || amigosRateio.Count == 0)
             return [];
@@ -680,7 +680,32 @@ public sealed partial class ReceitaService(
         if (normalizados.Length != amigosRateio.Count || normalizados.Select(x => x.AmigoId).Distinct().Count() != normalizados.Length)
             throw new DomainException("rateio_amigos_invalido");
 
+        var possuiValorInformado = normalizados.Any(x => x.Valor.HasValue);
+        var possuiValorNaoInformado = normalizados.Any(x => !x.Valor.HasValue);
+        if (possuiValorInformado && possuiValorNaoInformado)
+            throw new DomainException("rateio_amigos_invalido");
+
+        if (!possuiValorInformado)
+            return DistribuirRateioIgualitario(normalizados, valorTotal);
+
         return normalizados;
+    }
+
+    private static IReadOnlyCollection<AmigoRateioRequest> DistribuirRateioIgualitario(IReadOnlyCollection<AmigoRateioRequest> amigos, decimal valorTotal)
+    {
+        if (amigos.Count == 0)
+            return [];
+
+        var valorBase = decimal.Round(valorTotal / amigos.Count, 2, MidpointRounding.AwayFromZero);
+        var ajusteUltimo = valorTotal - (valorBase * amigos.Count);
+
+        return amigos
+            .Select((x, indice) =>
+            {
+                var valor = indice == amigos.Count - 1 ? valorBase + ajusteUltimo : valorBase;
+                return new AmigoRateioRequest(x.AmigoId, valor);
+            })
+            .ToArray();
     }
 
     private async Task<IReadOnlyCollection<AmigoRateioValidado>> ValidarAmigosAceitosAsync(
@@ -693,6 +718,7 @@ public sealed partial class ReceitaService(
 
         var amigosIdsAceitos = await amizadeRepository.ListarIdsAmigosAceitosAsync(usuarioAutenticadoId, cancellationToken);
         var amigosAceitos = amigosIdsAceitos.ToHashSet();
+        amigosAceitos.Add(usuarioAutenticadoId);
 
         if (amigos.Any(x => !amigosAceitos.Contains(x.AmigoId)))
             throw new DomainException("amigo_rateio_invalido");
@@ -714,10 +740,11 @@ public sealed partial class ReceitaService(
         IReadOnlyCollection<ReceitaAreaRateioRequest> areasRateioOrigem,
         CancellationToken cancellationToken)
     {
-        if (amigos.Count == 0)
+        var amigosParaEspelho = amigos.Where(x => x.AmigoId != origem.UsuarioCadastroId).ToArray();
+        if (amigosParaEspelho.Length == 0)
             return;
 
-        foreach (var amigo in amigos)
+        foreach (var amigo in amigosParaEspelho)
         {
             var espelho = CriarEspelhoReceita(origem, amigo, areasRateioOrigem);
             await repository.CriarAsync(espelho, cancellationToken);
@@ -731,10 +758,11 @@ public sealed partial class ReceitaService(
         CancellationToken cancellationToken)
     {
         var espelhos = await repository.ListarEspelhosPorOrigemAsync(origem.Id, cancellationToken);
-        if (espelhos.Count == 0 && amigos.Count == 0)
+        var amigosParaEspelho = amigos.Where(x => x.AmigoId != origem.UsuarioCadastroId).ToArray();
+        if (espelhos.Count == 0 && amigosParaEspelho.Length == 0)
             return;
 
-        var amigosIds = amigos.Select(x => x.AmigoId).ToHashSet();
+        var amigosIds = amigosParaEspelho.Select(x => x.AmigoId).ToHashSet();
 
         foreach (var espelho in espelhos.Where(x => !amigosIds.Contains(x.UsuarioCadastroId) && x.Status != StatusReceita.Cancelada))
         {
@@ -751,7 +779,7 @@ public sealed partial class ReceitaService(
             await repository.AtualizarAsync(espelho, cancellationToken);
         }
 
-        foreach (var amigo in amigos)
+        foreach (var amigo in amigosParaEspelho)
         {
             var espelho = espelhos
                 .Where(x => x.UsuarioCadastroId == amigo.AmigoId)

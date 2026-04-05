@@ -107,7 +107,7 @@ public sealed partial class DespesaService(
         var recorrenciaFixa = ResolverRecorrenciaFixa(req.TipoPagamento, req.RecorrenciaFixa);
         ValidarComum(req.Descricao, req.DataLancamento, req.DataVencimento, req.TipoDespesa, req.TipoPagamento, recorrencia, recorrenciaFixa, quantidadeRecorrencia, req.ValorTotal);
         await ValidarAreasRateioAsync(req.AreasSubAreasRateio ?? [], cancellationToken);
-        var amigos = NormalizarAmigos(req.AmigosRateio);
+        var amigos = NormalizarAmigos(req.AmigosRateio, req.ValorTotal);
         ValidarRateioAmigos(amigos, req.ValorTotal);
         ValidarRateioAreas(req.AreasSubAreasRateio ?? [], req.ValorTotal);
         var amigosValidados = await ValidarAmigosAceitosAsync(amigos, usuarioAutenticadoId, cancellationToken);
@@ -205,7 +205,7 @@ public sealed partial class DespesaService(
         var recorrenciaFixa = ResolverRecorrenciaFixa(req.TipoPagamento, req.RecorrenciaFixa);
         ValidarComum(req.Descricao, req.DataLancamento, req.DataVencimento, req.TipoDespesa, req.TipoPagamento, recorrencia, recorrenciaFixa, quantidadeRecorrencia, req.ValorTotal);
         await ValidarAreasRateioAsync(req.AreasSubAreasRateio ?? [], cancellationToken);
-        var amigos = NormalizarAmigos(req.AmigosRateio);
+        var amigos = NormalizarAmigos(req.AmigosRateio, req.ValorTotal);
         ValidarRateioAmigos(amigos, req.ValorTotal);
         ValidarRateioAreas(req.AreasSubAreasRateio ?? [], req.ValorTotal);
         var amigosValidados = await ValidarAmigosAceitosAsync(amigos, usuarioAutenticadoId, cancellationToken);
@@ -721,7 +721,7 @@ public sealed partial class DespesaService(
             throw new DomainException("rateio_area_invalido");
     }
 
-    private static IReadOnlyCollection<AmigoRateioRequest> NormalizarAmigos(IReadOnlyCollection<AmigoRateioRequest>? amigosRateio)
+    private static IReadOnlyCollection<AmigoRateioRequest> NormalizarAmigos(IReadOnlyCollection<AmigoRateioRequest>? amigosRateio, decimal valorTotal)
     {
         if (amigosRateio is null || amigosRateio.Count == 0)
             return [];
@@ -731,7 +731,32 @@ public sealed partial class DespesaService(
         if (normalizados.Length != amigosRateio.Count || normalizados.Select(x => x.AmigoId).Distinct().Count() != normalizados.Length)
             throw new DomainException("rateio_amigos_invalido");
 
+        var possuiValorInformado = normalizados.Any(x => x.Valor.HasValue);
+        var possuiValorNaoInformado = normalizados.Any(x => !x.Valor.HasValue);
+        if (possuiValorInformado && possuiValorNaoInformado)
+            throw new DomainException("rateio_amigos_invalido");
+
+        if (!possuiValorInformado)
+            return DistribuirRateioIgualitario(normalizados, valorTotal);
+
         return normalizados;
+    }
+
+    private static IReadOnlyCollection<AmigoRateioRequest> DistribuirRateioIgualitario(IReadOnlyCollection<AmigoRateioRequest> amigos, decimal valorTotal)
+    {
+        if (amigos.Count == 0)
+            return [];
+
+        var valorBase = decimal.Round(valorTotal / amigos.Count, 2, MidpointRounding.AwayFromZero);
+        var ajusteUltimo = valorTotal - (valorBase * amigos.Count);
+
+        return amigos
+            .Select((x, indice) =>
+            {
+                var valor = indice == amigos.Count - 1 ? valorBase + ajusteUltimo : valorBase;
+                return new AmigoRateioRequest(x.AmigoId, valor);
+            })
+            .ToArray();
     }
 
     private async Task<IReadOnlyCollection<AmigoRateioValidado>> ValidarAmigosAceitosAsync(
@@ -744,6 +769,7 @@ public sealed partial class DespesaService(
 
         var amigosIdsAceitos = await amizadeRepository.ListarIdsAmigosAceitosAsync(usuarioAutenticadoId, cancellationToken);
         var amigosAceitos = amigosIdsAceitos.ToHashSet();
+        amigosAceitos.Add(usuarioAutenticadoId);
 
         if (amigos.Any(x => !amigosAceitos.Contains(x.AmigoId)))
             throw new DomainException("amigo_rateio_invalido");
@@ -765,10 +791,11 @@ public sealed partial class DespesaService(
         IReadOnlyCollection<DespesaAreaRateioRequest> areasRateioOrigem,
         CancellationToken cancellationToken)
     {
-        if (amigos.Count == 0)
+        var amigosParaEspelho = amigos.Where(x => x.AmigoId != origem.UsuarioCadastroId).ToArray();
+        if (amigosParaEspelho.Length == 0)
             return;
 
-        foreach (var amigo in amigos)
+        foreach (var amigo in amigosParaEspelho)
         {
             var espelho = CriarEspelhoDespesa(origem, amigo, areasRateioOrigem);
             await repository.CriarAsync(espelho, cancellationToken);
@@ -782,10 +809,11 @@ public sealed partial class DespesaService(
         CancellationToken cancellationToken)
     {
         var espelhos = await repository.ListarEspelhosPorOrigemAsync(origem.Id, cancellationToken);
-        if (espelhos.Count == 0 && amigos.Count == 0)
+        var amigosParaEspelho = amigos.Where(x => x.AmigoId != origem.UsuarioCadastroId).ToArray();
+        if (espelhos.Count == 0 && amigosParaEspelho.Length == 0)
             return;
 
-        var amigosIds = amigos.Select(x => x.AmigoId).ToHashSet();
+        var amigosIds = amigosParaEspelho.Select(x => x.AmigoId).ToHashSet();
 
         foreach (var espelho in espelhos.Where(x => !amigosIds.Contains(x.UsuarioCadastroId) && x.Status != StatusDespesa.Cancelada))
         {
@@ -802,7 +830,7 @@ public sealed partial class DespesaService(
             await repository.AtualizarAsync(espelho, cancellationToken);
         }
 
-        foreach (var amigo in amigos)
+        foreach (var amigo in amigosParaEspelho)
         {
             var espelho = espelhos
                 .Where(x => x.UsuarioCadastroId == amigo.AmigoId)
