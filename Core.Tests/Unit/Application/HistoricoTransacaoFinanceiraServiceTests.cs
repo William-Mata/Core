@@ -22,7 +22,7 @@ public sealed class HistoricoTransacaoFinanceiraServiceTests
             40m,
             60m,
             "Efetivacao de despesa",
-            tipoPagamento: "pix",
+            tipoPagamento: TipoPagamento.Pix,
             contaBancariaId: 7);
 
         var historico = Assert.Single(repository.HistoricosCriados);
@@ -47,7 +47,7 @@ public sealed class HistoricoTransacaoFinanceiraServiceTests
             100m,
             0m,
             "Efetivacao de despesa no cartao",
-            tipoPagamento: "cartaoCredito");
+            tipoPagamento: TipoPagamento.CartaoCredito);
 
         var historico = Assert.Single(repository.HistoricosCriados);
         Assert.Equal(TipoContaTransacaoFinanceira.Cartao, historico.TipoConta);
@@ -63,7 +63,7 @@ public sealed class HistoricoTransacaoFinanceiraServiceTests
             UltimoHistorico = new HistoricoTransacaoFinanceira
             {
                 ContaBancariaId = 12,
-                TipoPagamento = "transferencia"
+                TipoPagamento = TipoPagamento.Transferencia
             }
         };
         var service = new HistoricoTransacaoFinanceiraService(repository);
@@ -82,7 +82,7 @@ public sealed class HistoricoTransacaoFinanceiraServiceTests
         Assert.Equal(TipoOperacaoTransacaoFinanceira.Estorno, historico.TipoOperacao);
         Assert.Equal(TipoContaTransacaoFinanceira.ContaBancaria, historico.TipoConta);
         Assert.Equal(12, historico.ContaBancariaId);
-        Assert.Equal("transferencia", historico.TipoPagamento);
+        Assert.Equal(TipoPagamento.Transferencia, historico.TipoPagamento);
     }
 
     [Fact]
