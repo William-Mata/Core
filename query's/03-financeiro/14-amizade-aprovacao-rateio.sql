@@ -159,6 +159,27 @@ BEGIN
 END;
 GO
 
+IF COL_LENGTH(N'dbo.Despesa', N'DespesaRecorrenciaOrigemId') IS NULL
+BEGIN
+    ALTER TABLE dbo.Despesa ADD DespesaRecorrenciaOrigemId BIGINT NULL;
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_Despesa_Despesa_DespesaRecorrenciaOrigemId')
+BEGIN
+    ALTER TABLE dbo.Despesa
+        WITH CHECK ADD CONSTRAINT FK_Despesa_Despesa_DespesaRecorrenciaOrigemId
+        FOREIGN KEY (DespesaRecorrenciaOrigemId) REFERENCES dbo.Despesa (Id);
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_Despesa_DespesaRecorrenciaOrigemId' AND object_id = OBJECT_ID(N'dbo.Despesa'))
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_Despesa_DespesaRecorrenciaOrigemId
+        ON dbo.Despesa (DespesaRecorrenciaOrigemId);
+END;
+GO
+
 IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_Despesa_Status' AND parent_object_id = OBJECT_ID(N'dbo.Despesa'))
 BEGIN
     ALTER TABLE dbo.Despesa DROP CONSTRAINT CK_Despesa_Status;

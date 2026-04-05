@@ -957,6 +957,8 @@ BEGIN
         RecorrenciaFixa BIT NOT NULL CONSTRAINT DF_Despesa_RecorrenciaFixa DEFAULT (0),
         QuantidadeRecorrencia INT NULL,
         ValorTotal DECIMAL(18,2) NOT NULL,
+        ValorTotalRateioAmigos DECIMAL(18,2) NULL,
+        TipoRateioAmigos NVARCHAR(20) NULL,
         ValorLiquido DECIMAL(18,2) NOT NULL,
         Desconto DECIMAL(18,2) NOT NULL CONSTRAINT DF_Despesa_Desconto DEFAULT (0),
         Acrescimo DECIMAL(18,2) NOT NULL CONSTRAINT DF_Despesa_Acrescimo DEFAULT (0),
@@ -970,7 +972,8 @@ BEGIN
         CONSTRAINT CK_Despesa_QuantidadeRecorrencia CHECK (QuantidadeRecorrencia IS NULL OR QuantidadeRecorrencia > 0),
         CONSTRAINT CK_Despesa_Status CHECK (Status IN (N'Pendente', N'Efetivada', N'Cancelada')),
         CONSTRAINT CK_Despesa_TipoDespesa CHECK (TipoDespesa IN (N'alimentacao', N'transporte', N'moradia', N'lazer', N'saude', N'educacao', N'servicos')),
-        CONSTRAINT CK_Despesa_TipoPagamento CHECK (TipoPagamento IN (N'pix', N'cartaoCredito', N'cartaoDebito', N'boleto', N'transferencia', N'dinheiro'))
+        CONSTRAINT CK_Despesa_TipoPagamento CHECK (TipoPagamento IN (N'pix', N'cartaoCredito', N'cartaoDebito', N'boleto', N'transferencia', N'dinheiro')),
+        CONSTRAINT CK_Despesa_TipoRateioAmigos CHECK (TipoRateioAmigos IS NULL OR TipoRateioAmigos IN (N'Comum', N'Igualitario'))
     );
 END;
 GO
@@ -1127,6 +1130,8 @@ BEGIN
         RecorrenciaFixa BIT NOT NULL CONSTRAINT DF_Receita_RecorrenciaFixa DEFAULT (0),
         QuantidadeRecorrencia INT NULL,
         ValorTotal DECIMAL(18,2) NOT NULL,
+        ValorTotalRateioAmigos DECIMAL(18,2) NULL,
+        TipoRateioAmigos NVARCHAR(20) NULL,
         ValorLiquido DECIMAL(18,2) NOT NULL,
         Desconto DECIMAL(18,2) NOT NULL CONSTRAINT DF_Receita_Desconto DEFAULT (0),
         Acrescimo DECIMAL(18,2) NOT NULL CONSTRAINT DF_Receita_Acrescimo DEFAULT (0),
@@ -1141,7 +1146,8 @@ BEGIN
         CONSTRAINT CK_Receita_QuantidadeRecorrencia CHECK (QuantidadeRecorrencia IS NULL OR QuantidadeRecorrencia > 0),
         CONSTRAINT CK_Receita_Status CHECK (Status IN (N'Pendente', N'Efetivada', N'Cancelada')),
         CONSTRAINT CK_Receita_TipoReceita CHECK (TipoReceita IN (N'salario', N'freelance', N'reembolso', N'investimento', N'bonus', N'outros')),
-        CONSTRAINT CK_Receita_TipoRecebimento CHECK (TipoRecebimento IN (N'pix', N'transferencia', N'contaCorrente', N'dinheiro', N'boleto'))
+        CONSTRAINT CK_Receita_TipoRecebimento CHECK (TipoRecebimento IN (N'pix', N'transferencia', N'contaCorrente', N'dinheiro', N'boleto')),
+        CONSTRAINT CK_Receita_TipoRateioAmigos CHECK (TipoRateioAmigos IS NULL OR TipoRateioAmigos IN (N'Comum', N'Igualitario'))
     );
 END;
 GO
@@ -1551,6 +1557,27 @@ BEGIN
     CREATE NONCLUSTERED INDEX IX_Despesa_UsuarioCadastroId_Status_DespesaOrigemId
         ON dbo.Despesa (UsuarioCadastroId, Status, DespesaOrigemId)
         INCLUDE (DataLancamento);
+END;
+GO
+
+IF COL_LENGTH(N'dbo.Despesa', N'DespesaRecorrenciaOrigemId') IS NULL
+BEGIN
+    ALTER TABLE dbo.Despesa ADD DespesaRecorrenciaOrigemId BIGINT NULL;
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_Despesa_Despesa_DespesaRecorrenciaOrigemId')
+BEGIN
+    ALTER TABLE dbo.Despesa
+        WITH CHECK ADD CONSTRAINT FK_Despesa_Despesa_DespesaRecorrenciaOrigemId
+        FOREIGN KEY (DespesaRecorrenciaOrigemId) REFERENCES dbo.Despesa (Id);
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_Despesa_DespesaRecorrenciaOrigemId' AND object_id = OBJECT_ID(N'dbo.Despesa'))
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_Despesa_DespesaRecorrenciaOrigemId
+        ON dbo.Despesa (DespesaRecorrenciaOrigemId);
 END;
 GO
 

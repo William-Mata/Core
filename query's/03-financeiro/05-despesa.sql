@@ -25,6 +25,8 @@ BEGIN
         RecorrenciaFixa BIT NOT NULL CONSTRAINT DF_Despesa_RecorrenciaFixa DEFAULT (0),
         QuantidadeRecorrencia INT NULL,
         ValorTotal DECIMAL(18,2) NOT NULL,
+        ValorTotalRateioAmigos DECIMAL(18,2) NULL,
+        TipoRateioAmigos NVARCHAR(20) NULL,
         ValorLiquido DECIMAL(18,2) NOT NULL,
         Desconto DECIMAL(18,2) NOT NULL CONSTRAINT DF_Despesa_Desconto DEFAULT (0),
         Acrescimo DECIMAL(18,2) NOT NULL CONSTRAINT DF_Despesa_Acrescimo DEFAULT (0),
@@ -38,7 +40,8 @@ BEGIN
         CONSTRAINT CK_Despesa_QuantidadeRecorrencia CHECK (QuantidadeRecorrencia IS NULL OR QuantidadeRecorrencia > 0),
         CONSTRAINT CK_Despesa_Status CHECK (Status IN (N'Pendente', N'Efetivada', N'Cancelada')),
         CONSTRAINT CK_Despesa_TipoDespesa CHECK (TipoDespesa IN (N'alimentacao', N'transporte', N'moradia', N'lazer', N'saude', N'educacao', N'servicos')),
-        CONSTRAINT CK_Despesa_TipoPagamento CHECK (TipoPagamento IN (N'pix', N'cartaoCredito', N'cartaoDebito', N'boleto', N'transferencia', N'dinheiro'))
+        CONSTRAINT CK_Despesa_TipoPagamento CHECK (TipoPagamento IN (N'pix', N'cartaoCredito', N'cartaoDebito', N'boleto', N'transferencia', N'dinheiro')),
+        CONSTRAINT CK_Despesa_TipoRateioAmigos CHECK (TipoRateioAmigos IS NULL OR TipoRateioAmigos IN (N'Comum', N'Igualitario'))
     );
 END;
 GO
@@ -58,6 +61,24 @@ GO
 IF COL_LENGTH('dbo.Despesa', 'QuantidadeRecorrencia') IS NULL
 BEGIN
     ALTER TABLE dbo.Despesa ADD QuantidadeRecorrencia INT NULL;
+END;
+GO
+
+IF COL_LENGTH('dbo.Despesa', 'ValorTotalRateioAmigos') IS NULL
+BEGIN
+    ALTER TABLE dbo.Despesa ADD ValorTotalRateioAmigos DECIMAL(18,2) NULL;
+END;
+GO
+
+IF COL_LENGTH('dbo.Despesa', 'TipoRateioAmigos') IS NULL
+BEGIN
+    ALTER TABLE dbo.Despesa ADD TipoRateioAmigos NVARCHAR(20) NULL;
+END;
+GO
+
+IF COL_LENGTH('dbo.Despesa', 'DespesaRecorrenciaOrigemId') IS NULL
+BEGIN
+    ALTER TABLE dbo.Despesa ADD DespesaRecorrenciaOrigemId BIGINT NULL;
 END;
 GO
 
@@ -114,6 +135,14 @@ BEGIN
 END;
 GO
 
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_Despesa_TipoRateioAmigos' AND parent_object_id = OBJECT_ID(N'dbo.Despesa'))
+BEGIN
+    ALTER TABLE dbo.Despesa
+        WITH CHECK ADD CONSTRAINT CK_Despesa_TipoRateioAmigos
+        CHECK (TipoRateioAmigos IS NULL OR TipoRateioAmigos IN (N'Comum', N'Igualitario'));
+END;
+GO
+
 IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_Despesa_Usuario_UsuarioCadastroId')
 BEGIN
     ALTER TABLE dbo.Despesa
@@ -126,6 +155,21 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_Despesa_UsuarioCadast
 BEGIN
     CREATE NONCLUSTERED INDEX IX_Despesa_UsuarioCadastroId_Status_DataVencimento
         ON dbo.Despesa (UsuarioCadastroId, Status, DataVencimento);
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_Despesa_Despesa_DespesaRecorrenciaOrigemId')
+BEGIN
+    ALTER TABLE dbo.Despesa
+        WITH CHECK ADD CONSTRAINT FK_Despesa_Despesa_DespesaRecorrenciaOrigemId
+        FOREIGN KEY (DespesaRecorrenciaOrigemId) REFERENCES dbo.Despesa (Id);
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_Despesa_DespesaRecorrenciaOrigemId' AND object_id = OBJECT_ID(N'dbo.Despesa'))
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_Despesa_DespesaRecorrenciaOrigemId
+        ON dbo.Despesa (DespesaRecorrenciaOrigemId);
 END;
 GO
 

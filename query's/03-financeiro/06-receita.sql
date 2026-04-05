@@ -25,6 +25,8 @@ BEGIN
         RecorrenciaFixa BIT NOT NULL CONSTRAINT DF_Receita_RecorrenciaFixa DEFAULT (0),
         QuantidadeRecorrencia INT NULL,
         ValorTotal DECIMAL(18,2) NOT NULL,
+        ValorTotalRateioAmigos DECIMAL(18,2) NULL,
+        TipoRateioAmigos NVARCHAR(20) NULL,
         ValorLiquido DECIMAL(18,2) NOT NULL,
         Desconto DECIMAL(18,2) NOT NULL CONSTRAINT DF_Receita_Desconto DEFAULT (0),
         Acrescimo DECIMAL(18,2) NOT NULL CONSTRAINT DF_Receita_Acrescimo DEFAULT (0),
@@ -39,7 +41,8 @@ BEGIN
         CONSTRAINT CK_Receita_QuantidadeRecorrencia CHECK (QuantidadeRecorrencia IS NULL OR QuantidadeRecorrencia > 0),
         CONSTRAINT CK_Receita_Status CHECK (Status IN (N'Pendente', N'Efetivada', N'Cancelada')),
         CONSTRAINT CK_Receita_TipoReceita CHECK (TipoReceita IN (N'salario', N'freelance', N'reembolso', N'investimento', N'bonus', N'outros')),
-        CONSTRAINT CK_Receita_TipoRecebimento CHECK (TipoRecebimento IN (N'pix', N'transferencia', N'contaCorrente', N'dinheiro', N'boleto'))
+        CONSTRAINT CK_Receita_TipoRecebimento CHECK (TipoRecebimento IN (N'pix', N'transferencia', N'contaCorrente', N'dinheiro', N'boleto')),
+        CONSTRAINT CK_Receita_TipoRateioAmigos CHECK (TipoRateioAmigos IS NULL OR TipoRateioAmigos IN (N'Comum', N'Igualitario'))
     );
 END;
 GO
@@ -59,6 +62,18 @@ GO
 IF COL_LENGTH('dbo.Receita', 'QuantidadeRecorrencia') IS NULL
 BEGIN
     ALTER TABLE dbo.Receita ADD QuantidadeRecorrencia INT NULL;
+END;
+GO
+
+IF COL_LENGTH('dbo.Receita', 'ValorTotalRateioAmigos') IS NULL
+BEGIN
+    ALTER TABLE dbo.Receita ADD ValorTotalRateioAmigos DECIMAL(18,2) NULL;
+END;
+GO
+
+IF COL_LENGTH('dbo.Receita', 'TipoRateioAmigos') IS NULL
+BEGIN
+    ALTER TABLE dbo.Receita ADD TipoRateioAmigos NVARCHAR(20) NULL;
 END;
 GO
 
@@ -112,6 +127,14 @@ BEGIN
     ALTER TABLE dbo.Receita
         WITH CHECK ADD CONSTRAINT CK_Receita_QuantidadeRecorrencia
         CHECK (QuantidadeRecorrencia IS NULL OR QuantidadeRecorrencia > 0);
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_Receita_TipoRateioAmigos' AND parent_object_id = OBJECT_ID(N'dbo.Receita'))
+BEGIN
+    ALTER TABLE dbo.Receita
+        WITH CHECK ADD CONSTRAINT CK_Receita_TipoRateioAmigos
+        CHECK (TipoRateioAmigos IS NULL OR TipoRateioAmigos IN (N'Comum', N'Igualitario'));
 END;
 GO
 

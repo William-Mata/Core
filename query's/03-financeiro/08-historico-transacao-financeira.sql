@@ -14,12 +14,20 @@ BEGIN
         DataTransacao DATE NOT NULL,
         Descricao NVARCHAR(300) NOT NULL,
         TipoPagamento NVARCHAR(50) NULL,
+        TipoRecebimento NVARCHAR(50) NULL,
         ValorAntesTransacao DECIMAL(18,2) NOT NULL,
         ValorTransacao DECIMAL(18,2) NOT NULL,
         ValorDepoisTransacao DECIMAL(18,2) NOT NULL,
         CONSTRAINT CK_HistoricoTransacaoFinanceira_ContaOuCartaoExclusivo
             CHECK (NOT (ContaBancariaId IS NOT NULL AND CartaoId IS NOT NULL))
     );
+END;
+GO
+
+IF COL_LENGTH(N'dbo.HistoricoTransacaoFinanceira', N'TipoRecebimento') IS NULL
+BEGIN
+    ALTER TABLE dbo.HistoricoTransacaoFinanceira
+        ADD TipoRecebimento NVARCHAR(50) NULL;
 END;
 GO
 
