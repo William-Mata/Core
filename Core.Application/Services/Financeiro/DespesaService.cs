@@ -22,9 +22,6 @@ public sealed partial class DespesaService(
     IDocumentoStorageService documentoStorageService,
     IRecorrenciaBackgroundPublisher recorrenciaBackgroundPublisher)
 {
-    private static readonly HashSet<string> TiposDespesa = ["alimentacao", "transporte", "moradia", "lazer", "saude", "educacao", "servicos"];
-    private static readonly HashSet<string> TiposPagamento = ["pix", "cartaoCredito", "cartaoDebito", "boleto", "transferencia", "dinheiro"];
-
     private sealed record AmigoRateioValidado(int AmigoId, string Nome, decimal Valor);
 
     public async Task<IReadOnlyCollection<DespesaListaDto>> ListarAsync(ListarDespesasRequest request, CancellationToken cancellationToken = default)
@@ -106,11 +103,13 @@ public sealed partial class DespesaService(
         var recorrenciaFixa = ResolverRecorrenciaFixa(req.TipoPagamento, req.RecorrenciaFixa);
         ValidarComum(req.Descricao, req.DataLancamento, req.DataVencimento, req.TipoDespesa, req.TipoPagamento, recorrencia, recorrenciaFixa, quantidadeRecorrencia, req.ValorTotal);
         await ValidarAreasRateioAsync(req.AreasSubAreasRateio ?? [], cancellationToken);
-        var amigos = NormalizarAmigos(req.AmigosRateio, req.ValorTotal);
-        ValidarRateioAmigos(amigos, req.ValorTotal);
+        var liquido = Liquido(req.ValorTotal, req.Desconto, req.Acrescimo, req.Imposto, req.Juros);
+        var tipoRateioAmigos = ObterTipoRateioAmigos(req.AmigosRateio);
+        var valorTotalRateioAmigos = ObterValorTotalRateioAmigos(req.AmigosRateio, req.ValorTotalRateioAmigos, liquido);
+        var amigos = NormalizarAmigos(req.AmigosRateio, valorTotalRateioAmigos);
+        ValidarRateioAmigos(amigos, valorTotalRateioAmigos);
         ValidarRateioAreas(req.AreasSubAreasRateio ?? [], req.ValorTotal);
         var amigosValidados = await ValidarAmigosAceitosAsync(amigos, usuarioAutenticadoId, cancellationToken);
-        var liquido = Liquido(req.ValorTotal, req.Desconto, req.Acrescimo, req.Imposto, req.Juros);
         var vinculo = await ResolverVinculoPagamentoAsync(req.TipoPagamento, req.Vinculo, null, null, usuarioAutenticadoId, cancellationToken);
         var documentos = await SalvarDocumentosAsync(req.Documentos ?? [], usuarioAutenticadoId, cancellationToken: cancellationToken);
 
@@ -126,6 +125,8 @@ public sealed partial class DespesaService(
             RecorrenciaFixa = recorrenciaFixa,
             QuantidadeRecorrencia = quantidadeRecorrencia,
             ValorTotal = req.ValorTotal,
+            ValorTotalRateioAmigos = amigos.Count == 0 ? null : valorTotalRateioAmigos,
+            TipoRateioAmigos = amigos.Count == 0 ? null : tipoRateioAmigos,
             ValorLiquido = liquido,
             Desconto = req.Desconto,
             Acrescimo = req.Acrescimo,
@@ -161,6 +162,7 @@ public sealed partial class DespesaService(
         {
             var mensagem = new DespesaRecorrenciaBackgroundMessage(
                 usuarioAutenticadoId,
+                despesaCriada.Id,
                 req.Descricao.Trim(),
                 req.Observacao,
                 despesaCriada.DataHoraCadastro,
@@ -178,6 +180,8 @@ public sealed partial class DespesaService(
                 req.Juros,
                 vinculo.ContaBancariaId,
                 vinculo.CartaoId,
+                amigos.Count == 0 ? null : valorTotalRateioAmigos,
+                amigos.Count == 0 ? null : tipoRateioAmigos,
                 [],
                 amigosValidados.Select(x => new RateioAmigoBackgroundMessage(x.AmigoId, x.Nome, x.Valor)).ToArray(),
                 (req.AreasSubAreasRateio ?? []).Select(x => new RateioAreaBackgroundMessage(x.AreaId, x.SubAreaId, x.Valor)).ToArray());
@@ -204,11 +208,13 @@ public sealed partial class DespesaService(
         var recorrenciaFixa = ResolverRecorrenciaFixa(req.TipoPagamento, req.RecorrenciaFixa);
         ValidarComum(req.Descricao, req.DataLancamento, req.DataVencimento, req.TipoDespesa, req.TipoPagamento, recorrencia, recorrenciaFixa, quantidadeRecorrencia, req.ValorTotal);
         await ValidarAreasRateioAsync(req.AreasSubAreasRateio ?? [], cancellationToken);
-        var amigos = NormalizarAmigos(req.AmigosRateio, req.ValorTotal);
-        ValidarRateioAmigos(amigos, req.ValorTotal);
+        var liquido = Liquido(req.ValorTotal, req.Desconto, req.Acrescimo, req.Imposto, req.Juros);
+        var tipoRateioAmigos = ObterTipoRateioAmigos(req.AmigosRateio);
+        var valorTotalRateioAmigos = ObterValorTotalRateioAmigos(req.AmigosRateio, req.ValorTotalRateioAmigos, liquido);
+        var amigos = NormalizarAmigos(req.AmigosRateio, valorTotalRateioAmigos);
+        ValidarRateioAmigos(amigos, valorTotalRateioAmigos);
         ValidarRateioAreas(req.AreasSubAreasRateio ?? [], req.ValorTotal);
         var amigosValidados = await ValidarAmigosAceitosAsync(amigos, usuarioAutenticadoId, cancellationToken);
-        var liquido = Liquido(req.ValorTotal, req.Desconto, req.Acrescimo, req.Imposto, req.Juros);
         var vinculo = await ResolverVinculoPagamentoAsync(req.TipoPagamento, req.Vinculo, despesa.ContaBancariaId, despesa.CartaoId, usuarioAutenticadoId, cancellationToken);
 
         var serie = await ListarSerieRecorrenteAsync(despesa, usuarioAutenticadoId, cancellationToken);
@@ -234,6 +240,8 @@ public sealed partial class DespesaService(
             alvo.RecorrenciaFixa = recorrenciaFixa;
             alvo.QuantidadeRecorrencia = quantidadeRecorrencia;
             alvo.ValorTotal = req.ValorTotal;
+            alvo.ValorTotalRateioAmigos = amigos.Count == 0 ? null : valorTotalRateioAmigos;
+            alvo.TipoRateioAmigos = amigos.Count == 0 ? null : tipoRateioAmigos;
             alvo.ValorLiquido = liquido;
             alvo.Desconto = req.Desconto;
             alvo.Acrescimo = req.Acrescimo;
@@ -315,7 +323,7 @@ public sealed partial class DespesaService(
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
         var despesa = await repository.ObterPorIdAsync(id, usuarioAutenticadoId, cancellationToken) ?? throw new NotFoundException("despesa_nao_encontrada");
         if (despesa.Status != StatusDespesa.Pendente) throw new DomainException("status_invalido");
-        if (string.IsNullOrWhiteSpace(req.TipoPagamento) || req.ValorTotal <= 0) throw new DomainException("dados_invalidos");
+        if (!Enum.IsDefined(req.TipoPagamento) || req.ValorTotal <= 0) throw new DomainException("dados_invalidos");
         if (req.DataEfetivacao < despesa.DataLancamento) throw new DomainException("periodo_invalido");
         if (req.ContaBancariaId.HasValue && req.CartaoId.HasValue) throw new DomainException("forma_pagamento_invalida");
         var vinculo = await ResolverVinculoPagamentoAsync(
@@ -357,7 +365,7 @@ public sealed partial class DespesaService(
             despesaAtualizada.TipoPagamento,
             despesaAtualizada.ContaBancariaId,
             despesaAtualizada.CartaoId,
-            cancellationToken);
+            cancellationToken: cancellationToken);
 
         return Map(despesaAtualizada);
     }
@@ -434,6 +442,17 @@ public sealed partial class DespesaService(
             return [referencia];
 
         var todas = await repository.ListarPorUsuarioAsync(usuarioAutenticadoId, null, null, null, null, null, cancellationToken);
+        var chaveSerie = referencia.DespesaRecorrenciaOrigemId ?? referencia.Id;
+        var seriePorChave = todas
+            .Where(x => x.DespesaOrigemId is null)
+            .Where(x => x.Id == chaveSerie || x.DespesaRecorrenciaOrigemId == chaveSerie)
+            .OrderBy(x => x.DataLancamento)
+            .ThenBy(x => x.Id)
+            .ToList();
+
+        if (seriePorChave.Any(x => x.Id == referencia.Id))
+            return seriePorChave;
+
         var serie = todas
             .Where(x => x.DespesaOrigemId is null)
             .Where(x => x.Descricao == referencia.Descricao)
@@ -489,13 +508,8 @@ public sealed partial class DespesaService(
             .Where(x => x.Recorrencia != Recorrencia.Unica)
             .GroupBy(x => new
             {
-                x.Descricao,
-                x.TipoDespesa,
-                x.TipoPagamento,
-                x.Recorrencia,
-                x.RecorrenciaFixa,
-                x.ContaBancariaId,
-                x.CartaoId
+                ChaveSerie = x.DespesaRecorrenciaOrigemId ?? x.Id,
+                x.DataHoraCadastro
             })
             .ToArray();
 
@@ -561,6 +575,7 @@ public sealed partial class DespesaService(
     {
         var mensagem = new DespesaRecorrenciaBackgroundMessage(
             usuarioAutenticadoId,
+            origem.DespesaRecorrenciaOrigemId ?? origem.Id,
             origem.Descricao,
             origem.Observacao,
             origem.DataHoraCadastro,
@@ -578,6 +593,8 @@ public sealed partial class DespesaService(
             origem.Juros,
             origem.ContaBancariaId,
             origem.CartaoId,
+            origem.ValorTotalRateioAmigos,
+            origem.TipoRateioAmigos,
             [],
             [],
             []);
@@ -598,12 +615,12 @@ public sealed partial class DespesaService(
             _ => data
         };
 
-    private static void ValidarComum(string descricao, DateOnly dataLancamento, DateOnly dataVencimento, string tipoDespesa, string tipoPagamento, Recorrencia recorrencia, bool recorrenciaFixa, int? quantidadeRecorrencia, decimal valorTotal)
+    private static void ValidarComum(string descricao, DateOnly dataLancamento, DateOnly dataVencimento, TipoDespesa tipoDespesa, TipoPagamento tipoPagamento, Recorrencia recorrencia, bool recorrenciaFixa, int? quantidadeRecorrencia, decimal valorTotal)
     {
         if (string.IsNullOrWhiteSpace(descricao)) throw new DomainException("descricao_obrigatoria");
         if (valorTotal <= 0) throw new DomainException("valor_total_invalido");
         if (dataVencimento < dataLancamento) throw new DomainException("periodo_invalido");
-        if (!TiposDespesa.Contains(tipoDespesa) || !TiposPagamento.Contains(tipoPagamento) || !Enum.IsDefined(recorrencia)) throw new DomainException("enum_invalida");
+        if (!Enum.IsDefined(tipoDespesa) || !Enum.IsDefined(tipoPagamento) || !Enum.IsDefined(recorrencia)) throw new DomainException("enum_invalida");
         if (PagamentoCartao(tipoPagamento) && recorrenciaFixa) throw new DomainException("recorrencia_fixa_invalida");
         if (recorrenciaFixa && recorrencia == Recorrencia.Unica) throw new DomainException("recorrencia_fixa_invalida");
         if (!recorrenciaFixa && recorrencia is not Recorrencia.Unica && (!quantidadeRecorrencia.HasValue || quantidadeRecorrencia <= 0))
@@ -614,13 +631,13 @@ public sealed partial class DespesaService(
             throw new DomainException("quantidade_recorrencia_invalida");
     }
 
-    private static bool PagamentoCartao(string tipoPagamento) =>
-        tipoPagamento is "cartaoCredito" or "cartaoDebito";
+    private static bool PagamentoCartao(TipoPagamento tipoPagamento) =>
+        tipoPagamento is TipoPagamento.CartaoCredito or TipoPagamento.CartaoDebito;
 
-    private static bool ContaObrigatoria(string tipoPagamento) =>
-        tipoPagamento is "pix" or "transferencia";
+    private static bool ContaObrigatoria(TipoPagamento tipoPagamento) =>
+        tipoPagamento is TipoPagamento.Pix or TipoPagamento.Transferencia;
 
-    private static int? ResolverQuantidadeRecorrencia(string tipoPagamento, int? quantidadeRecorrencia, int? quantidadeParcelas)
+    private static int? ResolverQuantidadeRecorrencia(TipoPagamento tipoPagamento, int? quantidadeRecorrencia, int? quantidadeParcelas)
     {
         if (!PagamentoCartao(tipoPagamento))
             return quantidadeRecorrencia;
@@ -632,17 +649,17 @@ public sealed partial class DespesaService(
         return parcelas;
     }
 
-    private static Recorrencia ResolverRecorrencia(string tipoPagamento, Recorrencia recorrencia) =>
+    private static Recorrencia ResolverRecorrencia(TipoPagamento tipoPagamento, Recorrencia recorrencia) =>
         PagamentoCartao(tipoPagamento) ? Recorrencia.Mensal : recorrencia;
 
-    private static bool ResolverRecorrenciaFixa(string tipoPagamento, bool recorrenciaFixa) =>
+    private static bool ResolverRecorrenciaFixa(TipoPagamento tipoPagamento, bool recorrenciaFixa) =>
         PagamentoCartao(tipoPagamento) ? false : recorrenciaFixa;
 
     private static decimal Liquido(decimal valorTotal, decimal desconto, decimal acrescimo, decimal imposto, decimal juros) =>
         valorTotal - desconto + acrescimo + imposto + juros;
 
     private async Task<(long? ContaBancariaId, long? CartaoId)> ResolverVinculoPagamentoAsync(
-        string tipoPagamento,
+        TipoPagamento tipoPagamento,
         MeioFinanceiroVinculoRequest? vinculo,
         long? contaBancariaIdLegado,
         long? cartaoIdLegado,
@@ -707,6 +724,33 @@ public sealed partial class DespesaService(
 
         if (amigos.Sum(x => x.Valor!.Value) != valorTotal)
             throw new DomainException("rateio_amigos_invalido");
+    }
+
+    private static decimal ObterValorTotalRateioAmigos(
+        IReadOnlyCollection<AmigoRateioRequest>? amigosRateio,
+        decimal? valorTotalRateioAmigos,
+        decimal valorLiquido)
+    {
+        if (amigosRateio is null || amigosRateio.Count == 0)
+            return 0m;
+
+        if (!valorTotalRateioAmigos.HasValue || valorTotalRateioAmigos.Value <= valorLiquido)
+            throw new DomainException("rateio_amigos_invalido");
+
+        return valorTotalRateioAmigos.Value;
+    }
+
+    private static TipoRateioAmigos? ObterTipoRateioAmigos(IReadOnlyCollection<AmigoRateioRequest>? amigosRateio)
+    {
+        if (amigosRateio is null || amigosRateio.Count == 0)
+            return null;
+
+        var possuiValorInformado = amigosRateio.Any(x => x.Valor.HasValue);
+        var possuiValorNaoInformado = amigosRateio.Any(x => !x.Valor.HasValue);
+        if (possuiValorInformado && possuiValorNaoInformado)
+            throw new DomainException("rateio_amigos_invalido");
+
+        return possuiValorInformado ? TipoRateioAmigos.Comum : TipoRateioAmigos.Igualitario;
     }
 
     private static void ValidarRateioAreas(IReadOnlyCollection<DespesaAreaRateioRequest> areasRateio, decimal valorTotal)
@@ -879,6 +923,8 @@ public sealed partial class DespesaService(
             ContaBancariaId = origem.ContaBancariaId,
             CartaoId = origem.CartaoId,
             ValorTotal = amigo.Valor,
+            ValorTotalRateioAmigos = null,
+            TipoRateioAmigos = null,
             ValorLiquido = amigo.Valor,
             Desconto = 0m,
             Acrescimo = 0m,
@@ -918,6 +964,8 @@ public sealed partial class DespesaService(
         espelho.ContaBancariaId = origem.ContaBancariaId;
         espelho.CartaoId = origem.CartaoId;
         espelho.ValorTotal = amigo.Valor;
+        espelho.ValorTotalRateioAmigos = null;
+        espelho.TipoRateioAmigos = null;
         espelho.ValorLiquido = amigo.Valor;
         espelho.Desconto = 0m;
         espelho.Acrescimo = 0m;

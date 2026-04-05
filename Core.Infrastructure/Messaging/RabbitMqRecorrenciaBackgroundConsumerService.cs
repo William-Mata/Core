@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Core.Application.Contracts.Financeiro;
 using Core.Domain.Entities.Financeiro;
 using Core.Domain.Enums;
@@ -18,7 +19,10 @@ public sealed class RabbitMqRecorrenciaBackgroundConsumerService(
     IServiceScopeFactory scopeFactory,
     ILogger<RabbitMqRecorrenciaBackgroundConsumerService> logger) : BackgroundService
 {
-    private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
+private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web)
+{
+    Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
+};
     private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(10);
     private IConnection? _connection;
     private IChannel? _channel;
@@ -135,16 +139,26 @@ public sealed class RabbitMqRecorrenciaBackgroundConsumerService(
         {
             var dataLancamento = AvancarData(payload.DataLancamento, payload.Recorrencia, numero - 1);
             var dataVencimento = AvancarData(payload.DataVencimento, payload.Recorrencia, numero - 1);
+            var origemJaExiste = await dbContext.Despesas
+                .AsNoTracking()
+                .AnyAsync(
+                    x =>
+                        x.DespesaOrigemId == null &&
+                        x.UsuarioCadastroId == payload.UsuarioId &&
+                        (
+                            x.DespesaRecorrenciaOrigemId == payload.DespesaRecorrenciaOrigemId ||
+                            (x.DespesaRecorrenciaOrigemId == null &&
+                             x.DataHoraCadastro == payload.DataHoraCadastroOrigem &&
+                             x.Descricao == payload.Descricao &&
+                             x.TipoDespesa == payload.TipoDespesa &&
+                             x.TipoPagamento == payload.TipoPagamento)
+                        ) &&
+                        x.DataLancamento == dataLancamento &&
+                        x.DataVencimento == dataVencimento,
+                    cancellationToken);
 
-            var jaExiste = await dbContext.Despesas.AnyAsync(
-                x => x.UsuarioCadastroId == payload.UsuarioId &&
-                     x.Descricao == payload.Descricao &&
-                     x.DataLancamento == dataLancamento &&
-                     x.TipoDespesa == payload.TipoDespesa &&
-                     x.TipoPagamento == payload.TipoPagamento,
-                cancellationToken);
-
-            if (jaExiste) continue;
+            if (origemJaExiste)
+                continue;
 
             var origem = new Despesa
             {
@@ -159,7 +173,10 @@ public sealed class RabbitMqRecorrenciaBackgroundConsumerService(
                 Recorrencia = payload.Recorrencia,
                 RecorrenciaFixa = payload.RecorrenciaFixa,
                 QuantidadeRecorrencia = payload.QuantidadeRecorrencia,
+                DespesaRecorrenciaOrigemId = payload.DespesaRecorrenciaOrigemId,
                 ValorTotal = payload.ValorTotal,
+                ValorTotalRateioAmigos = payload.ValorTotalRateioAmigos,
+                TipoRateioAmigos = payload.TipoRateioAmigos,
                 ValorLiquido = liquido,
                 Desconto = payload.Desconto,
                 Acrescimo = payload.Acrescimo,
@@ -243,6 +260,8 @@ public sealed class RabbitMqRecorrenciaBackgroundConsumerService(
                     RecorrenciaFixa = origem.RecorrenciaFixa,
                     QuantidadeRecorrencia = origem.QuantidadeRecorrencia,
                     ValorTotal = amigo.Valor,
+                    ValorTotalRateioAmigos = null,
+                    TipoRateioAmigos = null,
                     ValorLiquido = amigo.Valor,
                     Desconto = 0m,
                     Acrescimo = 0m,
@@ -285,16 +304,6 @@ public sealed class RabbitMqRecorrenciaBackgroundConsumerService(
             var dataLancamento = AvancarData(payload.DataLancamento, payload.Recorrencia, numero - 1);
             var dataVencimento = AvancarData(payload.DataVencimento, payload.Recorrencia, numero - 1);
 
-            var jaExiste = await dbContext.Receitas.AnyAsync(
-                x => x.UsuarioCadastroId == payload.UsuarioId &&
-                     x.Descricao == payload.Descricao &&
-                     x.DataLancamento == dataLancamento &&
-                     x.TipoReceita == payload.TipoReceita &&
-                     x.TipoRecebimento == payload.TipoRecebimento,
-                cancellationToken);
-
-            if (jaExiste) continue;
-
             var origem = new Receita
             {
                 DataHoraCadastro = payload.DataHoraCadastroOrigem,
@@ -309,6 +318,8 @@ public sealed class RabbitMqRecorrenciaBackgroundConsumerService(
                 RecorrenciaFixa = payload.RecorrenciaFixa,
                 QuantidadeRecorrencia = payload.QuantidadeRecorrencia,
                 ValorTotal = payload.ValorTotal,
+                ValorTotalRateioAmigos = payload.ValorTotalRateioAmigos,
+                TipoRateioAmigos = payload.TipoRateioAmigos,
                 ValorLiquido = liquido,
                 Desconto = payload.Desconto,
                 Acrescimo = payload.Acrescimo,
@@ -392,6 +403,8 @@ public sealed class RabbitMqRecorrenciaBackgroundConsumerService(
                     RecorrenciaFixa = origem.RecorrenciaFixa,
                     QuantidadeRecorrencia = origem.QuantidadeRecorrencia,
                     ValorTotal = amigo.Valor,
+                    ValorTotalRateioAmigos = null,
+                    TipoRateioAmigos = null,
                     ValorLiquido = amigo.Valor,
                     Desconto = 0m,
                     Acrescimo = 0m,

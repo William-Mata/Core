@@ -15,7 +15,8 @@ public sealed class HistoricoTransacaoFinanceira
     public long? CartaoId { get; set; }
     public DateOnly DataTransacao { get; set; }
     public string Descricao { get; set; } = string.Empty;
-    public string? TipoPagamento { get; set; }
+    public TipoPagamento? TipoPagamento { get; set; }
+    public TipoRecebimento? TipoRecebimento { get; set; }
     public decimal ValorAntesTransacao { get; set; }
     public decimal ValorTransacao { get; set; }
     public decimal ValorDepoisTransacao { get; set; }

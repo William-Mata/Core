@@ -15,11 +15,26 @@ public sealed class HistoricoTransacaoFinanceiraService(IHistoricoTransacaoFinan
         decimal valorTransacao,
         decimal valorDepoisTransacao,
         string descricao,
-        string? tipoPagamento = null,
+        TipoPagamento? tipoPagamento = null,
         long? contaBancariaId = null,
         long? cartaoId = null,
+        TipoRecebimento? tipoRecebimento = null,
         CancellationToken cancellationToken = default) =>
-        RegistrarAsync(tipoTransacao, transacaoId, usuarioOperacaoId, dataTransacao, valorAntesTransacao, valorTransacao, valorDepoisTransacao, descricao, TipoOperacaoTransacaoFinanceira.Efetivacao, tipoPagamento, contaBancariaId, cartaoId, cancellationToken);
+        RegistrarAsync(
+            tipoTransacao,
+            transacaoId,
+            usuarioOperacaoId,
+            dataTransacao,
+            valorAntesTransacao,
+            valorTransacao,
+            valorDepoisTransacao,
+            descricao,
+            TipoOperacaoTransacaoFinanceira.Efetivacao,
+            tipoPagamento,
+            tipoRecebimento,
+            contaBancariaId,
+            cartaoId,
+            cancellationToken);
 
     public async Task RegistrarEstornoAsync(
         TipoTransacaoFinanceira tipoTransacao,
@@ -30,9 +45,10 @@ public sealed class HistoricoTransacaoFinanceiraService(IHistoricoTransacaoFinan
         decimal valorTransacao,
         decimal valorDepoisTransacao,
         string descricao,
-        string? tipoPagamento = null,
+        TipoPagamento? tipoPagamento = null,
         long? contaBancariaId = null,
         long? cartaoId = null,
+        TipoRecebimento? tipoRecebimento = null,
         CancellationToken cancellationToken = default)
     {
         if (!contaBancariaId.HasValue && !cartaoId.HasValue)
@@ -43,10 +59,25 @@ public sealed class HistoricoTransacaoFinanceiraService(IHistoricoTransacaoFinan
                 contaBancariaId = ultimoHistorico.ContaBancariaId;
                 cartaoId = ultimoHistorico.CartaoId;
                 tipoPagamento ??= ultimoHistorico.TipoPagamento;
+                tipoRecebimento ??= ultimoHistorico.TipoRecebimento;
             }
         }
 
-        await RegistrarAsync(tipoTransacao, transacaoId, usuarioOperacaoId, dataTransacao, valorAntesTransacao, valorTransacao, valorDepoisTransacao, descricao, TipoOperacaoTransacaoFinanceira.Estorno, tipoPagamento, contaBancariaId, cartaoId, cancellationToken);
+        await RegistrarAsync(
+            tipoTransacao,
+            transacaoId,
+            usuarioOperacaoId,
+            dataTransacao,
+            valorAntesTransacao,
+            valorTransacao,
+            valorDepoisTransacao,
+            descricao,
+            TipoOperacaoTransacaoFinanceira.Estorno,
+            tipoPagamento,
+            tipoRecebimento,
+            contaBancariaId,
+            cartaoId,
+            cancellationToken);
     }
 
     private Task RegistrarAsync(
@@ -59,7 +90,8 @@ public sealed class HistoricoTransacaoFinanceiraService(IHistoricoTransacaoFinan
         decimal valorDepoisTransacao,
         string descricao,
         TipoOperacaoTransacaoFinanceira tipoOperacao,
-        string? tipoPagamento,
+        TipoPagamento? tipoPagamento,
+        TipoRecebimento? tipoRecebimento,
         long? contaBancariaId,
         long? cartaoId,
         CancellationToken cancellationToken)
@@ -70,12 +102,13 @@ public sealed class HistoricoTransacaoFinanceiraService(IHistoricoTransacaoFinan
             TipoTransacao = tipoTransacao,
             TransacaoId = transacaoId,
             TipoOperacao = tipoOperacao,
-            TipoConta = ResolverTipoConta(contaBancariaId, cartaoId, tipoPagamento),
+            TipoConta = ResolverTipoConta(contaBancariaId, cartaoId, tipoPagamento, tipoRecebimento),
             ContaBancariaId = contaBancariaId,
             CartaoId = cartaoId,
             DataTransacao = dataTransacao,
             Descricao = descricao,
             TipoPagamento = tipoPagamento,
+            TipoRecebimento = tipoRecebimento,
             ValorAntesTransacao = valorAntesTransacao,
             ValorTransacao = valorTransacao,
             ValorDepoisTransacao = valorDepoisTransacao
@@ -84,7 +117,7 @@ public sealed class HistoricoTransacaoFinanceiraService(IHistoricoTransacaoFinan
         return repository.CriarAsync(historico, cancellationToken);
     }
 
-    private static TipoContaTransacaoFinanceira ResolverTipoConta(long? contaBancariaId, long? cartaoId, string? tipoPagamento)
+    private static TipoContaTransacaoFinanceira ResolverTipoConta(long? contaBancariaId, long? cartaoId, TipoPagamento? tipoPagamento, TipoRecebimento? tipoRecebimento)
     {
         if (contaBancariaId.HasValue)
         {
@@ -96,7 +129,8 @@ public sealed class HistoricoTransacaoFinanceiraService(IHistoricoTransacaoFinan
             return TipoContaTransacaoFinanceira.Cartao;
         }
 
-        if (tipoPagamento is "cartaoCredito" or "cartaoDebito")
+        if (tipoPagamento is TipoPagamento.CartaoCredito or TipoPagamento.CartaoDebito ||
+            tipoRecebimento is TipoRecebimento.CartaoCredito or TipoRecebimento.CartaoDebito)
         {
             return TipoContaTransacaoFinanceira.Cartao;
         }

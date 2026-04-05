@@ -13,12 +13,14 @@ public sealed class Receita
     public DateOnly DataLancamento { get; set; }
     public DateOnly DataVencimento { get; set; }
     public DateOnly? DataEfetivacao { get; set; }
-    public string TipoReceita { get; set; } = string.Empty;
-    public string TipoRecebimento { get; set; } = string.Empty;
+    public TipoReceita TipoReceita { get; set; } = TipoReceita.Salario;
+    public TipoRecebimento TipoRecebimento { get; set; } = TipoRecebimento.Dinheiro;
     public Recorrencia Recorrencia { get; set; } = Recorrencia.Unica;
     public bool RecorrenciaFixa { get; set; }
     public int? QuantidadeRecorrencia { get; set; }
     public decimal ValorTotal { get; set; }
+    public decimal? ValorTotalRateioAmigos { get; set; }
+    public TipoRateioAmigos? TipoRateioAmigos { get; set; }
     public decimal ValorLiquido { get; set; }
     public decimal Desconto { get; set; }
     public decimal Acrescimo { get; set; }

@@ -1,4 +1,6 @@
-﻿using Core.Application.DTOs;
+﻿using System;
+using Core.Application.DTOs;
+using Core.Application.Extensions;
 using Core.Domain.Enums;
 using Core.Domain.Interfaces.Financeiro;
 
@@ -11,13 +13,43 @@ public sealed class DashboardService(IDespesaRepository despesaRepository, IRece
         var despesas = (await despesaRepository.ListarAsync(cancellationToken)).Where(x => x.Status == StatusDespesa.Efetivada && x.DataEfetivacao.HasValue);
         var receitas = (await receitaRepository.ListarAsync(cancellationToken)).Where(x => x.Status == StatusReceita.Efetivada && x.DataEfetivacao.HasValue);
 
-        var transacoesDespesa = despesas.Select(d => new TransacaoDashboardDto(
-            d.Id, "despesa", d.ValorEfetivacao ?? d.ValorLiquido, d.Descricao, d.DataEfetivacao!.Value,
-            ToCodigoPagamento(d.TipoPagamento), d.TipoPagamento, null, d.TipoPagamento == "cartaoCredito" ? "Cartao" : null, "Financeiro", d.TipoDespesa));
+        var transacoesDespesa = despesas.Select(d =>
+        {
+            var tipoPagamento = d.TipoPagamento.ToCamelCase();
+            var tipoDespesa = d.TipoDespesa.ToCamelCase();
 
-        var transacoesReceita = receitas.Select(r => new TransacaoDashboardDto(
-            r.Id, "receita", r.ValorEfetivacao ?? r.ValorLiquido, r.Descricao, r.DataEfetivacao!.Value,
-            ToCodigoPagamento(r.TipoRecebimento), r.TipoRecebimento, r.ContaBancariaId?.ToString(), null, "Financeiro", r.TipoReceita));
+            return new TransacaoDashboardDto(
+                d.Id,
+                "despesa",
+                d.ValorEfetivacao ?? d.ValorLiquido,
+                d.Descricao,
+                d.DataEfetivacao!.Value,
+                ToCodigoPagamento(tipoPagamento),
+                tipoPagamento,
+                null,
+                d.TipoPagamento is TipoPagamento.CartaoCredito or TipoPagamento.CartaoDebito ? "Cartao" : null,
+                "Financeiro",
+                tipoDespesa);
+        });
+
+        var transacoesReceita = receitas.Select(r =>
+        {
+            var tipoRecebimento = r.TipoRecebimento.ToCamelCase();
+            var tipoReceita = r.TipoReceita.ToCamelCase();
+
+            return new TransacaoDashboardDto(
+                r.Id,
+                "receita",
+                r.ValorEfetivacao ?? r.ValorLiquido,
+                r.Descricao,
+                r.DataEfetivacao!.Value,
+                ToCodigoPagamento(tipoRecebimento),
+                tipoRecebimento,
+                r.ContaBancariaId?.ToString(),
+                null,
+                "Financeiro",
+                tipoReceita);
+        });
 
         var transacoes = transacoesDespesa.Concat(transacoesReceita)
             .OrderByDescending(x => x.DataEfetivacao)

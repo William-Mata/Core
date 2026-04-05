@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Core.Application.Contracts.Financeiro;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -11,7 +12,10 @@ public sealed class RabbitMqRecorrenciaBackgroundPublisher(
     IOptions<RabbitMqOptions> options,
     ILogger<RabbitMqRecorrenciaBackgroundPublisher> logger) : IRecorrenciaBackgroundPublisher
 {
-    private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
+private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web)
+{
+    Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
+};
 
     public async Task PublicarDespesaAsync(DespesaRecorrenciaBackgroundMessage message, CancellationToken cancellationToken = default)
     {

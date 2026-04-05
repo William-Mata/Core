@@ -6,6 +6,7 @@ public sealed class Despesa
 {
     public long Id { get; set; }
     public long? DespesaOrigemId { get; set; }
+    public long? DespesaRecorrenciaOrigemId { get; set; }
     public DateTime DataHoraCadastro { get; set; } = DateTime.UtcNow;
     public int UsuarioCadastroId { get; set; }
     public string Descricao { get; set; } = string.Empty;
@@ -13,12 +14,14 @@ public sealed class Despesa
     public DateOnly DataLancamento { get; set; }
     public DateOnly DataVencimento { get; set; }
     public DateOnly? DataEfetivacao { get; set; }
-    public string TipoDespesa { get; set; } = string.Empty;
-    public string TipoPagamento { get; set; } = string.Empty;
+    public TipoDespesa TipoDespesa { get; set; } = TipoDespesa.Alimentacao;
+    public TipoPagamento TipoPagamento { get; set; } = TipoPagamento.Pix;
     public Recorrencia Recorrencia { get; set; } = Recorrencia.Unica;
     public bool RecorrenciaFixa { get; set; }
     public int? QuantidadeRecorrencia { get; set; }
     public decimal ValorTotal { get; set; }
+    public decimal? ValorTotalRateioAmigos { get; set; }
+    public TipoRateioAmigos? TipoRateioAmigos { get; set; }
     public decimal ValorLiquido { get; set; }
     public decimal Desconto { get; set; }
     public decimal Acrescimo { get; set; }

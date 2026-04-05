@@ -147,10 +147,10 @@ public sealed class ReembolsoService(
                 reembolsoAtualizado.ValorTotal,
                 reembolsoAtualizado.ValorTotal,
                 "Efetivacao de reembolso",
-                "reembolso",
+                null,
                 request.ContaBancariaId,
                 request.CartaoId,
-                cancellationToken);
+                cancellationToken: cancellationToken);
         }
         else if (statusAnterior == StatusReembolso.Pago && reembolsoAtualizado.Status != StatusReembolso.Pago)
         {
@@ -163,10 +163,10 @@ public sealed class ReembolsoService(
                 reembolsoAtualizado.ValorTotal,
                 0m,
                 "Estorno de reembolso",
-                "reembolso",
+                null,
                 request.ContaBancariaId,
                 request.CartaoId,
-                cancellationToken);
+                cancellationToken: cancellationToken);
         }
 
         return Map(reembolsoAtualizado);
@@ -203,10 +203,10 @@ public sealed class ReembolsoService(
             reembolsoAtualizado.ValorTotal,
             reembolsoAtualizado.ValorTotal,
             "Efetivacao de reembolso",
-            "reembolso",
+            null,
             request.ContaBancariaId,
             request.CartaoId,
-            cancellationToken);
+            cancellationToken: cancellationToken);
 
         return Map(reembolsoAtualizado);
     }
@@ -231,7 +231,7 @@ public sealed class ReembolsoService(
             valorAntesTransacao,
             0m,
             "Estorno de reembolso",
-            "reembolso",
+            null,
             cancellationToken: cancellationToken);
 
         return Map(reembolsoAtualizado);

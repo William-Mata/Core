@@ -1,3 +1,5 @@
+using Core.Domain.Enums;
+
 namespace Core.Application.Contracts.Financeiro;
 
 public sealed record RateioAmigoBackgroundMessage(int AmigoId, string Nome, decimal? Valor);
@@ -6,14 +8,15 @@ public sealed record DocumentoBackgroundMessage(string NomeArquivo, string Camin
 
 public sealed record DespesaRecorrenciaBackgroundMessage(
     int UsuarioId,
+    long DespesaRecorrenciaOrigemId,
     string Descricao,
     string? Observacao,
     DateTime DataHoraCadastroOrigem,
     DateOnly DataLancamento,
     DateOnly DataVencimento,
-    string TipoDespesa,
-    string TipoPagamento,
-    Core.Domain.Enums.Recorrencia Recorrencia,
+    TipoDespesa TipoDespesa,
+    TipoPagamento TipoPagamento,
+    Recorrencia Recorrencia,
     bool RecorrenciaFixa,
     int? QuantidadeRecorrencia,
     decimal ValorTotal,
@@ -23,6 +26,8 @@ public sealed record DespesaRecorrenciaBackgroundMessage(
     decimal Juros,
     long? ContaBancariaId,
     long? CartaoId,
+    decimal? ValorTotalRateioAmigos,
+    TipoRateioAmigos? TipoRateioAmigos,
     IReadOnlyCollection<DocumentoBackgroundMessage>? Documentos,
     IReadOnlyCollection<RateioAmigoBackgroundMessage> AmigosRateio,
     IReadOnlyCollection<RateioAreaBackgroundMessage> AreasSubAreasRateio);
@@ -34,9 +39,9 @@ public sealed record ReceitaRecorrenciaBackgroundMessage(
     DateTime DataHoraCadastroOrigem,
     DateOnly DataLancamento,
     DateOnly DataVencimento,
-    string TipoReceita,
-    string TipoRecebimento,
-    Core.Domain.Enums.Recorrencia Recorrencia,
+    TipoReceita TipoReceita,
+    TipoRecebimento TipoRecebimento,
+    Recorrencia Recorrencia,
     bool RecorrenciaFixa,
     int? QuantidadeRecorrencia,
     decimal ValorTotal,
@@ -46,6 +51,8 @@ public sealed record ReceitaRecorrenciaBackgroundMessage(
     decimal Juros,
     long? ContaBancariaId,
     long? CartaoId,
+    decimal? ValorTotalRateioAmigos,
+    TipoRateioAmigos? TipoRateioAmigos,
     IReadOnlyCollection<DocumentoBackgroundMessage>? Documentos,
     IReadOnlyCollection<RateioAmigoBackgroundMessage> AmigosRateio,
     IReadOnlyCollection<RateioAreaBackgroundMessage> AreasSubAreasRateio);

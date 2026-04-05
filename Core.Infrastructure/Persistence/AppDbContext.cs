@@ -1,6 +1,8 @@
+using System;
 using Core.Domain.Entities;
 using Core.Domain.Entities.Administracao;
 using Core.Domain.Entities.Financeiro;
+using Core.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace Core.Infrastructure.Persistence;
@@ -162,8 +164,22 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         modelBuilder.Entity<Despesa>().Property(x => x.Status).HasConversion<string>();
         modelBuilder.Entity<Despesa>().Property(x => x.Recorrencia).HasConversion<string>();
         modelBuilder.Entity<Despesa>().Property(x => x.RecorrenciaFixa).HasDefaultValue(false);
+        modelBuilder.Entity<Despesa>().Property(x => x.ValorTotalRateioAmigos).HasPrecision(18, 2);
+        modelBuilder.Entity<Despesa>().Property(x => x.TipoRateioAmigos).HasConversion<string>().HasMaxLength(20);
+        modelBuilder.Entity<Despesa>().Property(x => x.TipoDespesa)
+            .HasConversion(
+                value => EnumToCamelCase(value),
+                value => ParseEnum<TipoDespesa>(value))
+            .HasMaxLength(20);
+        modelBuilder.Entity<Despesa>().Property(x => x.TipoPagamento)
+            .HasConversion(
+                value => EnumToCamelCase(value),
+                value => ParseEnum<TipoPagamento>(value))
+            .HasMaxLength(20);
         modelBuilder.Entity<DespesaLog>().Property(x => x.Acao).HasConversion<string>();
         modelBuilder.Entity<Despesa>().HasOne<Despesa>().WithMany().HasForeignKey(x => x.DespesaOrigemId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Despesa>().HasOne<Despesa>().WithMany().HasForeignKey(x => x.DespesaRecorrenciaOrigemId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Despesa>().HasIndex(x => x.DespesaRecorrenciaOrigemId);
         modelBuilder.Entity<Despesa>().HasOne<ContaBancaria>().WithMany().HasForeignKey(x => x.ContaBancariaId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<Despesa>().HasOne<Cartao>().WithMany().HasForeignKey(x => x.CartaoId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<Despesa>().HasMany(x => x.AmigosRateio).WithOne().HasForeignKey(x => x.DespesaId).OnDelete(DeleteBehavior.Cascade);
@@ -178,6 +194,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         modelBuilder.Entity<HistoricoTransacaoFinanceira>().Property(x => x.TipoTransacao).HasConversion<string>();
         modelBuilder.Entity<HistoricoTransacaoFinanceira>().Property(x => x.TipoOperacao).HasConversion<string>();
         modelBuilder.Entity<HistoricoTransacaoFinanceira>().Property(x => x.TipoConta).HasConversion<string>();
+        modelBuilder.Entity<HistoricoTransacaoFinanceira>().Property(x => x.TipoPagamento).HasConversion<string>();
+        modelBuilder.Entity<HistoricoTransacaoFinanceira>().Property(x => x.TipoRecebimento).HasConversion<string>();
         modelBuilder.Entity<HistoricoTransacaoFinanceira>().HasIndex(x => new { x.TipoTransacao, x.TransacaoId, x.DataHoraCadastro });
 
         modelBuilder.Entity<ConviteAmizade>().ToTable("ConviteAmizade");
@@ -217,6 +235,18 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         modelBuilder.Entity<Receita>().Property(x => x.Status).HasConversion<string>();
         modelBuilder.Entity<Receita>().Property(x => x.Recorrencia).HasConversion<string>();
         modelBuilder.Entity<Receita>().Property(x => x.RecorrenciaFixa).HasDefaultValue(false);
+        modelBuilder.Entity<Receita>().Property(x => x.ValorTotalRateioAmigos).HasPrecision(18, 2);
+        modelBuilder.Entity<Receita>().Property(x => x.TipoRateioAmigos).HasConversion<string>().HasMaxLength(20);
+        modelBuilder.Entity<Receita>().Property(x => x.TipoReceita)
+            .HasConversion(
+                value => EnumToCamelCase(value),
+                value => ParseEnum<TipoReceita>(value))
+            .HasMaxLength(20);
+        modelBuilder.Entity<Receita>().Property(x => x.TipoRecebimento)
+            .HasConversion(
+                value => EnumToCamelCase(value),
+                value => ParseEnum<TipoRecebimento>(value))
+            .HasMaxLength(20);
         modelBuilder.Entity<ReceitaLog>().Property(x => x.Acao).HasConversion<string>();
         modelBuilder.Entity<Receita>().HasOne<Receita>().WithMany().HasForeignKey(x => x.ReceitaOrigemId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<Receita>().HasOne<ContaBancaria>().WithMany().HasForeignKey(x => x.ContaBancariaId).OnDelete(DeleteBehavior.Restrict);
@@ -243,5 +273,22 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         modelBuilder.Entity<Documento>().HasIndex(x => x.ReceitaId);
         modelBuilder.Entity<Documento>().HasIndex(x => x.ReembolsoId);
     }
+
+    private static string ToCamelCase(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return value;
+
+        return char.ToLowerInvariant(value[0]) + value.Substring(1);
+    }
+
+    private static string EnumToCamelCase<TEnum>(TEnum value) where TEnum : struct, Enum =>
+        ToCamelCase(value.ToString());
+
+    private static TEnum ParseEnum<TEnum>(string value) where TEnum : struct, Enum =>
+        Enum.Parse<TEnum>(value, true);
+
+    private static TEnum? ParseNullableEnum<TEnum>(string? value) where TEnum : struct, Enum =>
+        string.IsNullOrWhiteSpace(value) ? null : Enum.Parse<TEnum>(value, true);
 }
 
