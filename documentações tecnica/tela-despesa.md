@@ -21,6 +21,9 @@ Todos os endpoints exigem autenticacao (`[Authorize]`).
 - `POST /api/financeiro/despesas/{id}/efetivar`
 - `POST /api/financeiro/despesas/{id}/cancelar`
 - `POST /api/financeiro/despesas/{id}/estornar`
+- `GET /api/financeiro/despesas/pendentes-aprovacao`
+- `POST /api/financeiro/despesas/{id}/aprovar`
+- `POST /api/financeiro/despesas/{id}/rejeitar`
 
 `PUT` e `POST /cancelar` aceitam query param opcional `escopoRecorrencia`:
 - `1` Apenas essa
@@ -216,6 +219,33 @@ Regras:
   - `dataEfetivacao = null`
   - `valorEfetivacao = null`
 - registra historico financeiro de estorno
+
+## Pendentes de aprovacao
+`GET /api/financeiro/despesas/pendentes-aprovacao`
+
+Regras:
+- retorna despesas espelho de rateio pendentes para o usuario autenticado
+- payload segue `DespesaDto`
+
+## Aprovar rateio
+`POST /api/financeiro/despesas/{id}/aprovar`
+
+Regras:
+- somente para despesa espelho (`DespesaOrigemId` preenchido)
+- somente quando status atual for `pendenteaprovacao`
+- ao aprovar:
+  - status vira `pendente`
+  - registra log de aprovacao
+
+## Rejeitar rateio
+`POST /api/financeiro/despesas/{id}/rejeitar`
+
+Regras:
+- somente para despesa espelho (`DespesaOrigemId` preenchido)
+- somente quando status atual for `pendenteaprovacao`
+- ao rejeitar:
+  - status vira `rejeitado`
+  - registra log de rejeicao
 
 ## Enumeracoes relevantes
 ### `tipoDespesa`

@@ -59,4 +59,16 @@ public sealed class DespesaController(DespesaService service) : ControllerBase
     {
         return Ok(await service.EstornarAsync(id, cancellationToken));
     }
+
+    [HttpGet("pendentes-aprovacao")]
+    public async Task<IActionResult> ListarPendentesAprovacao(CancellationToken cancellationToken) =>
+        Ok(await service.ListarPendentesAprovacaoAsync(cancellationToken));
+
+    [HttpPost("{id:long}/aprovar")]
+    public async Task<IActionResult> AprovarRateio(long id, CancellationToken cancellationToken) =>
+        Ok(await service.AprovarRateioAsync(id, cancellationToken));
+
+    [HttpPost("{id:long}/rejeitar")]
+    public async Task<IActionResult> RejeitarRateio(long id, CancellationToken cancellationToken) =>
+        Ok(await service.RejeitarRateioAsync(id, cancellationToken));
 }

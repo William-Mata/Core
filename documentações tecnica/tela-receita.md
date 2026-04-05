@@ -21,6 +21,9 @@ Todos os endpoints exigem autenticacao (`[Authorize]`).
 - `POST /api/financeiro/receitas/{id}/efetivar`
 - `POST /api/financeiro/receitas/{id}/cancelar`
 - `POST /api/financeiro/receitas/{id}/estornar`
+- `GET /api/financeiro/receitas/pendentes-aprovacao`
+- `POST /api/financeiro/receitas/{id}/aprovar`
+- `POST /api/financeiro/receitas/{id}/rejeitar`
 
 `PUT` e `POST /cancelar` aceitam query param opcional `escopoRecorrencia`:
 - `1` Apenas essa
@@ -213,6 +216,33 @@ Regras:
   - `dataEfetivacao = null`
   - `valorEfetivacao = null`
 - registra historico financeiro de estorno
+
+## Pendentes de aprovacao
+`GET /api/financeiro/receitas/pendentes-aprovacao`
+
+Regras:
+- retorna receitas espelho de rateio pendentes para o usuario autenticado
+- payload segue `ReceitaDto`
+
+## Aprovar rateio
+`POST /api/financeiro/receitas/{id}/aprovar`
+
+Regras:
+- somente para receita espelho (`ReceitaOrigemId` preenchido)
+- somente quando status atual for `pendenteaprovacao`
+- ao aprovar:
+  - status vira `pendente`
+  - registra log de aprovacao
+
+## Rejeitar rateio
+`POST /api/financeiro/receitas/{id}/rejeitar`
+
+Regras:
+- somente para receita espelho (`ReceitaOrigemId` preenchido)
+- somente quando status atual for `pendenteaprovacao`
+- ao rejeitar:
+  - status vira `rejeitado`
+  - registra log de rejeicao
 
 ## Enumeracoes relevantes
 ### `tipoReceita`
