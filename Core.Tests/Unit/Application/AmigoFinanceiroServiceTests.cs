@@ -123,13 +123,15 @@ public sealed class AmigoFinanceiroServiceTests
 
         var resposta = await service.AceitarConviteAsync(10);
 
+        Assert.Equal("Alex", resposta.UsuarioOrigemNome);
+        Assert.Equal("alex@email.com", resposta.UsuarioOrigemEmail);
         Assert.Equal("aceito", resposta.Status);
         Assert.NotNull(amizadeRepository.AmizadeCriada);
         Assert.Equal(1, amizadeRepository.AmizadeCriada!.UsuarioAId);
         Assert.Equal(2, amizadeRepository.AmizadeCriada.UsuarioBId);
     }
 
-    private static AmigoFinanceiroService CriarService(IAmizadeRepository amizadeRepository, IUsuarioRepository usuarioRepository, int? usuarioId) =>
+    private static AmigoService CriarService(IAmizadeRepository amizadeRepository, IUsuarioRepository usuarioRepository, int? usuarioId) =>
         new(amizadeRepository, usuarioRepository, new UsuarioAutenticadoProviderFake(usuarioId));
 
     private sealed class UsuarioAutenticadoProviderFake(int? usuarioId) : IUsuarioAutenticadoProvider

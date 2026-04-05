@@ -354,6 +354,30 @@ public sealed class DespesaServiceTests
     }
 
     [Fact]
+    public async Task DevePermitirRateioIgualitarioComUsuarioLogadoSemGerarAutoEspelho()
+    {
+        var repository = new DespesaRepositoryFake();
+        var areaRepository = CriarAreaRepoValida(TipoAreaFinanceira.Despesa);
+        var service = CriarService(repository, areaRepository, 1);
+
+        var result = await service.CriarAsync(
+            CriarRequestPadrao(
+                amigos:
+                [
+                    new AmigoRateioRequest(1, null),
+                    new AmigoRateioRequest(2, null),
+                    new AmigoRateioRequest(3, null)
+                ],
+                areasRateio: [new DespesaAreaRateioRequest(1, 2, 100m)]));
+
+        Assert.Equal(3, result.AmigosRateio.Count);
+        Assert.Equal(100m, result.AmigosRateio.Sum(x => x.Valor ?? 0m));
+        Assert.Equal(3, repository.DespesasCriadas.Count);
+        Assert.Equal(2, repository.DespesasCriadas.Count(x => x.Status == StatusDespesa.PendenteAprovacao));
+        Assert.DoesNotContain(repository.DespesasCriadas, x => x.DespesaOrigemId.HasValue && x.UsuarioCadastroId == 1);
+    }
+
+    [Fact]
     public async Task DeveRejeitarRateioQuandoAmigoNaoForAceito()
     {
         var areaRepository = CriarAreaRepoValida(TipoAreaFinanceira.Despesa);

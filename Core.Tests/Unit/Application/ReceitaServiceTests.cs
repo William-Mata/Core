@@ -264,6 +264,30 @@ public sealed class ReceitaServiceTests
     }
 
     [Fact]
+    public async Task DevePermitirRateioIgualitarioComUsuarioLogadoSemGerarAutoEspelho()
+    {
+        var repository = new ReceitaRepoFake();
+        var areaRepository = CriarAreaRepoValida(TipoAreaFinanceira.Receita);
+        var service = CriarService(repository, new ContaRepoFake(), areaRepository, 99);
+
+        var result = await service.CriarAsync(
+            CriarRequestPadrao(
+                amigos:
+                [
+                    new AmigoRateioRequest(99, null),
+                    new AmigoRateioRequest(2, null),
+                    new AmigoRateioRequest(3, null)
+                ],
+                areasRateio: [new ReceitaAreaRateioRequest(1, 2, 1000m)]));
+
+        Assert.Equal(3, result.AmigosRateio.Count);
+        Assert.Equal(1000m, result.AmigosRateio.Sum(x => x.Valor ?? 0m));
+        Assert.Equal(3, repository.ReceitasCriadas.Count);
+        Assert.Equal(2, repository.ReceitasCriadas.Count(x => x.Status == StatusReceita.PendenteAprovacao));
+        Assert.DoesNotContain(repository.ReceitasCriadas, x => x.ReceitaOrigemId.HasValue && x.UsuarioCadastroId == 99);
+    }
+
+    [Fact]
     public async Task DeveRejeitarRateioQuandoAmigoNaoForAceito()
     {
         var areaRepository = CriarAreaRepoValida(TipoAreaFinanceira.Receita);
@@ -1205,6 +1229,7 @@ public sealed class ReceitaServiceTests
     {
         public IReadOnlyCollection<Usuario> Usuarios { get; set; } =
         [
+            new Usuario { Id = 99, Nome = "Usuario Logado", Email = "usuario99@email.com", Ativo = true },
             new Usuario { Id = 1, Nome = "William", Email = "william@email.com", Ativo = true },
             new Usuario { Id = 2, Nome = "Alex", Email = "alex@email.com", Ativo = true },
             new Usuario { Id = 3, Nome = "Bianca", Email = "bianca@email.com", Ativo = true },
