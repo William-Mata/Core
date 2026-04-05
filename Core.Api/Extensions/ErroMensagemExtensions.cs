@@ -25,7 +25,7 @@ internal static class ErroMensagemExtensions
         ["rateio_area_invalido"] = "O rateio de area/subarea informado e invalido.",
         ["tipo_area_invalido"] = "O tipo de area informado e invalido. Use despesa ou receita.",
         ["campo_obrigatorio"] = "Preencha todos os campos obrigatorios.",
-        ["saldo_inicial_invalido"] = "O saldo inicial deve ser maior que zero.",
+        ["saldo_inicial_invalido"] = "O saldo inicial não pode ser negativo.",
         ["conta_com_pendencias"] = "A conta bancaria possui pendencias e nao pode ser inativada.",
         ["cartao_com_pendencias"] = "O cartao possui pendencias e nao pode ser inativado.",
         ["tipo_invalido"] = "O tipo informado e invalido.",

@@ -63,7 +63,7 @@ public sealed class ContaBancariaService(
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
         if (string.IsNullOrWhiteSpace(request.Descricao) || string.IsNullOrWhiteSpace(request.Banco) || string.IsNullOrWhiteSpace(request.Agencia) || string.IsNullOrWhiteSpace(request.Numero))
             throw new DomainException("campo_obrigatorio");
-        if (request.SaldoInicial <= 0) throw new DomainException("saldo_inicial_invalido");
+        if (request.SaldoInicial < 0) throw new DomainException("saldo_inicial_invalido");
 
         var conta = new ContaBancaria
         {

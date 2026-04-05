@@ -11,6 +11,6 @@ public sealed class CriarContaBancariaRequestValidator : AbstractValidator<Criar
         RuleFor(x => x.Banco).NotEmpty().WithMessage("O banco e obrigatorio.");
         RuleFor(x => x.Agencia).NotEmpty().WithMessage("A agencia e obrigatoria.");
         RuleFor(x => x.Numero).NotEmpty().WithMessage("O numero da conta e obrigatorio.");
-        RuleFor(x => x.SaldoInicial).GreaterThan(0).WithMessage("O saldo inicial deve ser maior que zero.");
+        RuleFor(x => x.SaldoInicial).GreaterThan(-1).WithMessage("O saldo inicial não pode ser negativo.");
     }
 }
