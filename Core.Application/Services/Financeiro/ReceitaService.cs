@@ -62,7 +62,6 @@ public sealed partial class ReceitaService(
             }
 
             return receitas
-                .Where(x => !(x.ReceitaOrigemId.HasValue && (x.Status == StatusReceita.PendenteAprovacao || x.Status == StatusReceita.Rejeitado)))
                 .Select(MapLista)
                 .ToArray();
         }

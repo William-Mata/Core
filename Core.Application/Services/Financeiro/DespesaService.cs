@@ -62,7 +62,6 @@ public sealed partial class DespesaService(
             }
 
             return despesas
-                .Where(x => !(x.DespesaOrigemId.HasValue && (x.Status == StatusDespesa.PendenteAprovacao || x.Status == StatusDespesa.Rejeitado)))
                 .Select(MapLista)
                 .ToArray();
         }
