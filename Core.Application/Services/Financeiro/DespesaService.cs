@@ -110,7 +110,7 @@ public sealed partial class DespesaService(
         ValidarRateioAmigos(amigos, valorTotalRateioAmigos);
         ValidarRateioAreas(req.AreasSubAreasRateio ?? [], req.ValorTotal);
         var amigosValidados = await ValidarAmigosAceitosAsync(amigos, usuarioAutenticadoId, cancellationToken);
-        var vinculo = await ResolverVinculoPagamentoAsync(req.TipoPagamento, req.Vinculo, null, null, usuarioAutenticadoId, cancellationToken);
+        var vinculo = await ResolverVinculoPagamentoAsync(req.TipoPagamento, req.ContaBancariaId, req.CartaoId, usuarioAutenticadoId, cancellationToken);
         var documentos = await SalvarDocumentosAsync(req.Documentos ?? [], usuarioAutenticadoId, cancellationToken: cancellationToken);
 
         var despesa = new Despesa
@@ -215,7 +215,7 @@ public sealed partial class DespesaService(
         ValidarRateioAmigos(amigos, valorTotalRateioAmigos);
         ValidarRateioAreas(req.AreasSubAreasRateio ?? [], req.ValorTotal);
         var amigosValidados = await ValidarAmigosAceitosAsync(amigos, usuarioAutenticadoId, cancellationToken);
-        var vinculo = await ResolverVinculoPagamentoAsync(req.TipoPagamento, req.Vinculo, despesa.ContaBancariaId, despesa.CartaoId, usuarioAutenticadoId, cancellationToken);
+        var vinculo = await ResolverVinculoPagamentoAsync(req.TipoPagamento, req.ContaBancariaId ?? despesa.ContaBancariaId, req.CartaoId ?? despesa.CartaoId, usuarioAutenticadoId, cancellationToken);
 
         var serie = await ListarSerieRecorrenteAsync(despesa, usuarioAutenticadoId, cancellationToken);
         var alvos = SelecionarAlvosPorEscopo(serie, despesa, escopoRecorrencia);
@@ -325,10 +325,8 @@ public sealed partial class DespesaService(
         if (despesa.Status != StatusDespesa.Pendente) throw new DomainException("status_invalido");
         if (!Enum.IsDefined(req.TipoPagamento) || req.ValorTotal <= 0) throw new DomainException("dados_invalidos");
         if (req.DataEfetivacao < despesa.DataLancamento) throw new DomainException("periodo_invalido");
-        if (req.ContaBancariaId.HasValue && req.CartaoId.HasValue) throw new DomainException("forma_pagamento_invalida");
         var vinculo = await ResolverVinculoPagamentoAsync(
             req.TipoPagamento,
-            req.Vinculo,
             req.ContaBancariaId ?? despesa.ContaBancariaId,
             req.CartaoId ?? despesa.CartaoId,
             usuarioAutenticadoId,
@@ -660,15 +658,11 @@ public sealed partial class DespesaService(
 
     private async Task<(long? ContaBancariaId, long? CartaoId)> ResolverVinculoPagamentoAsync(
         TipoPagamento tipoPagamento,
-        MeioFinanceiroVinculoRequest? vinculo,
-        long? contaBancariaIdLegado,
-        long? cartaoIdLegado,
+        long? contaBancariaId,
+        long? cartaoId,
         int usuarioAutenticadoId,
         CancellationToken cancellationToken)
     {
-        var contaBancariaId = vinculo?.ContaBancariaId ?? contaBancariaIdLegado;
-        var cartaoId = vinculo?.CartaoId ?? cartaoIdLegado;
-
         if (contaBancariaId.HasValue && cartaoId.HasValue)
             throw new DomainException("forma_pagamento_invalida");
 
@@ -1064,7 +1058,8 @@ public sealed partial class DespesaService(
             despesa.ValorLiquido,
             despesa.ValorEfetivacao,
             despesa.Status.ToString().ToLowerInvariant(),
-            new MeioFinanceiroVinculoDto(despesa.ContaBancariaId, despesa.CartaoId));
+            despesa.ContaBancariaId,
+            despesa.CartaoId);
 
     private static DespesaDto Map(Despesa despesa) =>
         new(
@@ -1099,6 +1094,5 @@ public sealed partial class DespesaService(
             despesa.ContaBancariaId,
             despesa.CartaoId,
             despesa.Documentos.Select(x => new DocumentoDto(x.NomeArquivo, x.CaminhoArquivo, x.ContentType, x.TamanhoBytes)).ToArray(),
-            new MeioFinanceiroVinculoDto(despesa.ContaBancariaId, despesa.CartaoId),
             despesa.Logs.Select(x => new DespesaLogDto(x.Id, DateOnly.FromDateTime(x.DataHoraCadastro), x.Acao, x.Descricao)).ToArray());
 }

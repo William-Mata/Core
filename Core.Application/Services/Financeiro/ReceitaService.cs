@@ -98,7 +98,7 @@ public sealed partial class ReceitaService(
     public async Task<ReceitaDto> CriarAsync(CriarReceitaRequest req, CancellationToken cancellationToken = default)
     {
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
-        await ValidarComumAsync(req.Descricao, req.DataLancamento, req.DataVencimento, req.TipoReceita, req.TipoRecebimento, req.Recorrencia, req.RecorrenciaFixa, req.QuantidadeRecorrencia, req.ValorTotal, req.ContaBancaria, req.Vinculo, usuarioAutenticadoId, cancellationToken);
+        await ValidarComumAsync(req.Descricao, req.DataLancamento, req.DataVencimento, req.TipoReceita, req.TipoRecebimento, req.Recorrencia, req.RecorrenciaFixa, req.QuantidadeRecorrencia, req.ValorTotal, req.ContaBancariaId, req.CartaoId, usuarioAutenticadoId, cancellationToken);
         await ValidarAreasRateioAsync(req.AreasSubAreasRateio, cancellationToken);
         var liquido = Liquido(req.ValorTotal, req.Desconto, req.Acrescimo, req.Imposto, req.Juros);
         var tipoRateioAmigos = ObterTipoRateioAmigos(req.AmigosRateio, req.TipoRateioAmigos);
@@ -107,7 +107,7 @@ public sealed partial class ReceitaService(
         ValidarRateioAmigos(amigos, valorTotalRateioAmigos);
         ValidarRateioAreas(req.AreasSubAreasRateio, req.ValorTotal);
         var amigosValidados = await ValidarAmigosAceitosAsync(amigos, usuarioAutenticadoId, cancellationToken);
-        var vinculo = await ResolverVinculoRecebimentoAsync(req.TipoRecebimento, req.Vinculo, req.ContaBancaria, null, usuarioAutenticadoId, cancellationToken);
+        var vinculo = await ResolverVinculoRecebimentoAsync(req.TipoRecebimento, req.ContaBancariaId, req.CartaoId, usuarioAutenticadoId, cancellationToken);
         var documentos = await SalvarDocumentosAsync(req.Documentos ?? [], usuarioAutenticadoId, cancellationToken: cancellationToken);
 
         var receita = new Receita
@@ -198,7 +198,7 @@ public sealed partial class ReceitaService(
         var receita = await repository.ObterPorIdAsync(id, usuarioAutenticadoId, cancellationToken) ?? throw new NotFoundException("receita_nao_encontrada");
         if (receita.Status != StatusReceita.Pendente) throw new DomainException("status_invalido");
         if (!Enum.IsDefined(escopoRecorrencia)) throw new DomainException("escopo_recorrencia_invalido");
-        await ValidarComumAsync(req.Descricao, req.DataLancamento, req.DataVencimento, req.TipoReceita, req.TipoRecebimento, req.Recorrencia, req.RecorrenciaFixa, req.QuantidadeRecorrencia, req.ValorTotal, req.ContaBancaria, req.Vinculo, usuarioAutenticadoId, cancellationToken);
+        await ValidarComumAsync(req.Descricao, req.DataLancamento, req.DataVencimento, req.TipoReceita, req.TipoRecebimento, req.Recorrencia, req.RecorrenciaFixa, req.QuantidadeRecorrencia, req.ValorTotal, req.ContaBancariaId, req.CartaoId, usuarioAutenticadoId, cancellationToken);
         await ValidarAreasRateioAsync(req.AreasSubAreasRateio, cancellationToken);
         var liquido = Liquido(req.ValorTotal, req.Desconto, req.Acrescimo, req.Imposto, req.Juros);
         var tipoRateioAmigos = ObterTipoRateioAmigos(req.AmigosRateio, req.TipoRateioAmigos);
@@ -207,7 +207,7 @@ public sealed partial class ReceitaService(
         ValidarRateioAmigos(amigos, valorTotalRateioAmigos);
         ValidarRateioAreas(req.AreasSubAreasRateio, req.ValorTotal);
         var amigosValidados = await ValidarAmigosAceitosAsync(amigos, usuarioAutenticadoId, cancellationToken);
-        var vinculo = await ResolverVinculoRecebimentoAsync(req.TipoRecebimento, req.Vinculo, req.ContaBancaria ?? receita.ContaBancariaId?.ToString(), receita.CartaoId, usuarioAutenticadoId, cancellationToken);
+        var vinculo = await ResolverVinculoRecebimentoAsync(req.TipoRecebimento, req.ContaBancariaId ?? receita.ContaBancariaId, req.CartaoId ?? receita.CartaoId, usuarioAutenticadoId, cancellationToken);
 
         var serie = await ListarSerieRecorrenteAsync(receita, usuarioAutenticadoId, cancellationToken);
         var alvos = SelecionarAlvosPorEscopo(serie, receita, escopoRecorrencia);
@@ -316,7 +316,7 @@ public sealed partial class ReceitaService(
         if (receita.Status != StatusReceita.Pendente) throw new DomainException("status_invalido");
         if (!Enum.IsDefined(req.TipoRecebimento) || req.ValorTotal <= 0) throw new DomainException("dados_invalidos");
         if (req.DataEfetivacao < receita.DataLancamento) throw new DomainException("periodo_invalido");
-        var vinculo = await ResolverVinculoRecebimentoAsync(req.TipoRecebimento, req.Vinculo, req.ContaBancaria ?? receita.ContaBancariaId?.ToString(), receita.CartaoId, usuarioAutenticadoId, cancellationToken);
+        var vinculo = await ResolverVinculoRecebimentoAsync(req.TipoRecebimento, req.ContaBancariaId ?? receita.ContaBancariaId, req.CartaoId ?? receita.CartaoId, usuarioAutenticadoId, cancellationToken);
         var liquido = Liquido(req.ValorTotal, req.Desconto, req.Acrescimo, req.Imposto, req.Juros);
         var valorAntesTransacao = receita.ValorEfetivacao ?? 0m;
         receita.DataEfetivacao = req.DataEfetivacao;
@@ -615,7 +615,7 @@ public sealed partial class ReceitaService(
             _ => data
         };
 
-    private async Task ValidarComumAsync(string descricao, DateOnly dataLancamento, DateOnly dataVencimento, TipoReceita tipoReceita, TipoRecebimento tipoRecebimento, Recorrencia recorrencia, bool recorrenciaFixa, int? quantidadeRecorrencia, decimal valorTotal, string? contaBancaria, MeioFinanceiroVinculoRequest? vinculo, int usuarioAutenticadoId, CancellationToken cancellationToken)
+    private async Task ValidarComumAsync(string descricao, DateOnly dataLancamento, DateOnly dataVencimento, TipoReceita tipoReceita, TipoRecebimento tipoRecebimento, Recorrencia recorrencia, bool recorrenciaFixa, int? quantidadeRecorrencia, decimal valorTotal, long? contaBancariaId, long? cartaoId, int usuarioAutenticadoId, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(descricao)) throw new DomainException("descricao_obrigatoria");
         if (valorTotal <= 0) throw new DomainException("valor_total_invalido");
@@ -628,12 +628,16 @@ public sealed partial class ReceitaService(
             throw new DomainException("quantidade_recorrencia_invalida");
         if (!recorrenciaFixa && quantidadeRecorrencia.HasValue && quantidadeRecorrencia > 100)
             throw new DomainException("quantidade_recorrencia_invalida");
-        if (ContaObrigatoria(tipoRecebimento) && string.IsNullOrWhiteSpace(contaBancaria) && vinculo?.ContaBancariaId is null)
+        if (ContaObrigatoria(tipoRecebimento) && !contaBancariaId.HasValue)
             throw new DomainException("conta_bancaria_obrigatoria");
-        if (!string.IsNullOrWhiteSpace(contaBancaria) && await ResolverContaIdAsync(contaBancaria, usuarioAutenticadoId, cancellationToken) is null)
-            throw new DomainException("conta_bancaria_invalida");
-        if (PagamentoCartao(tipoRecebimento) && vinculo?.CartaoId is null)
+        if (PagamentoCartao(tipoRecebimento) && !cartaoId.HasValue)
             throw new DomainException("cartao_obrigatorio");
+        if (contaBancariaId.HasValue &&
+            await contaRepository.ObterPorIdAsync(contaBancariaId.Value, usuarioAutenticadoId, cancellationToken) is null)
+            throw new DomainException("conta_bancaria_invalida");
+        if (cartaoId.HasValue &&
+            await cartaoRepository.ObterPorIdAsync(cartaoId.Value, usuarioAutenticadoId, cancellationToken) is null)
+            throw new DomainException("cartao_invalido");
     }
 
     private async Task ValidarAreasRateioAsync(IReadOnlyCollection<ReceitaAreaRateioRequest> areasRateio, CancellationToken cancellationToken)
@@ -997,25 +1001,13 @@ public sealed partial class ReceitaService(
         }).ToList();
     }
 
-    private async Task<long?> ResolverContaIdAsync(string? contaBancaria, int usuarioAutenticadoId, CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(contaBancaria)) return null;
-        if (long.TryParse(contaBancaria, out var idNumerico)) return idNumerico;
-        var contas = await contaRepository.ListarAsync(usuarioAutenticadoId, cancellationToken);
-        return contas.FirstOrDefault(x => string.Equals(x.Descricao, contaBancaria, StringComparison.OrdinalIgnoreCase))?.Id;
-    }
-
     private async Task<(long? ContaBancariaId, long? CartaoId)> ResolverVinculoRecebimentoAsync(
         TipoRecebimento tipoRecebimento,
-        MeioFinanceiroVinculoRequest? vinculo,
-        string? contaBancariaLegado,
-        long? cartaoIdLegado,
+        long? contaBancariaId,
+        long? cartaoId,
         int usuarioAutenticadoId,
         CancellationToken cancellationToken)
     {
-        var contaBancariaId = vinculo?.ContaBancariaId ?? await ResolverContaIdAsync(contaBancariaLegado, usuarioAutenticadoId, cancellationToken);
-        var cartaoId = vinculo?.CartaoId ?? cartaoIdLegado;
-
         if (contaBancariaId.HasValue && cartaoId.HasValue)
             throw new DomainException("forma_pagamento_invalida");
 
@@ -1058,7 +1050,8 @@ public sealed partial class ReceitaService(
             receita.ValorLiquido,
             receita.ValorEfetivacao,
             receita.Status.ToString().ToLowerInvariant(),
-            new MeioFinanceiroVinculoDto(receita.ContaBancariaId, receita.CartaoId));
+            receita.ContaBancariaId,
+            receita.CartaoId);
 
     private static ReceitaDto Map(Receita receita) =>
         new(
@@ -1089,10 +1082,8 @@ public sealed partial class ReceitaService(
                 x.SubAreaId,
                 x.SubArea?.Nome ?? string.Empty,
                 x.Valor)).ToArray(),
-            receita.ContaBancariaId?.ToString(),
             receita.ContaBancariaId,
             receita.CartaoId,
             receita.Documentos.Select(x => new DocumentoDto(x.NomeArquivo, x.CaminhoArquivo, x.ContentType, x.TamanhoBytes)).ToArray(),
-            new MeioFinanceiroVinculoDto(receita.ContaBancariaId, receita.CartaoId),
             receita.Logs.Select(x => new ReceitaLogDto(x.Id, DateOnly.FromDateTime(x.DataHoraCadastro), x.Acao, x.Descricao)).ToArray());
 }
