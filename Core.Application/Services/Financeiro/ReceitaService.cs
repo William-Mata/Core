@@ -883,8 +883,8 @@ public sealed partial class ReceitaService(
             Imposto = 0m,
             Juros = 0m,
             Status = StatusReceita.PendenteAprovacao,
-            ContaBancariaId = origem.ContaBancariaId,
-            CartaoId = origem.CartaoId,
+            ContaBancariaId = null,
+            CartaoId = null,
             Documentos = [],
             AmigosRateio = [],
             AreasRateio = DistribuirAreasProporcionalmente(areasRateioOrigem, origem.ValorTotal, amigo.Valor, amigo.AmigoId),
@@ -915,8 +915,8 @@ public sealed partial class ReceitaService(
         espelho.Recorrencia = origem.Recorrencia;
         espelho.RecorrenciaFixa = origem.RecorrenciaFixa;
         espelho.QuantidadeRecorrencia = origem.QuantidadeRecorrencia;
-        espelho.ContaBancariaId = origem.ContaBancariaId;
-        espelho.CartaoId = origem.CartaoId;
+        espelho.ContaBancariaId = null;
+        espelho.CartaoId = null;
         espelho.ValorTotal = amigo.Valor;
         espelho.ValorTotalRateioAmigos = null;
         espelho.TipoRateioAmigos = null;

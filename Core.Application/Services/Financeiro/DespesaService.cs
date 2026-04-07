@@ -925,8 +925,6 @@ public sealed partial class DespesaService(
             Recorrencia = origem.Recorrencia,
             RecorrenciaFixa = origem.RecorrenciaFixa,
             QuantidadeRecorrencia = origem.QuantidadeRecorrencia,
-            ContaBancariaId = origem.ContaBancariaId,
-            CartaoId = origem.CartaoId,
             ValorTotal = amigo.Valor,
             ValorTotalRateioAmigos = null,
             TipoRateioAmigos = null,
@@ -936,6 +934,8 @@ public sealed partial class DespesaService(
             Imposto = 0m,
             Juros = 0m,
             Status = StatusDespesa.PendenteAprovacao,
+            ContaBancariaId = null,
+            CartaoId = null,
             Documentos = [],
             AmigosRateio = [],
             AreasRateio = DistribuirAreasProporcionalmente(areasRateioOrigem, origem.ValorTotal, amigo.Valor, amigo.AmigoId),
@@ -966,8 +966,8 @@ public sealed partial class DespesaService(
         espelho.Recorrencia = origem.Recorrencia;
         espelho.RecorrenciaFixa = origem.RecorrenciaFixa;
         espelho.QuantidadeRecorrencia = origem.QuantidadeRecorrencia;
-        espelho.ContaBancariaId = origem.ContaBancariaId;
-        espelho.CartaoId = origem.CartaoId;
+        espelho.ContaBancariaId = null;
+        espelho.CartaoId = null;
         espelho.ValorTotal = amigo.Valor;
         espelho.ValorTotalRateioAmigos = null;
         espelho.TipoRateioAmigos = null;
