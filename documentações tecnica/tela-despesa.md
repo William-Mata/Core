@@ -62,10 +62,8 @@ Quando informado com valor fora do enum, a API retorna `escopo_recorrencia_inval
     "valorLiquido": 145.0,
     "valorEfetivacao": null,
     "status": "pendente",
-    "vinculo": {
-      "contaBancariaId": 3,
-      "cartaoId": null
-    }
+    "contaBancariaId": 3,
+    "cartaoId": null
   }
 ]
 ```
@@ -76,7 +74,7 @@ Quando informado com valor fora do enum, a API retorna `escopo_recorrencia_inval
 - `recorrencia`, `quantidadeRecorrencia`, `recorrenciaFixa`
 - `amigosRateio` e `areasSubAreasRateio`
 - `documentos`
-- `vinculo` (`contaBancariaId`, `cartaoId`)
+- `contaBancariaId` e `cartaoId`
 - `logs`
 
 ## Payload de criacao
@@ -118,10 +116,8 @@ Quando informado com valor fora do enum, a API retorna `escopo_recorrencia_inval
   "quantidadeRecorrencia": 1,
   "quantidadeParcelas": null,
   "recorrenciaFixa": false,
-  "vinculo": {
-    "contaBancariaId": 3,
-    "cartaoId": null
-  }
+  "contaBancariaId": 3,
+  "cartaoId": null
 }
 ```
 
@@ -177,11 +173,7 @@ Quando informado com valor fora do enum, a API retorna `escopo_recorrencia_inval
   "juros": 0.0,
   "documentos": [],
   "contaBancariaId": 3,
-  "cartaoId": null,
-  "vinculo": {
-    "contaBancariaId": 3,
-    "cartaoId": null
-  }
+  "cartaoId": null
 }
 ```
 

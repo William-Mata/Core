@@ -62,10 +62,8 @@ Quando informado com valor fora do enum, a API retorna `escopo_recorrencia_inval
     "valorLiquido": 1200.0,
     "valorEfetivacao": null,
     "status": "pendente",
-    "vinculo": {
-      "contaBancariaId": 3,
-      "cartaoId": null
-    }
+    "contaBancariaId": 3,
+    "cartaoId": null
   }
 ]
 ```
@@ -75,9 +73,8 @@ Quando informado com valor fora do enum, a API retorna `escopo_recorrencia_inval
 - dados principais da receita
 - `recorrencia`, `quantidadeRecorrencia`, `recorrenciaFixa`
 - `amigosRateio` e `areasSubAreasRateio`
-- `contaBancaria` (legado, string)
+- `contaBancariaId` e `cartaoId`
 - `documentos`
-- `vinculo` (`contaBancariaId`, `cartaoId`)
 - `logs`
 
 ## Payload de criacao
@@ -103,7 +100,8 @@ Quando informado com valor fora do enum, a API retorna `escopo_recorrencia_inval
       "valor": 1200.0
     }
   ],
-  "contaBancaria": "Conta Principal",
+  "contaBancariaId": 3,
+  "cartaoId": null,
   "documentos": [
     {
       "nomeArquivo": "comprovante.pdf",
@@ -118,11 +116,7 @@ Quando informado com valor fora do enum, a API retorna `escopo_recorrencia_inval
     }
   ],
   "quantidadeRecorrencia": 1,
-  "recorrenciaFixa": false,
-  "vinculo": {
-    "contaBancariaId": 3,
-    "cartaoId": null
-  }
+  "recorrenciaFixa": false
 }
 ```
 
@@ -147,7 +141,6 @@ Quando informado com valor fora do enum, a API retorna `escopo_recorrencia_inval
 - tipos que exigem conta bancaria: `pix`, `transferencia`, `contaCorrente`
 - para `cartaoCredito` e `cartaoDebito`, `cartaoId` e obrigatorio
 - nao pode enviar conta e cartao ao mesmo tempo (`forma_pagamento_invalida`)
-- `contaBancaria` (legado) aceita id em texto ou descricao da conta; backend resolve para `contaBancariaId`
 - conta/cartao precisam existir para o usuario (`conta_bancaria_invalida`, `cartao_invalido`)
 
 ### Regras de rateio
@@ -168,17 +161,14 @@ Quando informado com valor fora do enum, a API retorna `escopo_recorrencia_inval
 {
   "dataEfetivacao": "2026-03-20",
   "tipoRecebimento": "pix",
-  "contaBancaria": "Conta Principal",
+  "contaBancariaId": 3,
+  "cartaoId": null,
   "valorTotal": 1200.0,
   "desconto": 0.0,
   "acrescimo": 0.0,
   "imposto": 0.0,
   "juros": 0.0,
-  "documentos": [],
-  "vinculo": {
-    "contaBancariaId": 3,
-    "cartaoId": null
-  }
+  "documentos": []
 }
 ```
 
