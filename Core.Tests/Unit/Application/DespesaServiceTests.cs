@@ -440,6 +440,32 @@ public sealed class DespesaServiceTests
     }
 
     [Fact]
+    public async Task DeveIgnorarMeioFinanceiroAoCriarDespesaComRateioDeAmigos()
+    {
+        var repository = new DespesaRepositoryFake();
+        var areaRepository = CriarAreaRepoValida(TipoAreaFinanceira.Despesa);
+        var publisher = new RecorrenciaPublisherFake();
+        var service = CriarService(repository, areaRepository, publisher, 1);
+
+        var result = await service.CriarAsync(CriarRequestPadrao(
+            tipoPagamento: TipoPagamento.CartaoCredito,
+            vinculo: new MeioFinanceiroVinculoRequest(null, 99),
+            amigos: [new AmigoRateioRequest(2, 60m), new AmigoRateioRequest(3, 40m)],
+            areasRateio: [new DespesaAreaRateioRequest(1, 2, 100m)],
+            recorrencia: Recorrencia.Mensal,
+            quantidadeRecorrencia: 2));
+
+        Assert.Equal(99, result.CartaoId);
+        Assert.Equal(99, repository.DespesasCriadas.Single(x => x.DespesaOrigemId is null).CartaoId);
+        Assert.All(repository.DespesasCriadas.Where(x => x.DespesaOrigemId.HasValue), x =>
+        {
+            Assert.Null(x.ContaBancariaId);
+            Assert.Null(x.CartaoId);
+        });
+        Assert.Equal(99, publisher.DespesaMessage?.CartaoId);
+    }
+
+    [Fact]
     public async Task DeveAprovarRateioQuandoDespesaEspelhoEstiverPendenteAprovacao()
     {
         var repository = new DespesaRepositoryFake
@@ -855,6 +881,7 @@ public sealed class DespesaServiceTests
         IReadOnlyCollection<AmigoRateioRequest>? amigos = null,
         TipoDespesa tipoDespesa = TipoDespesa.Alimentacao,
         TipoPagamento tipoPagamento = TipoPagamento.Pix,
+        MeioFinanceiroVinculoRequest? vinculo = null,
         Recorrencia recorrencia = Recorrencia.Unica,
         int? quantidadeRecorrencia = null,
         int? quantidadeParcelas = null,
@@ -886,7 +913,7 @@ public sealed class DespesaServiceTests
             quantidadeParcelas,
             recorrenciaFixa,
             null,
-            null,
+            vinculo,
             valorTotalRateioAmigos);
     }
 

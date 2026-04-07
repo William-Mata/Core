@@ -288,6 +288,32 @@ public sealed class ReceitaServiceTests
     }
 
     [Fact]
+    public async Task DeveIgnorarMeioFinanceiroAoCriarReceitaComRateioDeAmigos()
+    {
+        var repository = new ReceitaRepoFake();
+        var areaRepository = CriarAreaRepoValida(TipoAreaFinanceira.Receita);
+        var publisher = new RecorrenciaPublisherFake();
+        var service = CriarService(repository, new ContaRepoFake(), areaRepository, publisher, 99);
+
+        var result = await service.CriarAsync(CriarRequestPadrao(
+            tipoRecebimento: TipoRecebimento.CartaoCredito,
+            vinculo: new MeioFinanceiroVinculoRequest(null, 77),
+            amigos: [new AmigoRateioRequest(2, 400m), new AmigoRateioRequest(3, 600m)],
+            areasRateio: [new ReceitaAreaRateioRequest(1, 2, 1000m)],
+            recorrencia: Recorrencia.Mensal,
+            quantidadeRecorrencia: 2));
+
+        Assert.Equal(77, result.CartaoId);
+        Assert.Equal(77, repository.ReceitasCriadas.Single(x => x.ReceitaOrigemId is null).CartaoId);
+        Assert.All(repository.ReceitasCriadas.Where(x => x.ReceitaOrigemId.HasValue), x =>
+        {
+            Assert.Null(x.ContaBancariaId);
+            Assert.Null(x.CartaoId);
+        });
+        Assert.Equal(77, publisher.ReceitaMessage?.CartaoId);
+    }
+
+    [Fact]
     public async Task DevePermitirRateioIgualitarioComUsuarioLogadoSemGerarAutoEspelho()
     {
         var repository = new ReceitaRepoFake();
@@ -938,6 +964,7 @@ public sealed class ReceitaServiceTests
     private static CriarReceitaRequest CriarRequestPadrao(
         TipoRecebimento tipoRecebimento = TipoRecebimento.Dinheiro,
         string? contaBancaria = null,
+        MeioFinanceiroVinculoRequest? vinculo = null,
         IReadOnlyCollection<ReceitaAreaRateioRequest>? areasRateio = null,
         IReadOnlyCollection<AmigoRateioRequest>? amigos = null,
         Recorrencia recorrencia = Recorrencia.Unica,
@@ -970,7 +997,7 @@ public sealed class ReceitaServiceTests
             quantidadeRecorrencia,
             recorrenciaFixa,
             null,
-            null,
+            vinculo,
             valorTotalRateioAmigos);
     }
 
