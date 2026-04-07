@@ -191,7 +191,7 @@ public sealed class DespesaServiceTests
         };
         var service = CriarService(repository, 1);
 
-        var ex = await Assert.ThrowsAsync<DomainException>(() => service.EfetivarAsync(1, new EfetivarDespesaRequest(new DateOnly(2026, 3, 5), "", 0m, 0m, 0m, 0m, 0m, null)));
+        var ex = await Assert.ThrowsAsync<DomainException>(() => service.EfetivarAsync(1, new EfetivarDespesaRequest(new DateOnly(2026, 3, 5), (TipoPagamento)0, 0m, 0m, 0m, 0m, 0m, null)));
 
         Assert.Equal("dados_invalidos", ex.Message);
     }
@@ -449,7 +449,7 @@ public sealed class DespesaServiceTests
 
         var result = await service.CriarAsync(CriarRequestPadrao(
             tipoPagamento: TipoPagamento.CartaoCredito,
-            vinculo: new MeioFinanceiroVinculoRequest(null, 99),
+            cartaoId: 99,
             amigos: [new AmigoRateioRequest(2, 60m), new AmigoRateioRequest(3, 40m)],
             areasRateio: [new DespesaAreaRateioRequest(1, 2, 100m)],
             recorrencia: Recorrencia.Mensal,
@@ -881,7 +881,8 @@ public sealed class DespesaServiceTests
         IReadOnlyCollection<AmigoRateioRequest>? amigos = null,
         TipoDespesa tipoDespesa = TipoDespesa.Alimentacao,
         TipoPagamento tipoPagamento = TipoPagamento.Pix,
-        MeioFinanceiroVinculoRequest? vinculo = null,
+        long? contaBancariaId = null,
+        long? cartaoId = null,
         Recorrencia recorrencia = Recorrencia.Unica,
         int? quantidadeRecorrencia = null,
         int? quantidadeParcelas = null,
@@ -913,7 +914,8 @@ public sealed class DespesaServiceTests
             quantidadeParcelas,
             recorrenciaFixa,
             null,
-            vinculo,
+            contaBancariaId,
+            cartaoId,
             valorTotalRateioAmigos);
     }
 

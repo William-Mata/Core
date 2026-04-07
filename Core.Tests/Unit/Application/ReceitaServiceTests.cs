@@ -191,7 +191,7 @@ public sealed class ReceitaServiceTests
     {
         var service = CriarService(new ReceitaRepoFake(), new ContaRepoFake(), new AreaRepoFake(), 99);
 
-        var request = CriarRequestPadrao(tipoRecebimento: TipoRecebimento.Pix, contaBancaria: null);
+        var request = CriarRequestPadrao(tipoRecebimento: TipoRecebimento.Pix, contaBancariaId: null);
         var ex = await Assert.ThrowsAsync<DomainException>(() => service.CriarAsync(request));
 
         Assert.Equal("conta_bancaria_obrigatoria", ex.Message);
@@ -202,7 +202,7 @@ public sealed class ReceitaServiceTests
     {
         var service = CriarService(new ReceitaRepoFake(), new ContaRepoFake(), new AreaRepoFake(), 99);
 
-        var request = CriarRequestPadrao(tipoRecebimento: TipoRecebimento.Dinheiro, contaBancaria: "Conta Inexistente");
+        var request = CriarRequestPadrao(tipoRecebimento: TipoRecebimento.Dinheiro, contaBancariaId: 999);
         var ex = await Assert.ThrowsAsync<DomainException>(() => service.CriarAsync(request));
 
         Assert.Equal("conta_bancaria_invalida", ex.Message);
@@ -297,7 +297,7 @@ public sealed class ReceitaServiceTests
 
         var result = await service.CriarAsync(CriarRequestPadrao(
             tipoRecebimento: TipoRecebimento.CartaoCredito,
-            vinculo: new MeioFinanceiroVinculoRequest(null, 77),
+            cartaoId: 77,
             amigos: [new AmigoRateioRequest(2, 400m), new AmigoRateioRequest(3, 600m)],
             areasRateio: [new ReceitaAreaRateioRequest(1, 2, 1000m)],
             recorrencia: Recorrencia.Mensal,
@@ -568,7 +568,7 @@ public sealed class ReceitaServiceTests
     {
         var service = CriarService(new ReceitaRepoFake(), new ContaRepoFake(), new AreaRepoFake(), 99);
 
-        var ex = await Assert.ThrowsAsync<NotFoundException>(() => service.EfetivarAsync(10, new EfetivarReceitaRequest(new DateOnly(2026, 3, 5), TipoRecebimento.Dinheiro, null, 100m, 0m, 0m, 0m, 0m, null)));
+        var ex = await Assert.ThrowsAsync<NotFoundException>(() => service.EfetivarAsync(10, new EfetivarReceitaRequest(new DateOnly(2026, 3, 5), TipoRecebimento.Dinheiro, 100m, 0m, 0m, 0m, 0m, null)));
 
         Assert.Equal("receita_nao_encontrada", ex.Message);
     }
@@ -598,7 +598,7 @@ public sealed class ReceitaServiceTests
             99);
 
         var ex = await Assert.ThrowsAsync<DomainException>(() =>
-            service.EfetivarAsync(1, new EfetivarReceitaRequest(new DateOnly(2026, 3, 9), TipoRecebimento.Dinheiro, null, 100m, 0m, 0m, 0m, 0m, null)));
+            service.EfetivarAsync(1, new EfetivarReceitaRequest(new DateOnly(2026, 3, 9), TipoRecebimento.Dinheiro, 100m, 0m, 0m, 0m, 0m, null)));
 
         Assert.Equal("periodo_invalido", ex.Message);
     }
@@ -627,7 +627,7 @@ public sealed class ReceitaServiceTests
             new AreaRepoFake(),
             99);
 
-        var result = await service.EfetivarAsync(1, new EfetivarReceitaRequest(new DateOnly(2026, 3, 10), TipoRecebimento.Dinheiro, null, 100m, 0m, 0m, 0m, 0m, null));
+        var result = await service.EfetivarAsync(1, new EfetivarReceitaRequest(new DateOnly(2026, 3, 10), TipoRecebimento.Dinheiro, 100m, 0m, 0m, 0m, 0m, null));
 
         Assert.Equal("efetivada", result.Status);
     }
@@ -770,7 +770,6 @@ public sealed class ReceitaServiceTests
             [],
             null,
             null,
-            [],
             3,
             false);
 
@@ -963,8 +962,8 @@ public sealed class ReceitaServiceTests
 
     private static CriarReceitaRequest CriarRequestPadrao(
         TipoRecebimento tipoRecebimento = TipoRecebimento.Dinheiro,
-        string? contaBancaria = null,
-        MeioFinanceiroVinculoRequest? vinculo = null,
+        long? contaBancariaId = null,
+        long? cartaoId = null,
         IReadOnlyCollection<ReceitaAreaRateioRequest>? areasRateio = null,
         IReadOnlyCollection<AmigoRateioRequest>? amigos = null,
         Recorrencia recorrencia = Recorrencia.Unica,
@@ -991,19 +990,19 @@ public sealed class ReceitaServiceTests
             0m,
             0m,
             areasRateio ?? [],
-            contaBancaria,
             null,
             amigos,
             quantidadeRecorrencia,
             recorrenciaFixa,
             null,
-            vinculo,
+            contaBancariaId,
+            cartaoId,
             valorTotalRateioAmigos);
     }
 
     private static AtualizarReceitaRequest CriarAtualizacaoPadrao(
         TipoRecebimento tipoRecebimento = TipoRecebimento.Dinheiro,
-        string? contaBancaria = null,
+        long? contaBancariaId = null,
         IReadOnlyCollection<ReceitaAreaRateioRequest>? areasRateio = null,
         IReadOnlyCollection<AmigoRateioRequest>? amigos = null,
         Recorrencia recorrencia = Recorrencia.Unica,
@@ -1030,12 +1029,12 @@ public sealed class ReceitaServiceTests
             0m,
             0m,
             areasRateio ?? [],
-            contaBancaria,
             null,
             amigos,
             quantidadeRecorrencia,
             recorrenciaFixa,
             null,
+            contaBancariaId,
             null,
             valorTotalRateioAmigos);
     }
