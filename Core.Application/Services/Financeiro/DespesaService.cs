@@ -536,18 +536,14 @@ public sealed partial class DespesaService(
             if (string.IsNullOrWhiteSpace(competencia))
                 continue;
 
-            if (!origem.RecorrenciaFixa && alvoBase >= 100)
+            if (!origem.RecorrenciaFixa)
                 continue;
 
             var dataUltima = AvancarData(origem.DataLancamento, origem.Recorrencia, alvoBase - 1);
             if (dataUltima < periodoCompetencia.DataInicio || dataUltima > periodoCompetencia.DataFim)
                 continue;
 
-            var novaQuantidade = origem.RecorrenciaFixa
-                ? alvoBase + 100
-                : Math.Min(100, alvoBase + 10);
-
-            await PublicarRecorrenciaDaOrigemAsync(usuarioAutenticadoId, origem, novaQuantidade, cancellationToken);
+            await PublicarRecorrenciaDaOrigemAsync(usuarioAutenticadoId, origem, alvoBase + 100, cancellationToken);
         }
     }
 
@@ -640,7 +636,7 @@ public sealed partial class DespesaService(
         if (!PagamentoCartao(tipoPagamento))
             return quantidadeRecorrencia;
 
-        var parcelas = quantidadeParcelas ?? quantidadeRecorrencia;
+        var parcelas = quantidadeParcelas;
         if (!parcelas.HasValue || parcelas <= 0)
             throw new DomainException("quantidade_parcelas_invalida");
 
