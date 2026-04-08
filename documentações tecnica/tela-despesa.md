@@ -139,7 +139,10 @@ Quando informado com valor fora do enum, a API retorna `escopo_recorrencia_inval
 - para `cartaoCredito` e `cartaoDebito`:
   - recorrencia e forcada para `Mensal`
   - `recorrenciaFixa` e forcada para `false`
-  - e obrigatorio informar parcelas (`quantidadeParcelas` ou `quantidadeRecorrencia`) > 0 (`quantidade_parcelas_invalida`)
+  - e obrigatorio informar `quantidadeParcelas` > 0 (`quantidade_parcelas_invalida`)
+- na consulta com verificacao de recorrencia:
+  - recorrencias nao fixas nao sao expandidas alem da quantidade definida; apenas lacunas sao recuperadas
+  - apenas recorrencias fixas podem ser expandidas automaticamente (de 100 em 100) quando a ultima ocorrencia cai na competencia consultada
 - quando o total de recorrencias for maior que 1, a API publica criacao em background para lancamentos futuros
 
 ### Regras de vinculo de pagamento
