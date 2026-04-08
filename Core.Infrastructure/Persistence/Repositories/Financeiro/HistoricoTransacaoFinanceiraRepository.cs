@@ -9,6 +9,38 @@ public sealed class HistoricoTransacaoFinanceiraRepository(AppDbContext dbContex
 {
     public async Task<HistoricoTransacaoFinanceira> CriarAsync(HistoricoTransacaoFinanceira historico, CancellationToken cancellationToken = default)
     {
+        var valorImpacto = ResolverValorImpacto(historico.TipoTransacao, historico.TipoOperacao, historico.ValorTransacao);
+
+        if (historico.ContaBancariaId.HasValue)
+        {
+            var conta = await dbContext.ContasBancarias
+                .FirstOrDefaultAsync(x => x.Id == historico.ContaBancariaId.Value, cancellationToken);
+
+            if (conta is not null)
+            {
+                var saldoAntes = conta.SaldoAtual;
+                var saldoDepois = saldoAntes + valorImpacto;
+                conta.SaldoAtual = saldoDepois;
+                historico.ValorAntesTransacao = saldoAntes;
+                historico.ValorDepoisTransacao = saldoDepois;
+            }
+        }
+        else if (historico.CartaoId.HasValue)
+        {
+            var cartao = await dbContext.Cartoes
+                .FirstOrDefaultAsync(x => x.Id == historico.CartaoId.Value, cancellationToken);
+
+            if (cartao is not null)
+            {
+                var saldoAntes = cartao.SaldoDisponivel;
+                var saldoDepois = saldoAntes + valorImpacto;
+                cartao.SaldoDisponivel = saldoDepois;
+                historico.ValorAntesTransacao = saldoAntes;
+                historico.ValorDepoisTransacao = saldoDepois;
+            }
+        }
+
+        historico.ValorTransacao = valorImpacto;
         dbContext.HistoricosTransacoesFinanceiras.Add(historico);
         await dbContext.SaveChangesAsync(cancellationToken);
         return historico;
@@ -19,6 +51,27 @@ public sealed class HistoricoTransacaoFinanceiraRepository(AppDbContext dbContex
             .Where(x => x.TipoTransacao == tipoTransacao && x.TransacaoId == transacaoId)
             .OrderByDescending(x => x.Id)
             .FirstOrDefaultAsync(cancellationToken);
+
+    public Task<List<HistoricoTransacaoFinanceira>> ListarPorUsuarioAsync(int usuarioOperacaoId, int quantidadeRegistros, OrdemRegistrosHistoricoTransacaoFinanceira ordemRegistros, CancellationToken cancellationToken = default)
+    {
+        var query = dbContext.HistoricosTransacoesFinanceiras
+            .Where(x => x.UsuarioOperacaoId == usuarioOperacaoId)
+            .AsQueryable();
+
+        query = ordemRegistros switch
+        {
+            OrdemRegistrosHistoricoTransacaoFinanceira.MaisAntigos => query
+                .OrderBy(x => x.DataTransacao)
+                .ThenBy(x => x.Id),
+            _ => query
+                .OrderByDescending(x => x.DataTransacao)
+                .ThenByDescending(x => x.Id)
+        };
+
+        return query
+            .Take(quantidadeRegistros)
+            .ToListAsync(cancellationToken);
+    }
 
     public Task<List<HistoricoTransacaoFinanceira>> ListarPorContaBancariaCompetenciaAsync(long contaBancariaId, int usuarioOperacaoId, string? competencia, CancellationToken cancellationToken = default)
     {
@@ -58,5 +111,21 @@ public sealed class HistoricoTransacaoFinanceiraRepository(AppDbContext dbContex
             .OrderByDescending(x => x.DataTransacao)
             .ThenByDescending(x => x.Id)
             .ToListAsync(cancellationToken);
+    }
+
+    private static decimal ResolverValorImpacto(TipoTransacaoFinanceira tipoTransacao, TipoOperacaoTransacaoFinanceira tipoOperacao, decimal valorTransacao)
+    {
+        var valorAbsoluto = Math.Abs(valorTransacao);
+
+        return (tipoTransacao, tipoOperacao) switch
+        {
+            (TipoTransacaoFinanceira.Despesa, TipoOperacaoTransacaoFinanceira.Efetivacao) => -valorAbsoluto,
+            (TipoTransacaoFinanceira.Despesa, TipoOperacaoTransacaoFinanceira.Estorno) => valorAbsoluto,
+            (TipoTransacaoFinanceira.Receita, TipoOperacaoTransacaoFinanceira.Efetivacao) => valorAbsoluto,
+            (TipoTransacaoFinanceira.Receita, TipoOperacaoTransacaoFinanceira.Estorno) => -valorAbsoluto,
+            (TipoTransacaoFinanceira.Reembolso, TipoOperacaoTransacaoFinanceira.Efetivacao) => valorAbsoluto,
+            (TipoTransacaoFinanceira.Reembolso, TipoOperacaoTransacaoFinanceira.Estorno) => -valorAbsoluto,
+            _ => valorTransacao
+        };
     }
 }
