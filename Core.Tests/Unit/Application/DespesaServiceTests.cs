@@ -57,7 +57,7 @@ public sealed class DespesaServiceTests
     }
 
     [Fact]
-    public async Task DevePublicarMais10Recorrencias_AoListarCompetenciaComUltimaOcorrencia()
+    public async Task NaoDeveExpandirQuantidadeDefinida_AoListarCompetenciaComSerieCompleta()
     {
         var publisher = new RecorrenciaPublisherFake();
         var repository = new DespesaRepositoryFake
@@ -100,9 +100,7 @@ public sealed class DespesaServiceTests
 
         await service.ListarAsync(new ListarDespesasRequest(null, null, "05/2026", null, null, true));
 
-        Assert.NotNull(publisher.DespesaMessage);
-        Assert.Equal(12, publisher.DespesaMessage!.QuantidadeRecorrencia);
-        Assert.Equal(new DateOnly(2026, 4, 10), publisher.DespesaMessage.DataLancamento);
+        Assert.Null(publisher.DespesaMessage);
     }
 
     [Fact]
@@ -150,6 +148,142 @@ public sealed class DespesaServiceTests
         await service.ListarAsync(new ListarDespesasRequest(null, null, "04/2026", null, null, true));
 
         Assert.Null(publisher.DespesaMessage);
+    }
+
+    [Fact]
+    public async Task NaoDeveExpandirParcelasDeCartaoDezEmDez_AoListarComVerificacaoDeRecorrencia()
+    {
+        var publisher = new RecorrenciaPublisherFake();
+        var repository = new DespesaRepositoryFake
+        {
+            DespesasListadas =
+            [
+                new Despesa
+                {
+                    Id = 200,
+                    UsuarioCadastroId = 1,
+                    Descricao = "Compra cartao",
+                    DataLancamento = new DateOnly(2026, 4, 10),
+                    DataVencimento = new DateOnly(2026, 4, 10),
+                    TipoDespesa = TipoDespesa.Saude,
+                    TipoPagamento = TipoPagamento.CartaoCredito,
+                    Recorrencia = Recorrencia.Mensal,
+                    QuantidadeRecorrencia = 2,
+                    CartaoId = 77,
+                    ValorTotal = 120m,
+                    ValorLiquido = 120m,
+                    Status = StatusDespesa.Pendente
+                },
+                new Despesa
+                {
+                    Id = 201,
+                    UsuarioCadastroId = 1,
+                    Descricao = "Compra cartao",
+                    DataLancamento = new DateOnly(2026, 5, 10),
+                    DataVencimento = new DateOnly(2026, 5, 10),
+                    TipoDespesa = TipoDespesa.Saude,
+                    TipoPagamento = TipoPagamento.CartaoCredito,
+                    Recorrencia = Recorrencia.Mensal,
+                    QuantidadeRecorrencia = 2,
+                    CartaoId = 77,
+                    ValorTotal = 120m,
+                    ValorLiquido = 120m,
+                    Status = StatusDespesa.Pendente
+                }
+            ]
+        };
+        var service = CriarService(repository, new AreaRepoFake(), publisher, 1);
+
+        await service.ListarAsync(new ListarDespesasRequest(null, null, "05/2026", null, null, true));
+
+        Assert.Null(publisher.DespesaMessage);
+    }
+
+    [Fact]
+    public async Task DevePublicarRecuperacao_QuandoSerieNaoAtingiuQuantidadeDefinida()
+    {
+        var publisher = new RecorrenciaPublisherFake();
+        var repository = new DespesaRepositoryFake
+        {
+            DespesasListadas =
+            [
+                new Despesa
+                {
+                    Id = 300,
+                    UsuarioCadastroId = 1,
+                    Descricao = "Academia",
+                    DataLancamento = new DateOnly(2026, 4, 10),
+                    DataVencimento = new DateOnly(2026, 4, 10),
+                    TipoDespesa = TipoDespesa.Saude,
+                    TipoPagamento = TipoPagamento.Pix,
+                    Recorrencia = Recorrencia.Mensal,
+                    QuantidadeRecorrencia = 3,
+                    ValorTotal = 120m,
+                    ValorLiquido = 120m,
+                    Status = StatusDespesa.Pendente
+                },
+                new Despesa
+                {
+                    Id = 301,
+                    UsuarioCadastroId = 1,
+                    Descricao = "Academia",
+                    DataLancamento = new DateOnly(2026, 5, 10),
+                    DataVencimento = new DateOnly(2026, 5, 10),
+                    TipoDespesa = TipoDespesa.Saude,
+                    TipoPagamento = TipoPagamento.Pix,
+                    Recorrencia = Recorrencia.Mensal,
+                    QuantidadeRecorrencia = 3,
+                    ValorTotal = 120m,
+                    ValorLiquido = 120m,
+                    Status = StatusDespesa.Pendente
+                }
+            ]
+        };
+        var service = CriarService(repository, new AreaRepoFake(), publisher, 1);
+
+        await service.ListarAsync(new ListarDespesasRequest(null, null, "05/2026", null, null, true));
+
+        Assert.NotNull(publisher.DespesaMessage);
+        Assert.Equal(3, publisher.DespesaMessage!.QuantidadeRecorrencia);
+        Assert.Equal(new DateOnly(2026, 4, 10), publisher.DespesaMessage.DataLancamento);
+    }
+
+    [Fact]
+    public async Task DeveExpandirMais100_QuandoRecorrenciaForFixaENaoHouverLacuna()
+    {
+        var publisher = new RecorrenciaPublisherFake();
+        var despesas = new List<Despesa>();
+        var dataBase = new DateOnly(2026, 4, 10);
+
+        for (var i = 0; i < 100; i++)
+        {
+            var data = dataBase.AddMonths(i);
+            despesas.Add(new Despesa
+            {
+                Id = 400 + i,
+                UsuarioCadastroId = 1,
+                Descricao = "Contrato fixo",
+                DataLancamento = data,
+                DataVencimento = data,
+                TipoDespesa = TipoDespesa.Servicos,
+                TipoPagamento = TipoPagamento.Pix,
+                Recorrencia = Recorrencia.Mensal,
+                RecorrenciaFixa = true,
+                QuantidadeRecorrencia = 100,
+                ValorTotal = 100m,
+                ValorLiquido = 100m,
+                Status = StatusDespesa.Pendente
+            });
+        }
+
+        var repository = new DespesaRepositoryFake { DespesasListadas = despesas };
+        var service = CriarService(repository, new AreaRepoFake(), publisher, 1);
+
+        await service.ListarAsync(new ListarDespesasRequest(null, null, "07/2034", null, null, true));
+
+        Assert.NotNull(publisher.DespesaMessage);
+        Assert.True(publisher.DespesaMessage!.RecorrenciaFixa);
+        Assert.Equal(200, publisher.DespesaMessage.QuantidadeRecorrencia);
     }
 
     [Fact]
@@ -665,6 +799,17 @@ public sealed class DespesaServiceTests
     }
 
     [Fact]
+    public async Task DeveRetornarErro_QuandoPagamentoForCartaoEApenasQuantidadeRecorrenciaForInformada()
+    {
+        var service = CriarService(new DespesaRepositoryFake(), 1);
+
+        var ex = await Assert.ThrowsAsync<DomainException>(() =>
+            service.CriarAsync(CriarRequestPadrao(tipoPagamento: TipoPagamento.CartaoCredito, quantidadeRecorrencia: 23, quantidadeParcelas: null)));
+
+        Assert.Equal("quantidade_parcelas_invalida", ex.Message);
+    }
+
+    [Fact]
     public async Task DeveTratarCartaoComoParcelamentoMensal_AoCriarDespesa()
     {
         var repository = new DespesaRepositoryFake();
@@ -682,6 +827,22 @@ public sealed class DespesaServiceTests
         Assert.Equal(Recorrencia.Mensal, publisher.DespesaMessage!.Recorrencia);
         Assert.False(publisher.DespesaMessage.RecorrenciaFixa);
         Assert.Equal(3, publisher.DespesaMessage.QuantidadeRecorrencia);
+    }
+
+    [Fact]
+    public async Task DevePriorizarQuantidadeParcelas_QuandoPagamentoForCartao()
+    {
+        var repository = new DespesaRepositoryFake();
+        var publisher = new RecorrenciaPublisherFake();
+        var service = CriarService(repository, new AreaRepoFake(), publisher, 1);
+
+        await service.CriarAsync(CriarRequestPadrao(tipoPagamento: TipoPagamento.CartaoCredito, quantidadeRecorrencia: 23, quantidadeParcelas: 3));
+
+        var despesa = Assert.Single(repository.DespesasCriadas);
+        Assert.Equal(3, despesa.QuantidadeRecorrencia);
+
+        Assert.NotNull(publisher.DespesaMessage);
+        Assert.Equal(3, publisher.DespesaMessage!.QuantidadeRecorrencia);
     }
 
     [Fact]
@@ -1106,6 +1267,9 @@ public sealed class DespesaServiceTests
 
         public Task<HistoricoTransacaoFinanceira?> ObterUltimoPorTransacaoAsync(TipoTransacaoFinanceira tipoTransacao, long transacaoId, CancellationToken cancellationToken = default) =>
             Task.FromResult<HistoricoTransacaoFinanceira?>(null);
+
+        public Task<List<HistoricoTransacaoFinanceira>> ListarPorUsuarioAsync(int usuarioOperacaoId, int quantidadeRegistros, OrdemRegistrosHistoricoTransacaoFinanceira ordemRegistros, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new List<HistoricoTransacaoFinanceira>());
 
         public Task<List<HistoricoTransacaoFinanceira>> ListarPorContaBancariaCompetenciaAsync(long contaBancariaId, int usuarioOperacaoId, string? competencia, CancellationToken cancellationToken = default) =>
             Task.FromResult(new List<HistoricoTransacaoFinanceira>());
