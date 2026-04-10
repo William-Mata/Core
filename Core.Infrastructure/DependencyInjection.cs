@@ -1,4 +1,3 @@
-﻿using Core.Application.Services;
 using Core.Application.Services.Administracao;
 using Core.Application.Services.Financeiro;
 using Core.Domain.Interfaces;
@@ -54,7 +53,6 @@ public static class DependencyInjection
         services.AddScoped<ReembolsoService>();
         services.AddScoped<HistoricoTransacaoFinanceiraService>();
         services.AddScoped<HistoricoTransacaoFinanceiraConsultaService>();
-        services.AddScoped<DashboardService>();
         services.AddScoped<UsuarioService>();
 
         return services;

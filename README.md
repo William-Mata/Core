@@ -20,7 +20,6 @@ Pelos controllers, serviços e documentação técnica versionada, o projeto cob
 
 - autenticação de usuários
 - administração de usuários
-- dashboard financeiro
 - contas bancárias
 - cartões
 - despesas
