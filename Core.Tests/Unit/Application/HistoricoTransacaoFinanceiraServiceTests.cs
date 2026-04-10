@@ -124,6 +124,9 @@ public sealed class HistoricoTransacaoFinanceiraServiceTests
         public Task<List<HistoricoTransacaoFinanceira>> ListarPorUsuarioAsync(int usuarioOperacaoId, int quantidadeRegistros, OrdemRegistrosHistoricoTransacaoFinanceira ordemRegistros, CancellationToken cancellationToken = default) =>
             Task.FromResult(new List<HistoricoTransacaoFinanceira>());
 
+        public Task<List<HistoricoTransacaoFinanceira>> ListarPorUsuarioResumoAsync(int usuarioOperacaoId, int? ano, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new List<HistoricoTransacaoFinanceira>());
+
         public Task<List<HistoricoTransacaoFinanceira>> ListarPorContaBancariaCompetenciaAsync(long contaBancariaId, int usuarioOperacaoId, string? competencia, CancellationToken cancellationToken = default) =>
             Task.FromResult(new List<HistoricoTransacaoFinanceira>());
 

@@ -1,7 +1,7 @@
-# Tela de Histórico de Transações
+# Tela de Historico de Transacoes
 
 ## Objetivo
-Documentar o contrato atual da API para consulta de transações financeiras do histórico.
+Documentar o contrato atual da API para consulta de transacoes financeiras no historico.
 
 Arquivos fonte usados:
 - `Core.Api/Controllers/Financeiro/HistoricoTransacaoFinanceiraController.cs`
@@ -15,6 +15,7 @@ O endpoint exige autenticacao (`[Authorize]`).
 
 ## Endpoint
 - `GET /api/financeiro/historico-transacoes`
+- `GET /api/financeiro/historico-transacoes/resumo`
 
 ## Contrato de listagem
 ### Query params
@@ -35,10 +36,10 @@ O endpoint exige autenticacao (`[Authorize]`).
 - aplica `Take(quantidadeRegistros)`
 
 ## Campos de retorno
-- `idOrigem`: origem da transacao (`despesa`, `receita`, `reembolso`)
-- `tipoTransacao`: tipo exibido no historico (`despesa`, `receita`, `reembolso` ou `estorno`)
+- `idTransacao`: id da transacao de origem (`Despesa.Id`, `Receita.Id` ou `Reembolso.Id`)
+- `tipoTransacao`: `despesa`, `receita`, `reembolso`, `estorno despesa`, `estorno receita`, `estorno reembolso`
 - `valor`
-- `descricao`
+- `descricao`: descricao da origem (`Despesa.Descricao`, `Receita.Descricao` ou `Reembolso.Descricao`)
 - `dataEfetivacao`
 - `tipoPagamento` (quando houver)
 - `contaBancaria` (quando houver)
@@ -50,10 +51,10 @@ O endpoint exige autenticacao (`[Authorize]`).
 ```json
 [
   {
-    "idOrigem": "despesa",
-    "tipoTransacao": "estorno",
+    "idTransacao": 55,
+    "tipoTransacao": "estorno despesa",
     "valor": 150.0,
-    "descricao": "Estorno de despesa",
+    "descricao": "Almoco com cliente",
     "dataEfetivacao": "2026-03-21",
     "tipoPagamento": "Pix",
     "contaBancaria": "Conta principal",
@@ -62,10 +63,10 @@ O endpoint exige autenticacao (`[Authorize]`).
     "tipoReceita": null
   },
   {
-    "idOrigem": "receita",
+    "idTransacao": 78,
     "tipoTransacao": "receita",
     "valor": 1200.0,
-    "descricao": "Efetivacao de receita",
+    "descricao": "Freelance",
     "dataEfetivacao": "2026-03-20",
     "tipoPagamento": "Transferencia",
     "contaBancaria": "Conta salario",
@@ -82,3 +83,35 @@ O endpoint exige autenticacao (`[Authorize]`).
 - erro interno: `500`
 
 Formato padrao de erro: `application/problem+json` com `code` e `traceId`.
+
+## Contrato de resumo
+### Query params
+- `ano` (opcional, `int`)
+
+### Regras
+- quando `ano` for informado, o resumo considera apenas o ano recebido
+- quando `ano` nao for informado, o resumo considera todo o historico do usuario autenticado
+- `ano <= 0` retorna `ano_invalido`
+
+### Campos de retorno
+- `ano` (`null` quando o filtro nao for enviado)
+- `totalReceitas`
+- `totalDespesas`
+- `totalReembolsos`
+- `totalEstornos`
+- `totalGeral` (soma dos quatro totais anteriores)
+
+Observacao:
+- os totais preservam o sinal original de `ValorTransacao` (nao aplicam valor absoluto)
+
+### Exemplo de response de sucesso (200)
+```json
+{
+  "ano": null,
+  "totalReceitas": 12500.0,
+  "totalDespesas": 8600.0,
+  "totalReembolsos": 900.0,
+  "totalEstornos": 240.0,
+  "totalGeral": 22240.0
+}
+```

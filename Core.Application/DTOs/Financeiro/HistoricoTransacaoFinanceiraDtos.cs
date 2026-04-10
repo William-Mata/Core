@@ -7,7 +7,7 @@ public sealed record ListarHistoricoTransacaoFinanceiraRequest(
     OrdemRegistrosHistoricoTransacaoFinanceira OrdemRegistros = OrdemRegistrosHistoricoTransacaoFinanceira.MaisRecentes);
 
 public sealed record HistoricoTransacaoFinanceiraListaDto(
-    string IdOrigem,
+    long IdTransacao,
     string TipoTransacao,
     decimal Valor,
     string Descricao,
@@ -17,3 +17,11 @@ public sealed record HistoricoTransacaoFinanceiraListaDto(
     string? Cartao,
     string? TipoDespesa,
     string? TipoReceita);
+
+public sealed record ResumoHistoricoTransacaoFinanceiraDto(
+    int? Ano,
+    decimal TotalReceitas,
+    decimal TotalDespesas,
+    decimal TotalReembolsos,
+    decimal TotalEstornos,
+    decimal TotalGeral);

@@ -11,6 +11,7 @@ public sealed class HistoricoTransacaoFinanceiraConsultaService(
     IHistoricoTransacaoFinanceiraRepository repository,
     IDespesaRepository despesaRepository,
     IReceitaRepository receitaRepository,
+    IReembolsoRepository reembolsoRepository,
     IContaBancariaRepository contaBancariaRepository,
     ICartaoRepository cartaoRepository,
     IUsuarioAutenticadoProvider usuarioAutenticadoProvider)
@@ -39,6 +40,7 @@ public sealed class HistoricoTransacaoFinanceiraConsultaService(
         var cartoesById = await ObterCartoesPorIdAsync(historicos, usuarioAutenticadoId, cancellationToken);
         var despesasById = await ObterDespesasPorIdAsync(historicos, usuarioAutenticadoId, cancellationToken);
         var receitasById = await ObterReceitasPorIdAsync(historicos, usuarioAutenticadoId, cancellationToken);
+        var reembolsosById = await ObterReembolsosPorIdAsync(historicos, usuarioAutenticadoId, cancellationToken);
 
         return historicos
             .Select(historico => Map(
@@ -46,8 +48,44 @@ public sealed class HistoricoTransacaoFinanceiraConsultaService(
                 contasById.GetValueOrDefault(historico.ContaBancariaId ?? 0),
                 cartoesById.GetValueOrDefault(historico.CartaoId ?? 0),
                 despesasById.GetValueOrDefault(historico.TransacaoId),
-                receitasById.GetValueOrDefault(historico.TransacaoId)))
+                receitasById.GetValueOrDefault(historico.TransacaoId),
+                reembolsosById.GetValueOrDefault(historico.TransacaoId)))
             .ToArray();
+    }
+
+    public async Task<ResumoHistoricoTransacaoFinanceiraDto> ObterResumoAsync(
+        int? ano,
+        CancellationToken cancellationToken = default)
+    {
+        if (ano.HasValue && ano.Value <= 0)
+            throw new DomainException("ano_invalido");
+
+        var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
+        var historicos = await repository.ListarPorUsuarioResumoAsync(usuarioAutenticadoId, ano, cancellationToken);
+
+        var totalReceitas = historicos
+            .Where(x => x.TipoTransacao == TipoTransacaoFinanceira.Receita && x.TipoOperacao == TipoOperacaoTransacaoFinanceira.Efetivacao)
+            .Sum(x => x.ValorTransacao);
+
+        var totalDespesas = historicos
+            .Where(x => x.TipoTransacao == TipoTransacaoFinanceira.Despesa && x.TipoOperacao == TipoOperacaoTransacaoFinanceira.Efetivacao)
+            .Sum(x => x.ValorTransacao);
+
+        var totalReembolsos = historicos
+            .Where(x => x.TipoTransacao == TipoTransacaoFinanceira.Reembolso && x.TipoOperacao == TipoOperacaoTransacaoFinanceira.Efetivacao)
+            .Sum(x => x.ValorTransacao);
+
+        var totalEstornos = historicos
+            .Where(x => x.TipoOperacao == TipoOperacaoTransacaoFinanceira.Estorno)
+            .Sum(x => x.ValorTransacao);
+
+        return new ResumoHistoricoTransacaoFinanceiraDto(
+            ano,
+            totalReceitas,
+            totalDespesas,
+            totalReembolsos,
+            totalEstornos,
+            totalReceitas + totalDespesas + totalReembolsos + totalEstornos);
     }
 
     private int ObterUsuarioAutenticadoId() =>
@@ -125,23 +163,49 @@ public sealed class HistoricoTransacaoFinanceiraConsultaService(
             .ToDictionary(x => x!.Id, x => x!);
     }
 
+    private async Task<Dictionary<long, Reembolso>> ObterReembolsosPorIdAsync(
+        IReadOnlyCollection<HistoricoTransacaoFinanceira> historicos,
+        int usuarioAutenticadoId,
+        CancellationToken cancellationToken)
+    {
+        var reembolsoIds = historicos
+            .Where(x => x.TipoTransacao == TipoTransacaoFinanceira.Reembolso)
+            .Select(x => x.TransacaoId)
+            .Distinct()
+            .ToArray();
+
+        var reembolsos = await Task.WhenAll(reembolsoIds.Select(id => reembolsoRepository.ObterPorIdAsync(id, usuarioAutenticadoId, cancellationToken)));
+
+        return reembolsos
+            .Where(x => x is not null)
+            .ToDictionary(x => x!.Id, x => x!);
+    }
+
     private static HistoricoTransacaoFinanceiraListaDto Map(
         HistoricoTransacaoFinanceira historico,
         string? contaBancaria,
         string? cartao,
         Despesa? despesa,
-        Receita? receita)
+        Receita? receita,
+        Reembolso? reembolso)
     {
-        var idOrigem = historico.TipoTransacao.ToString().ToLowerInvariant();
+        var tipoOrigem = historico.TipoTransacao.ToString().ToLowerInvariant();
         var tipoTransacao = historico.TipoOperacao == TipoOperacaoTransacaoFinanceira.Estorno
-            ? "estorno"
-            : idOrigem;
+            ? $"estorno {tipoOrigem}"
+            : tipoOrigem;
+        var descricao = historico.TipoTransacao switch
+        {
+            TipoTransacaoFinanceira.Despesa => despesa?.Descricao,
+            TipoTransacaoFinanceira.Receita => receita?.Descricao,
+            TipoTransacaoFinanceira.Reembolso => reembolso?.Descricao,
+            _ => null
+        };
 
         return new HistoricoTransacaoFinanceiraListaDto(
-            idOrigem,
+            historico.TransacaoId,
             tipoTransacao,
             historico.ValorTransacao,
-            historico.Descricao,
+            descricao ?? historico.Descricao,
             historico.DataTransacao,
             historico.TipoPagamento?.ToString() ?? historico.TipoRecebimento?.ToString(),
             contaBancaria,

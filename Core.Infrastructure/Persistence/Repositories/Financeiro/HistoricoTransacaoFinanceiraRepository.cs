@@ -73,6 +73,12 @@ public sealed class HistoricoTransacaoFinanceiraRepository(AppDbContext dbContex
             .ToListAsync(cancellationToken);
     }
 
+    public Task<List<HistoricoTransacaoFinanceira>> ListarPorUsuarioResumoAsync(int usuarioOperacaoId, int? ano, CancellationToken cancellationToken = default) =>
+        dbContext.HistoricosTransacoesFinanceiras
+            .Where(x => x.UsuarioOperacaoId == usuarioOperacaoId)
+            .Where(x => !ano.HasValue || x.DataTransacao.Year == ano.Value)
+            .ToListAsync(cancellationToken);
+
     public Task<List<HistoricoTransacaoFinanceira>> ListarPorContaBancariaCompetenciaAsync(long contaBancariaId, int usuarioOperacaoId, string? competencia, CancellationToken cancellationToken = default)
     {
         var competenciaMesAno = CompetenciaFiltroHelper.ResolverMesAno(competencia);
