@@ -16,6 +16,7 @@ O endpoint exige autenticacao (`[Authorize]`).
 ## Endpoint
 - `GET /api/financeiro/historico-transacoes`
 - `GET /api/financeiro/historico-transacoes/resumo`
+- `GET /api/financeiro/historico-transacoes/resumo-por-ano`
 
 ## Contrato de listagem
 ### Query params
@@ -114,4 +115,40 @@ Observacao:
   "totalEstornos": 240.0,
   "totalGeral": 22240.0
 }
+```
+
+## Contrato de resumo por ano
+### Query params
+- `ano` (obrigatorio, `int`)
+
+### Regras
+- o endpoint sempre considera a competencia por `DataTransacao` (data de efetivacao registrada no historico)
+- `ano <= 0` retorna `ano_invalido`
+- retorna uma lista com os 12 meses do ano (Janeiro..Dezembro)
+
+### Campos de retorno
+- `mes`
+- `totalReceitas`
+- `totalDespesas`
+- `totalReembolsos`
+- `totalEstornos`
+
+### Exemplo de response de sucesso (200)
+```json
+[
+  {
+    "mes": "Janeiro",
+    "totalReceitas": 1000.0,
+    "totalDespesas": -300.0,
+    "totalReembolsos": 0.0,
+    "totalEstornos": 0.0
+  },
+  {
+    "mes": "Fevereiro",
+    "totalReceitas": 800.0,
+    "totalDespesas": -250.0,
+    "totalReembolsos": 100.0,
+    "totalEstornos": 50.0
+  }
+]
 ```
