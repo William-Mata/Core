@@ -25,3 +25,10 @@ public sealed record ResumoHistoricoTransacaoFinanceiraDto(
     decimal TotalReembolsos,
     decimal TotalEstornos,
     decimal TotalGeral);
+
+public sealed record ResumoHistoricoTransacaoFinanceiraMesDto(
+    string Mes,
+    decimal TotalReceitas,
+    decimal TotalDespesas,
+    decimal TotalReembolsos,
+    decimal TotalEstornos);

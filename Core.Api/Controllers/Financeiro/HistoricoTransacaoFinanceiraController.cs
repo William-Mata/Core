@@ -23,4 +23,10 @@ public sealed class HistoricoTransacaoFinanceiraController(HistoricoTransacaoFin
         [FromQuery] int? ano = null,
         CancellationToken cancellationToken = default) =>
         Ok(await service.ObterResumoAsync(ano, cancellationToken));
+
+    [HttpGet("resumo-por-ano")]
+    public async Task<IActionResult> ObterResumoPorAno(
+        [FromQuery] int ano,
+        CancellationToken cancellationToken = default) =>
+        Ok(await service.ObterResumoPorAnoAsync(ano, cancellationToken));
 }

@@ -4,6 +4,7 @@ using Core.Domain.Enums;
 using Core.Domain.Exceptions;
 using Core.Domain.Interfaces;
 using Core.Domain.Interfaces.Financeiro;
+using System.Globalization;
 
 namespace Core.Application.Services.Financeiro;
 
@@ -62,30 +63,42 @@ public sealed class HistoricoTransacaoFinanceiraConsultaService(
 
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
         var historicos = await repository.ListarPorUsuarioResumoAsync(usuarioAutenticadoId, ano, cancellationToken);
-
-        var totalReceitas = historicos
-            .Where(x => x.TipoTransacao == TipoTransacaoFinanceira.Receita && x.TipoOperacao == TipoOperacaoTransacaoFinanceira.Efetivacao)
-            .Sum(x => x.ValorTransacao);
-
-        var totalDespesas = historicos
-            .Where(x => x.TipoTransacao == TipoTransacaoFinanceira.Despesa && x.TipoOperacao == TipoOperacaoTransacaoFinanceira.Efetivacao)
-            .Sum(x => x.ValorTransacao);
-
-        var totalReembolsos = historicos
-            .Where(x => x.TipoTransacao == TipoTransacaoFinanceira.Reembolso && x.TipoOperacao == TipoOperacaoTransacaoFinanceira.Efetivacao)
-            .Sum(x => x.ValorTransacao);
-
-        var totalEstornos = historicos
-            .Where(x => x.TipoOperacao == TipoOperacaoTransacaoFinanceira.Estorno)
-            .Sum(x => x.ValorTransacao);
+        var totais = CalcularTotais(historicos);
 
         return new ResumoHistoricoTransacaoFinanceiraDto(
             ano,
-            totalReceitas,
-            totalDespesas,
-            totalReembolsos,
-            totalEstornos,
-            totalReceitas + totalDespesas + totalReembolsos + totalEstornos);
+            totais.TotalReceitas,
+            totais.TotalDespesas,
+            totais.TotalReembolsos,
+            totais.TotalEstornos,
+            totais.TotalGeral);
+    }
+
+    public async Task<IReadOnlyCollection<ResumoHistoricoTransacaoFinanceiraMesDto>> ObterResumoPorAnoAsync(
+        int ano,
+        CancellationToken cancellationToken = default)
+    {
+        if (ano <= 0)
+            throw new DomainException("ano_invalido");
+
+        var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
+        var historicos = await repository.ListarPorUsuarioResumoAsync(usuarioAutenticadoId, ano, cancellationToken);
+        var culturaPtBr = new CultureInfo("pt-BR");
+
+        return Enumerable.Range(1, 12)
+            .Select(mes =>
+            {
+                var historicosMes = historicos.Where(x => x.DataTransacao.Month == mes).ToArray();
+                var totaisMes = CalcularTotais(historicosMes);
+
+                return new ResumoHistoricoTransacaoFinanceiraMesDto(
+                    culturaPtBr.TextInfo.ToTitleCase(culturaPtBr.DateTimeFormat.GetMonthName(mes)),
+                    totaisMes.TotalReceitas,
+                    totaisMes.TotalDespesas,
+                    totaisMes.TotalReembolsos,
+                    totaisMes.TotalEstornos);
+            })
+            .ToArray();
     }
 
     private int ObterUsuarioAutenticadoId() =>
@@ -212,5 +225,34 @@ public sealed class HistoricoTransacaoFinanceiraConsultaService(
             cartao,
             despesa?.TipoDespesa.ToString(),
             receita?.TipoReceita.ToString());
+    }
+
+    private static (decimal TotalReceitas, decimal TotalDespesas, decimal TotalReembolsos, decimal TotalEstornos, decimal TotalGeral) CalcularTotais(
+        IEnumerable<HistoricoTransacaoFinanceira> historicos)
+    {
+        var totais = historicos.ToArray();
+
+        var totalReceitas = totais
+            .Where(x => x.TipoTransacao == TipoTransacaoFinanceira.Receita && x.TipoOperacao == TipoOperacaoTransacaoFinanceira.Efetivacao)
+            .Sum(x => x.ValorTransacao);
+
+        var totalDespesas = totais
+            .Where(x => x.TipoTransacao == TipoTransacaoFinanceira.Despesa && x.TipoOperacao == TipoOperacaoTransacaoFinanceira.Efetivacao)
+            .Sum(x => x.ValorTransacao);
+
+        var totalReembolsos = totais
+            .Where(x => x.TipoTransacao == TipoTransacaoFinanceira.Reembolso && x.TipoOperacao == TipoOperacaoTransacaoFinanceira.Efetivacao)
+            .Sum(x => x.ValorTransacao);
+
+        var totalEstornos = totais
+            .Where(x => x.TipoOperacao == TipoOperacaoTransacaoFinanceira.Estorno)
+            .Sum(x => x.ValorTransacao);
+
+        return (
+            totalReceitas,
+            totalDespesas,
+            totalReembolsos,
+            totalEstornos,
+            totalReceitas + totalDespesas + totalReembolsos + totalEstornos);
     }
 }
