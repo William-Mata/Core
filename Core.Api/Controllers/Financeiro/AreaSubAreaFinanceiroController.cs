@@ -12,4 +12,8 @@ public sealed class AreaSubAreaFinanceiroController(AreaSubAreaFinanceiroService
     [HttpGet]
     public async Task<IActionResult> Listar([FromQuery] string? tipo, CancellationToken cancellationToken) =>
         Ok(await service.ListarAreasComSubAreasAsync(tipo, cancellationToken));
+
+    [HttpGet("soma-rateio")]
+    public async Task<IActionResult> ListarComSomaRateio([FromQuery] string? tipo, CancellationToken cancellationToken) =>
+        Ok(await service.ListarAreasComSubAreasESomaRateioAsync(tipo, cancellationToken));
 }

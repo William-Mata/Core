@@ -7,4 +7,5 @@ public interface IAreaRepository
 {
     Task<List<SubArea>> ObterSubAreasPorIdsAsync(IReadOnlyCollection<long> subAreasIds, CancellationToken cancellationToken = default);
     Task<List<Area>> ListarComSubAreasAsync(TipoAreaFinanceira? tipo = null, CancellationToken cancellationToken = default);
+    Task<List<AreaSubAreaRateioSoma>> ListarSomaRateioPorAreaSubAreaAsync(int usuarioId, TipoAreaFinanceira? tipo = null, CancellationToken cancellationToken = default);
 }
