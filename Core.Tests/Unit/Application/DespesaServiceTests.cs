@@ -1291,6 +1291,9 @@ public sealed class DespesaServiceTests
 
         public Task<List<SubArea>> ObterSubAreasPorIdsAsync(IReadOnlyCollection<long> subAreasIds, CancellationToken cancellationToken = default) =>
             Task.FromResult(SubAreas.Where(x => subAreasIds.Contains(x.Id)).ToList());
+
+        public Task<List<AreaSubAreaRateioSoma>> ListarSomaRateioPorAreaSubAreaAsync(int usuarioId, TipoAreaFinanceira? tipo = null, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new List<AreaSubAreaRateioSoma>());
     }
 
     private sealed class ContaBancariaRepositoryFake : IContaBancariaRepository

@@ -39,4 +39,10 @@ public sealed record EfetivarReembolsoRequest(
     DateOnly DataEfetivacao,
     IReadOnlyCollection<DocumentoRequest>? Documentos = null,
     long? ContaBancariaId = null,
-    long? CartaoId = null);
+    long? CartaoId = null,
+    string? ObservacaoHistorico = null);
+
+public sealed record EstornarReembolsoRequest(
+    DateOnly DataEstorno,
+    string? ObservacaoHistorico = null,
+    bool OcultarDoHistorico = true);

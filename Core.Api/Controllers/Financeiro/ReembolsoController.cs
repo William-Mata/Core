@@ -47,6 +47,6 @@ public sealed class ReembolsoController(ReembolsoService service) : ControllerBa
         Ok(await service.EfetivarAsync(id, request, cancellationToken));
 
     [HttpPost("{id:long}/estornar")]
-    public async Task<IActionResult> Estornar(long id, CancellationToken cancellationToken) =>
-        Ok(await service.EstornarAsync(id, cancellationToken));
+    public async Task<IActionResult> Estornar(long id, [FromBody] EstornarReembolsoRequest request, CancellationToken cancellationToken) =>
+        Ok(await service.EstornarAsync(id, request, cancellationToken));
 }

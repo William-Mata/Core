@@ -348,7 +348,8 @@ public sealed partial class ReceitaService(
             receitaAtualizada.ContaBancariaId,
             receitaAtualizada.CartaoId,
             receitaAtualizada.TipoRecebimento,
-            cancellationToken: cancellationToken);
+            cancellationToken: cancellationToken,
+            observacao: NormalizarObservacao(req.ObservacaoHistorico));
 
         return Map(receitaAtualizada);
     }
@@ -411,11 +412,14 @@ public sealed partial class ReceitaService(
         return Map(receitaAtualizada ?? receita);
     }
 
-    public async Task<ReceitaDto> EstornarAsync(long id, CancellationToken cancellationToken = default)
+    public async Task<ReceitaDto> EstornarAsync(long id, EstornarReceitaRequest req, CancellationToken cancellationToken = default)
     {
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
         var receita = await repository.ObterPorIdAsync(id, usuarioAutenticadoId, cancellationToken) ?? throw new NotFoundException("receita_nao_encontrada");
         if (receita.Status != StatusReceita.Efetivada) throw new DomainException("status_invalido");
+        if (req.DataEstorno == default) throw new DomainException("data_estorno_obrigatoria");
+        if (req.DataEstorno < receita.DataLancamento) throw new DomainException("periodo_invalido");
+        if (receita.DataEfetivacao.HasValue && req.DataEstorno < receita.DataEfetivacao.Value) throw new DomainException("periodo_invalido");
         var valorAntesTransacao = receita.ValorEfetivacao ?? receita.ValorLiquido;
         receita.Status = StatusReceita.Pendente;
         receita.DataEfetivacao = null;
@@ -426,7 +430,7 @@ public sealed partial class ReceitaService(
             TipoTransacaoFinanceira.Receita,
             receitaAtualizada.Id,
             usuarioAutenticadoId,
-            DateOnly.FromDateTime(DateTime.UtcNow),
+            req.DataEstorno,
             valorAntesTransacao,
             valorAntesTransacao,
             0m,
@@ -435,7 +439,9 @@ public sealed partial class ReceitaService(
             receita.ContaBancariaId,
             receita.CartaoId,
             receita.TipoRecebimento,
-            cancellationToken: cancellationToken);
+            cancellationToken: cancellationToken,
+            observacao: NormalizarObservacao(req.ObservacaoHistorico),
+            ocultarDoHistorico: req.OcultarDoHistorico);
 
         return Map(receitaAtualizada);
     }
@@ -1035,6 +1041,12 @@ public sealed partial class ReceitaService(
             throw new DomainException("cartao_invalido");
 
         return (contaBancariaId, cartaoId);
+    }
+
+    private static string? NormalizarObservacao(string? observacao)
+    {
+        var observacaoNormalizada = observacao?.Trim();
+        return string.IsNullOrWhiteSpace(observacaoNormalizada) ? null : observacaoNormalizada;
     }
 
     private static ReceitaListaDto MapLista(Receita receita) =>

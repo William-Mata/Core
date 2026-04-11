@@ -363,7 +363,8 @@ public sealed partial class DespesaService(
             despesaAtualizada.TipoPagamento,
             despesaAtualizada.ContaBancariaId,
             despesaAtualizada.CartaoId,
-            cancellationToken: cancellationToken);
+            cancellationToken: cancellationToken,
+            observacao: NormalizarObservacao(req.ObservacaoHistorico));
 
         return Map(despesaAtualizada);
     }
@@ -405,11 +406,14 @@ public sealed partial class DespesaService(
         return Map(despesaAtualizada ?? despesa);
     }
 
-    public async Task<DespesaDto> EstornarAsync(long id, CancellationToken cancellationToken = default)
+    public async Task<DespesaDto> EstornarAsync(long id, EstornarDespesaRequest req, CancellationToken cancellationToken = default)
     {
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
         var despesa = await repository.ObterPorIdAsync(id, usuarioAutenticadoId, cancellationToken) ?? throw new NotFoundException("despesa_nao_encontrada");
         if (despesa.Status != StatusDespesa.Efetivada) throw new DomainException("status_invalido");
+        if (req.DataEstorno == default) throw new DomainException("data_estorno_obrigatoria");
+        if (req.DataEstorno < despesa.DataLancamento) throw new DomainException("periodo_invalido");
+        if (despesa.DataEfetivacao.HasValue && req.DataEstorno < despesa.DataEfetivacao.Value) throw new DomainException("periodo_invalido");
         var valorAntesTransacao = despesa.ValorEfetivacao ?? despesa.ValorLiquido;
         despesa.Status = StatusDespesa.Pendente;
         despesa.DataEfetivacao = null;
@@ -420,13 +424,15 @@ public sealed partial class DespesaService(
             TipoTransacaoFinanceira.Despesa,
             despesaAtualizada.Id,
             usuarioAutenticadoId,
-            DateOnly.FromDateTime(DateTime.UtcNow),
+            req.DataEstorno,
             valorAntesTransacao,
             valorAntesTransacao,
             0m,
             "Estorno de despesa",
             despesa.TipoPagamento,
-            cancellationToken: cancellationToken);
+            cancellationToken: cancellationToken,
+            observacao: NormalizarObservacao(req.ObservacaoHistorico),
+            ocultarDoHistorico: req.OcultarDoHistorico);
 
         return Map(despesaAtualizada);
     }
@@ -1039,6 +1045,12 @@ public sealed partial class DespesaService(
             ReceitaId = receitaId,
             ReembolsoId = reembolsoId
         }).ToList();
+    }
+
+    private static string? NormalizarObservacao(string? observacao)
+    {
+        var observacaoNormalizada = observacao?.Trim();
+        return string.IsNullOrWhiteSpace(observacaoNormalizada) ? null : observacaoNormalizada;
     }
 
     private static DespesaListaDto MapLista(Despesa despesa) =>

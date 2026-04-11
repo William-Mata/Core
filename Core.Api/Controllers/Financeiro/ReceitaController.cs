@@ -55,9 +55,9 @@ public sealed class ReceitaController(ReceitaService service) : ControllerBase
     }
 
     [HttpPost("{id:long}/estornar")]
-    public async Task<IActionResult> Estornar(long id, CancellationToken cancellationToken)
+    public async Task<IActionResult> Estornar(long id, [FromBody] EstornarReceitaRequest request, CancellationToken cancellationToken)
     {
-        return Ok(await service.EstornarAsync(id, cancellationToken));
+        return Ok(await service.EstornarAsync(id, request, cancellationToken));
     }
 
     [HttpGet("pendentes-aprovacao")]

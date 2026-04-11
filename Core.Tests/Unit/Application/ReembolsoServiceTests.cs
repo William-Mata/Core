@@ -174,7 +174,7 @@ public sealed class ReembolsoServiceTests
         };
         var service = CriarService(repository, new DespesaRepositoryFake(), 1);
 
-        var response = await service.EfetivarAsync(10, new EfetivarReembolsoRequest(new DateOnly(2026, 3, 18), contaBancariaId: 1));
+        var response = await service.EfetivarAsync(10, new EfetivarReembolsoRequest(new DateOnly(2026, 3, 18), ContaBancariaId: 1));
 
         Assert.Equal("PAGO", response.Status);
         Assert.Equal(new DateOnly(2026, 3, 18), response.DataEfetivacao);
@@ -197,7 +197,7 @@ public sealed class ReembolsoServiceTests
         };
         var service = CriarService(repository, new DespesaRepositoryFake(), 1);
 
-        var ex = await Assert.ThrowsAsync<DomainException>(() => service.EfetivarAsync(10, new EfetivarReembolsoRequest(new DateOnly(2026, 3, 17), contaBancariaId: 1)));
+        var ex = await Assert.ThrowsAsync<DomainException>(() => service.EfetivarAsync(10, new EfetivarReembolsoRequest(new DateOnly(2026, 3, 17), ContaBancariaId: 1)));
 
         Assert.Equal("periodo_invalido", ex.Message);
     }
@@ -220,7 +220,7 @@ public sealed class ReembolsoServiceTests
         };
         var service = CriarService(repository, new DespesaRepositoryFake(), 1);
 
-        var response = await service.EstornarAsync(10);
+        var response = await service.EstornarAsync(10, new EstornarReembolsoRequest(new DateOnly(2026, 3, 21)));
 
         Assert.Equal("AGUARDANDO", response.Status);
         Assert.Null(response.DataEfetivacao);

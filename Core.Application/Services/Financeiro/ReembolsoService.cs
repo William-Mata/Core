@@ -206,16 +206,20 @@ public sealed class ReembolsoService(
             null,
             request.ContaBancariaId,
             request.CartaoId,
-            cancellationToken: cancellationToken);
+            cancellationToken: cancellationToken,
+            observacao: NormalizarObservacao(request.ObservacaoHistorico));
 
         return Map(reembolsoAtualizado);
     }
 
-    public async Task<ReembolsoDto> EstornarAsync(long id, CancellationToken cancellationToken = default)
+    public async Task<ReembolsoDto> EstornarAsync(long id, EstornarReembolsoRequest request, CancellationToken cancellationToken = default)
     {
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
         var reembolso = await repository.ObterPorIdAsync(id, usuarioAutenticadoId, cancellationToken) ?? throw new NotFoundException("reembolso_nao_encontrado");
         if (reembolso.Status != StatusReembolso.Pago) throw new DomainException("status_invalido");
+        if (request.DataEstorno == default) throw new DomainException("data_estorno_obrigatoria");
+        if (request.DataEstorno < reembolso.DataLancamento) throw new DomainException("periodo_invalido");
+        if (reembolso.DataEfetivacao.HasValue && request.DataEstorno < reembolso.DataEfetivacao.Value) throw new DomainException("periodo_invalido");
 
         var valorAntesTransacao = reembolso.ValorTotal;
         reembolso.Status = StatusReembolso.Aguardando;
@@ -226,13 +230,15 @@ public sealed class ReembolsoService(
             TipoTransacaoFinanceira.Reembolso,
             reembolsoAtualizado.Id,
             usuarioAutenticadoId,
-            DateOnly.FromDateTime(DateTime.UtcNow),
+            request.DataEstorno,
             valorAntesTransacao,
             valorAntesTransacao,
             0m,
             "Estorno de reembolso",
             null,
-            cancellationToken: cancellationToken);
+            cancellationToken: cancellationToken,
+            observacao: NormalizarObservacao(request.ObservacaoHistorico),
+            ocultarDoHistorico: request.OcultarDoHistorico);
 
         return Map(reembolsoAtualizado);
     }
@@ -260,6 +266,12 @@ public sealed class ReembolsoService(
         }
 
         return valor;
+    }
+
+    private static string? NormalizarObservacao(string? observacao)
+    {
+        var observacaoNormalizada = observacao?.Trim();
+        return string.IsNullOrWhiteSpace(observacaoNormalizada) ? null : observacaoNormalizada;
     }
 
     private static IReadOnlyCollection<long> ExtrairDespesasIds(IReadOnlyCollection<JsonElement>? despesasVinculadas)
