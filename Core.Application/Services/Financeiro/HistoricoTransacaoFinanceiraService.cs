@@ -19,7 +19,9 @@ public sealed class HistoricoTransacaoFinanceiraService(IHistoricoTransacaoFinan
         long? contaBancariaId = null,
         long? cartaoId = null,
         TipoRecebimento? tipoRecebimento = null,
-        CancellationToken cancellationToken = default) =>
+        CancellationToken cancellationToken = default,
+        string? observacao = null,
+        bool ocultarDoHistorico = false) =>
         RegistrarAsync(
             tipoTransacao,
             transacaoId,
@@ -34,6 +36,8 @@ public sealed class HistoricoTransacaoFinanceiraService(IHistoricoTransacaoFinan
             tipoRecebimento,
             contaBancariaId,
             cartaoId,
+            observacao,
+            ocultarDoHistorico,
             cancellationToken);
 
     public async Task RegistrarEstornoAsync(
@@ -49,7 +53,9 @@ public sealed class HistoricoTransacaoFinanceiraService(IHistoricoTransacaoFinan
         long? contaBancariaId = null,
         long? cartaoId = null,
         TipoRecebimento? tipoRecebimento = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? observacao = null,
+        bool ocultarDoHistorico = false)
     {
         if (!contaBancariaId.HasValue && !cartaoId.HasValue)
         {
@@ -62,6 +68,9 @@ public sealed class HistoricoTransacaoFinanceiraService(IHistoricoTransacaoFinan
                 tipoRecebimento ??= ultimoHistorico.TipoRecebimento;
             }
         }
+
+        if (ocultarDoHistorico)
+            await repository.MarcarOcultoPorTransacaoAsync(tipoTransacao, transacaoId, cancellationToken);
 
         await RegistrarAsync(
             tipoTransacao,
@@ -77,6 +86,8 @@ public sealed class HistoricoTransacaoFinanceiraService(IHistoricoTransacaoFinan
             tipoRecebimento,
             contaBancariaId,
             cartaoId,
+            observacao,
+            ocultarDoHistorico,
             cancellationToken);
     }
 
@@ -94,6 +105,8 @@ public sealed class HistoricoTransacaoFinanceiraService(IHistoricoTransacaoFinan
         TipoRecebimento? tipoRecebimento,
         long? contaBancariaId,
         long? cartaoId,
+        string? observacao,
+        bool ocultarDoHistorico,
         CancellationToken cancellationToken)
     {
         var historico = new HistoricoTransacaoFinanceira
@@ -107,6 +120,8 @@ public sealed class HistoricoTransacaoFinanceiraService(IHistoricoTransacaoFinan
             CartaoId = cartaoId,
             DataTransacao = dataTransacao,
             Descricao = descricao,
+            Observacao = observacao,
+            OcultarDoHistorico = ocultarDoHistorico,
             TipoPagamento = tipoPagamento,
             TipoRecebimento = tipoRecebimento,
             ValorAntesTransacao = valorAntesTransacao,

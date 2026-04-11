@@ -196,6 +196,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         modelBuilder.Entity<HistoricoTransacaoFinanceira>().Property(x => x.TipoConta).HasConversion<string>();
         modelBuilder.Entity<HistoricoTransacaoFinanceira>().Property(x => x.TipoPagamento).HasConversion<string>();
         modelBuilder.Entity<HistoricoTransacaoFinanceira>().Property(x => x.TipoRecebimento).HasConversion<string>();
+        modelBuilder.Entity<HistoricoTransacaoFinanceira>().Property(x => x.Observacao).HasMaxLength(500);
+        modelBuilder.Entity<HistoricoTransacaoFinanceira>().Property(x => x.OcultarDoHistorico).HasDefaultValue(false);
         modelBuilder.Entity<HistoricoTransacaoFinanceira>().HasIndex(x => new { x.TipoTransacao, x.TransacaoId, x.DataHoraCadastro });
 
         modelBuilder.Entity<ConviteAmizade>().ToTable("ConviteAmizade");

@@ -52,10 +52,27 @@ public sealed class HistoricoTransacaoFinanceiraRepository(AppDbContext dbContex
             .OrderByDescending(x => x.Id)
             .FirstOrDefaultAsync(cancellationToken);
 
+    public async Task MarcarOcultoPorTransacaoAsync(TipoTransacaoFinanceira tipoTransacao, long transacaoId, CancellationToken cancellationToken = default)
+    {
+        var historicos = await dbContext.HistoricosTransacoesFinanceiras
+            .Where(x => x.TipoTransacao == tipoTransacao && x.TransacaoId == transacaoId)
+            .Where(x => !x.OcultarDoHistorico)
+            .ToListAsync(cancellationToken);
+
+        if (historicos.Count == 0)
+            return;
+
+        foreach (var historico in historicos)
+            historico.OcultarDoHistorico = true;
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     public Task<List<HistoricoTransacaoFinanceira>> ListarPorUsuarioAsync(int usuarioOperacaoId, int quantidadeRegistros, OrdemRegistrosHistoricoTransacaoFinanceira ordemRegistros, CancellationToken cancellationToken = default)
     {
         var query = dbContext.HistoricosTransacoesFinanceiras
             .Where(x => x.UsuarioOperacaoId == usuarioOperacaoId)
+            .Where(x => !x.OcultarDoHistorico)
             .AsQueryable();
 
         query = ordemRegistros switch
@@ -76,6 +93,7 @@ public sealed class HistoricoTransacaoFinanceiraRepository(AppDbContext dbContex
     public Task<List<HistoricoTransacaoFinanceira>> ListarPorUsuarioResumoAsync(int usuarioOperacaoId, int? ano, CancellationToken cancellationToken = default) =>
         dbContext.HistoricosTransacoesFinanceiras
             .Where(x => x.UsuarioOperacaoId == usuarioOperacaoId)
+            .Where(x => !x.OcultarDoHistorico)
             .Where(x => !ano.HasValue || x.DataTransacao.Year == ano.Value)
             .ToListAsync(cancellationToken);
 
@@ -84,6 +102,7 @@ public sealed class HistoricoTransacaoFinanceiraRepository(AppDbContext dbContex
         var competenciaMesAno = CompetenciaFiltroHelper.ResolverMesAno(competencia);
         var query = dbContext.HistoricosTransacoesFinanceiras
             .Where(x => x.UsuarioOperacaoId == usuarioOperacaoId)
+            .Where(x => !x.OcultarDoHistorico)
             .Where(x => x.ContaBancariaId == contaBancariaId);
 
         if (competenciaMesAno.HasValue)
@@ -104,6 +123,7 @@ public sealed class HistoricoTransacaoFinanceiraRepository(AppDbContext dbContex
         var competenciaMesAno = CompetenciaFiltroHelper.ResolverMesAno(competencia);
         var query = dbContext.HistoricosTransacoesFinanceiras
             .Where(x => x.UsuarioOperacaoId == usuarioOperacaoId)
+            .Where(x => !x.OcultarDoHistorico)
             .Where(x => x.CartaoId == cartaoId);
 
         if (competenciaMesAno.HasValue)
