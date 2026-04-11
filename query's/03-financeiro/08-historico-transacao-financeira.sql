@@ -13,6 +13,8 @@ BEGIN
         CartaoId BIGINT NULL,
         DataTransacao DATE NOT NULL,
         Descricao NVARCHAR(300) NOT NULL,
+        Observacao NVARCHAR(500) NULL,
+        OcultarDoHistorico BIT NOT NULL CONSTRAINT DF_HistoricoTransacaoFinanceira_OcultarDoHistorico DEFAULT(0),
         TipoPagamento NVARCHAR(50) NULL,
         TipoRecebimento NVARCHAR(50) NULL,
         ValorAntesTransacao DECIMAL(18,2) NOT NULL,
@@ -28,6 +30,21 @@ IF COL_LENGTH(N'dbo.HistoricoTransacaoFinanceira', N'TipoRecebimento') IS NULL
 BEGIN
     ALTER TABLE dbo.HistoricoTransacaoFinanceira
         ADD TipoRecebimento NVARCHAR(50) NULL;
+END;
+GO
+
+IF COL_LENGTH(N'dbo.HistoricoTransacaoFinanceira', N'Observacao') IS NULL
+BEGIN
+    ALTER TABLE dbo.HistoricoTransacaoFinanceira
+        ADD Observacao NVARCHAR(500) NULL;
+END;
+GO
+
+IF COL_LENGTH(N'dbo.HistoricoTransacaoFinanceira', N'OcultarDoHistorico') IS NULL
+BEGIN
+    ALTER TABLE dbo.HistoricoTransacaoFinanceira
+        ADD OcultarDoHistorico BIT NOT NULL
+            CONSTRAINT DF_HistoricoTransacaoFinanceira_OcultarDoHistorico DEFAULT(0);
 END;
 GO
 

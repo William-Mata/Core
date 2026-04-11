@@ -31,6 +31,8 @@ GO
     SELECT N'dbo.ReceitaAreaRateio', N'Valor' UNION ALL
     SELECT N'dbo.HistoricoTransacaoFinanceira', N'TipoPagamento' UNION ALL
     SELECT N'dbo.HistoricoTransacaoFinanceira', N'TipoRecebimento' UNION ALL
+    SELECT N'dbo.HistoricoTransacaoFinanceira', N'Observacao' UNION ALL
+    SELECT N'dbo.HistoricoTransacaoFinanceira', N'OcultarDoHistorico' UNION ALL
     SELECT N'dbo.Reembolso', N'DataLancamento' UNION ALL
     SELECT N'dbo.Reembolso', N'DataEfetivacao' UNION ALL
     SELECT N'dbo.Documento', N'NomeArquivo' UNION ALL
