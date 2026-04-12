@@ -115,11 +115,15 @@ public sealed class HistoricoTransacaoFinanceiraConsultaService(
             .Distinct()
             .ToArray();
 
-        var contas = await Task.WhenAll(contaIds.Select(id => contaBancariaRepository.ObterPorIdAsync(id, usuarioAutenticadoId, cancellationToken)));
+        var contasById = new Dictionary<long, string>(contaIds.Length);
+        foreach (var contaId in contaIds)
+        {
+            var conta = await contaBancariaRepository.ObterPorIdAsync(contaId, usuarioAutenticadoId, cancellationToken);
+            if (conta is not null)
+                contasById[conta.Id] = conta.Descricao;
+        }
 
-        return contas
-            .Where(x => x is not null)
-            .ToDictionary(x => x!.Id, x => x!.Descricao);
+        return contasById;
     }
 
     private async Task<Dictionary<long, string>> ObterCartoesPorIdAsync(
@@ -133,11 +137,15 @@ public sealed class HistoricoTransacaoFinanceiraConsultaService(
             .Distinct()
             .ToArray();
 
-        var cartoes = await Task.WhenAll(cartaoIds.Select(id => cartaoRepository.ObterPorIdAsync(id, usuarioAutenticadoId, cancellationToken)));
+        var cartoesById = new Dictionary<long, string>(cartaoIds.Length);
+        foreach (var cartaoId in cartaoIds)
+        {
+            var cartao = await cartaoRepository.ObterPorIdAsync(cartaoId, usuarioAutenticadoId, cancellationToken);
+            if (cartao is not null)
+                cartoesById[cartao.Id] = cartao.Descricao;
+        }
 
-        return cartoes
-            .Where(x => x is not null)
-            .ToDictionary(x => x!.Id, x => x!.Descricao);
+        return cartoesById;
     }
 
     private async Task<Dictionary<long, Despesa>> ObterDespesasPorIdAsync(
@@ -169,11 +177,15 @@ public sealed class HistoricoTransacaoFinanceiraConsultaService(
             .Distinct()
             .ToArray();
 
-        var receitas = await Task.WhenAll(receitaIds.Select(id => receitaRepository.ObterPorIdAsync(id, usuarioAutenticadoId, cancellationToken)));
+        var receitasById = new Dictionary<long, Receita>(receitaIds.Length);
+        foreach (var receitaId in receitaIds)
+        {
+            var receita = await receitaRepository.ObterPorIdAsync(receitaId, usuarioAutenticadoId, cancellationToken);
+            if (receita is not null)
+                receitasById[receita.Id] = receita;
+        }
 
-        return receitas
-            .Where(x => x is not null)
-            .ToDictionary(x => x!.Id, x => x!);
+        return receitasById;
     }
 
     private async Task<Dictionary<long, Reembolso>> ObterReembolsosPorIdAsync(
@@ -187,11 +199,15 @@ public sealed class HistoricoTransacaoFinanceiraConsultaService(
             .Distinct()
             .ToArray();
 
-        var reembolsos = await Task.WhenAll(reembolsoIds.Select(id => reembolsoRepository.ObterPorIdAsync(id, usuarioAutenticadoId, cancellationToken)));
+        var reembolsosById = new Dictionary<long, Reembolso>(reembolsoIds.Length);
+        foreach (var reembolsoId in reembolsoIds)
+        {
+            var reembolso = await reembolsoRepository.ObterPorIdAsync(reembolsoId, usuarioAutenticadoId, cancellationToken);
+            if (reembolso is not null)
+                reembolsosById[reembolso.Id] = reembolso;
+        }
 
-        return reembolsos
-            .Where(x => x is not null)
-            .ToDictionary(x => x!.Id, x => x!);
+        return reembolsosById;
     }
 
     private static HistoricoTransacaoFinanceiraListaDto Map(

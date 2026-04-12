@@ -147,9 +147,9 @@ public sealed class ReembolsoService(
                 reembolsoAtualizado.ValorTotal,
                 reembolsoAtualizado.ValorTotal,
                 "Efetivacao de reembolso",
-                null,
-                request.ContaBancariaId,
-                request.CartaoId,
+                tipoPagamento: null,
+                contaBancariaId: request.ContaBancariaId,
+                cartaoId: request.CartaoId,
                 cancellationToken: cancellationToken);
         }
         else if (statusAnterior == StatusReembolso.Pago && reembolsoAtualizado.Status != StatusReembolso.Pago)
@@ -163,9 +163,9 @@ public sealed class ReembolsoService(
                 reembolsoAtualizado.ValorTotal,
                 0m,
                 "Estorno de reembolso",
-                null,
-                request.ContaBancariaId,
-                request.CartaoId,
+                tipoPagamento: null,
+                contaBancariaId: request.ContaBancariaId,
+                cartaoId: request.CartaoId,
                 cancellationToken: cancellationToken);
         }
 
@@ -203,9 +203,9 @@ public sealed class ReembolsoService(
             reembolsoAtualizado.ValorTotal,
             reembolsoAtualizado.ValorTotal,
             "Efetivacao de reembolso",
-            null,
-            request.ContaBancariaId,
-            request.CartaoId,
+            tipoPagamento: null,
+            contaBancariaId: request.ContaBancariaId,
+            cartaoId: request.CartaoId,
             cancellationToken: cancellationToken,
             observacao: NormalizarObservacao(request.ObservacaoHistorico));
 
@@ -235,7 +235,7 @@ public sealed class ReembolsoService(
             valorAntesTransacao,
             0m,
             "Estorno de reembolso",
-            null,
+            tipoPagamento: null,
             cancellationToken: cancellationToken,
             observacao: NormalizarObservacao(request.ObservacaoHistorico),
             ocultarDoHistorico: request.OcultarDoHistorico);

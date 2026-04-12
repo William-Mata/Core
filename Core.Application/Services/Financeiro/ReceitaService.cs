@@ -12,6 +12,7 @@ namespace Core.Application.Services.Financeiro;
 
 public sealed partial class ReceitaService(
     IReceitaRepository repository,
+    IDespesaRepository despesaRepository,
     IContaBancariaRepository contaRepository,
     ICartaoRepository cartaoRepository,
     IAreaRepository areaRepository,
@@ -108,6 +109,12 @@ public sealed partial class ReceitaService(
         ValidarRateioAreas(req.AreasSubAreasRateio, req.ValorTotal);
         var amigosValidados = await ValidarAmigosAceitosAsync(amigos, usuarioAutenticadoId, cancellationToken);
         var vinculo = await ResolverVinculoRecebimentoAsync(req.TipoRecebimento, req.ContaBancariaId, req.CartaoId, usuarioAutenticadoId, cancellationToken);
+        var contaDestinoId = await ResolverContaDestinoTransferenciaAsync(
+            req.TipoRecebimento,
+            vinculo.ContaBancariaId,
+            req.ContaDestinoId,
+            usuarioAutenticadoId,
+            cancellationToken);
         var documentos = await SalvarDocumentosAsync(req.Documentos ?? [], usuarioAutenticadoId, cancellationToken: cancellationToken);
 
         var receita = new Receita
@@ -132,6 +139,7 @@ public sealed partial class ReceitaService(
             UsuarioCadastroId = usuarioAutenticadoId,
             Status = StatusReceita.Pendente,
             ContaBancariaId = vinculo.ContaBancariaId,
+            ContaDestinoId = contaDestinoId,
             CartaoId = vinculo.CartaoId,
             Documentos = documentos,
             AmigosRateio = amigosValidados.Select(x => new ReceitaAmigoRateio
@@ -153,6 +161,7 @@ public sealed partial class ReceitaService(
 
         var receitaCriada = await repository.CriarAsync(receita, cancellationToken);
         await CriarEspelhosRateioAsync(receitaCriada, amigosValidados, req.AreasSubAreasRateio, cancellationToken);
+        receitaCriada = await SincronizarTransacaoEntreContasAsync(receitaCriada, usuarioAutenticadoId, cancellationToken);
 
         var alvo = req.RecorrenciaFixa ? 100 : req.QuantidadeRecorrencia.GetValueOrDefault(1);
         if (alvo > 1)
@@ -175,6 +184,7 @@ public sealed partial class ReceitaService(
                 req.Imposto,
                 req.Juros,
                 vinculo.ContaBancariaId,
+                contaDestinoId,
                 vinculo.CartaoId,
                 amigos.Count == 0 ? null : valorTotalRateioAmigos,
                 amigos.Count == 0 ? null : tipoRateioAmigos,
@@ -208,6 +218,12 @@ public sealed partial class ReceitaService(
         ValidarRateioAreas(req.AreasSubAreasRateio, req.ValorTotal);
         var amigosValidados = await ValidarAmigosAceitosAsync(amigos, usuarioAutenticadoId, cancellationToken);
         var vinculo = await ResolverVinculoRecebimentoAsync(req.TipoRecebimento, req.ContaBancariaId ?? receita.ContaBancariaId, req.CartaoId ?? receita.CartaoId, usuarioAutenticadoId, cancellationToken);
+        var contaDestinoIdBase = await ResolverContaDestinoTransferenciaAsync(
+            req.TipoRecebimento,
+            vinculo.ContaBancariaId,
+            req.ContaDestinoId ?? receita.ContaDestinoId,
+            usuarioAutenticadoId,
+            cancellationToken);
 
         var serie = await ListarSerieRecorrenteAsync(receita, usuarioAutenticadoId, cancellationToken);
         var alvos = SelecionarAlvosPorEscopo(serie, receita, escopoRecorrencia);
@@ -240,6 +256,7 @@ public sealed partial class ReceitaService(
             alvo.Imposto = req.Imposto;
             alvo.Juros = req.Juros;
             alvo.ContaBancariaId = vinculo.ContaBancariaId;
+            alvo.ContaDestinoId = contaDestinoIdBase;
             alvo.CartaoId = vinculo.CartaoId;
             if (req.Documentos is not null)
                 alvo.Documentos = await SalvarDocumentosAsync(req.Documentos, usuarioAutenticadoId, receitaId: alvo.Id, cancellationToken: cancellationToken);
@@ -263,6 +280,7 @@ public sealed partial class ReceitaService(
 
             var atualizado = await repository.AtualizarAsync(alvo, cancellationToken);
             await SincronizarEspelhosRateioAsync(atualizado, amigosValidados, req.AreasSubAreasRateio, cancellationToken);
+            atualizado = await SincronizarTransacaoEntreContasAsync(atualizado, usuarioAutenticadoId, cancellationToken);
 
             if (atualizado.Id == id)
                 receitaAtualizada = atualizado;
@@ -317,11 +335,18 @@ public sealed partial class ReceitaService(
         if (!Enum.IsDefined(req.TipoRecebimento) || req.ValorTotal <= 0) throw new DomainException("dados_invalidos");
         if (req.DataEfetivacao < receita.DataLancamento) throw new DomainException("periodo_invalido");
         var vinculo = await ResolverVinculoRecebimentoAsync(req.TipoRecebimento, req.ContaBancariaId ?? receita.ContaBancariaId, req.CartaoId ?? receita.CartaoId, usuarioAutenticadoId, cancellationToken);
+        var contaDestinoId = await ResolverContaDestinoTransferenciaAsync(
+            req.TipoRecebimento,
+            vinculo.ContaBancariaId,
+            req.ContaDestinoId ?? receita.ContaDestinoId,
+            usuarioAutenticadoId,
+            cancellationToken);
         var liquido = Liquido(req.ValorTotal, req.Desconto, req.Acrescimo, req.Imposto, req.Juros);
         var valorAntesTransacao = receita.ValorEfetivacao ?? 0m;
         receita.DataEfetivacao = req.DataEfetivacao;
         receita.TipoRecebimento = req.TipoRecebimento;
         receita.ContaBancariaId = vinculo.ContaBancariaId;
+        receita.ContaDestinoId = contaDestinoId;
         receita.CartaoId = vinculo.CartaoId;
         receita.ValorTotal = req.ValorTotal;
         receita.Desconto = req.Desconto;
@@ -335,6 +360,7 @@ public sealed partial class ReceitaService(
             receita.Documentos = await SalvarDocumentosAsync(req.Documentos, usuarioAutenticadoId, receitaId: receita.Id, cancellationToken: cancellationToken);
         receita.Logs.Add(new ReceitaLog { ReceitaId = receita.Id, UsuarioCadastroId = usuarioAutenticadoId, Acao = AcaoLogs.Atualizacao, Descricao = "Receita efetivada." });
         var receitaAtualizada = await repository.AtualizarAsync(receita, cancellationToken);
+        receitaAtualizada = await SincronizarTransacaoEntreContasAsync(receitaAtualizada, usuarioAutenticadoId, cancellationToken);
         await historicoTransacaoFinanceiraService.RegistrarEfetivacaoAsync(
             TipoTransacaoFinanceira.Receita,
             receitaAtualizada.Id,
@@ -346,6 +372,7 @@ public sealed partial class ReceitaService(
             "Efetivacao de receita",
             null,
             receitaAtualizada.ContaBancariaId,
+            contaDestinoId,
             receitaAtualizada.CartaoId,
             receitaAtualizada.TipoRecebimento,
             cancellationToken: cancellationToken,
@@ -380,6 +407,7 @@ public sealed partial class ReceitaService(
             try
             {
                 atualizado = await repository.AtualizarAsync(alvo, cancellationToken);
+                atualizado = await SincronizarTransacaoEntreContasAsync(atualizado, usuarioAutenticadoId, cancellationToken);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -420,12 +448,19 @@ public sealed partial class ReceitaService(
         if (req.DataEstorno == default) throw new DomainException("data_estorno_obrigatoria");
         if (req.DataEstorno < receita.DataLancamento) throw new DomainException("periodo_invalido");
         if (receita.DataEfetivacao.HasValue && req.DataEstorno < receita.DataEfetivacao.Value) throw new DomainException("periodo_invalido");
+        var contaDestinoId = await ResolverContaDestinoTransferenciaAsync(
+            receita.TipoRecebimento,
+            receita.ContaBancariaId,
+            req.ContaDestinoId ?? receita.ContaDestinoId,
+            usuarioAutenticadoId,
+            cancellationToken);
         var valorAntesTransacao = receita.ValorEfetivacao ?? receita.ValorLiquido;
         receita.Status = StatusReceita.Pendente;
         receita.DataEfetivacao = null;
         receita.ValorEfetivacao = null;
         receita.Logs.Add(new ReceitaLog { ReceitaId = receita.Id, UsuarioCadastroId = usuarioAutenticadoId, Acao = AcaoLogs.Atualizacao, Descricao = "Receita estornada." });
         var receitaAtualizada = await repository.AtualizarAsync(receita, cancellationToken);
+        receitaAtualizada = await SincronizarTransacaoEntreContasAsync(receitaAtualizada, usuarioAutenticadoId, cancellationToken);
         await historicoTransacaoFinanceiraService.RegistrarEstornoAsync(
             TipoTransacaoFinanceira.Receita,
             receitaAtualizada.Id,
@@ -437,6 +472,7 @@ public sealed partial class ReceitaService(
             "Estorno de receita",
             null,
             receita.ContaBancariaId,
+            contaDestinoId,
             receita.CartaoId,
             receita.TipoRecebimento,
             cancellationToken: cancellationToken,
@@ -529,9 +565,9 @@ public sealed partial class ReceitaService(
                 .ThenBy(x => x.Id)
                 .First();
 
-            var alvoBase = grupo.Max(x => x.QuantidadeRecorrencia.GetValueOrDefault(1));
-            if (origem.RecorrenciaFixa)
-                alvoBase = Math.Max(100, alvoBase);
+            var alvoBase = origem.RecorrenciaFixa
+                ? Math.Max(100, grupo.Max(x => x.QuantidadeRecorrencia.GetValueOrDefault(1)))
+                : origem.QuantidadeRecorrencia.GetValueOrDefault(1);
 
             if (alvoBase <= 1)
                 continue;
@@ -545,18 +581,14 @@ public sealed partial class ReceitaService(
             if (string.IsNullOrWhiteSpace(competencia))
                 continue;
 
-            if (!origem.RecorrenciaFixa && alvoBase >= 100)
+            if (!origem.RecorrenciaFixa)
                 continue;
 
             var dataUltima = AvancarData(origem.DataLancamento, origem.Recorrencia, alvoBase - 1);
             if (dataUltima < periodoCompetencia.DataInicio || dataUltima > periodoCompetencia.DataFim)
                 continue;
 
-            var novaQuantidade = origem.RecorrenciaFixa
-                ? alvoBase + 100
-                : Math.Min(100, alvoBase + 10);
-
-            await PublicarRecorrenciaDaOrigemAsync(usuarioAutenticadoId, origem, novaQuantidade, cancellationToken);
+            await PublicarRecorrenciaDaOrigemAsync(usuarioAutenticadoId, origem, alvoBase + 100, cancellationToken);
         }
     }
 
@@ -598,6 +630,7 @@ public sealed partial class ReceitaService(
             origem.Imposto,
             origem.Juros,
             origem.ContaBancariaId,
+            origem.ContaDestinoId,
             origem.CartaoId,
             origem.ValorTotalRateioAmigos,
             origem.TipoRateioAmigos,
@@ -721,7 +754,7 @@ public sealed partial class ReceitaService(
     }
 
     private static bool ContaObrigatoria(TipoRecebimento tipoRecebimento) =>
-        tipoRecebimento is TipoRecebimento.Pix or TipoRecebimento.Transferencia or TipoRecebimento.ContaCorrente;
+        tipoRecebimento is TipoRecebimento.Pix or TipoRecebimento.Transferencia;
 
     private static bool PagamentoCartao(TipoRecebimento tipoRecebimento) =>
         tipoRecebimento is TipoRecebimento.CartaoCredito or TipoRecebimento.CartaoDebito;
@@ -1043,6 +1076,177 @@ public sealed partial class ReceitaService(
         return (contaBancariaId, cartaoId);
     }
 
+    private async Task<long?> ResolverContaDestinoTransferenciaAsync(
+        TipoRecebimento tipoRecebimento,
+        long? contaBancariaOrigemId,
+        long? contaDestinoId,
+        int usuarioAutenticadoId,
+        CancellationToken cancellationToken)
+    {
+        if (tipoRecebimento is not (TipoRecebimento.Transferencia or TipoRecebimento.Pix))
+        {
+            if (contaDestinoId.HasValue)
+                throw new DomainException("conta_destino_invalida");
+            return null;
+        }
+
+        if (!contaDestinoId.HasValue)
+            return null;
+
+        if (!contaBancariaOrigemId.HasValue || contaDestinoId.Value == contaBancariaOrigemId.Value)
+            throw new DomainException("conta_destino_invalida");
+
+        if (await contaRepository.ObterPorIdAsync(contaDestinoId.Value, usuarioAutenticadoId, cancellationToken) is null)
+            throw new DomainException("conta_bancaria_invalida");
+
+        return contaDestinoId;
+    }
+
+    private async Task<Receita> SincronizarTransacaoEntreContasAsync(
+        Receita origem,
+        int usuarioAutenticadoId,
+        CancellationToken cancellationToken)
+    {
+        if (origem.ReceitaOrigemId.HasValue)
+            return origem;
+
+        Despesa? espelho = null;
+        if (origem.DespesaTransferenciaId.HasValue)
+            espelho = await despesaRepository.ObterPorIdAsync(origem.DespesaTransferenciaId.Value, usuarioAutenticadoId, cancellationToken);
+
+        if (!EhTransacaoEntreContas(origem.TipoRecebimento, origem.ContaBancariaId, origem.ContaDestinoId, origem.CartaoId))
+        {
+            if (espelho is not null && espelho.Status != StatusDespesa.Cancelada)
+            {
+                espelho.Status = StatusDespesa.Cancelada;
+                espelho.DataEfetivacao = null;
+                espelho.ValorEfetivacao = null;
+                espelho.Logs.Add(new DespesaLog
+                {
+                    DespesaId = espelho.Id,
+                    UsuarioCadastroId = usuarioAutenticadoId,
+                    Acao = AcaoLogs.Atualizacao,
+                    Descricao = "Despesa espelhada cancelada por alteracao da transacao de origem."
+                });
+                await despesaRepository.AtualizarAsync(espelho, cancellationToken);
+            }
+
+            if (origem.DespesaTransferenciaId.HasValue)
+            {
+                origem.DespesaTransferenciaId = null;
+                origem = await repository.AtualizarAsync(origem, cancellationToken);
+            }
+
+            return origem;
+        }
+
+        if (espelho is null)
+        {
+            var novoEspelho = CriarDespesaEspelhoTransacaoEntreContas(origem, usuarioAutenticadoId);
+            var espelhoCriado = await despesaRepository.CriarAsync(novoEspelho, cancellationToken);
+            origem.DespesaTransferenciaId = espelhoCriado.Id;
+            origem = await repository.AtualizarAsync(origem, cancellationToken);
+            return origem;
+        }
+
+        AplicarSnapshotNoEspelhoDespesa(origem, espelho);
+        if (espelho.ReceitaTransferenciaId != origem.Id)
+            espelho.ReceitaTransferenciaId = origem.Id;
+        await despesaRepository.AtualizarAsync(espelho, cancellationToken);
+
+        if (origem.DespesaTransferenciaId != espelho.Id)
+        {
+            origem.DespesaTransferenciaId = espelho.Id;
+            origem = await repository.AtualizarAsync(origem, cancellationToken);
+        }
+
+        return origem;
+    }
+
+    private static bool EhTransacaoEntreContas(TipoRecebimento tipoRecebimento, long? contaBancariaOrigemId, long? contaDestinoId, long? cartaoId) =>
+        tipoRecebimento is TipoRecebimento.Transferencia or TipoRecebimento.Pix
+        && contaBancariaOrigemId.HasValue
+        && contaDestinoId.HasValue
+        && !cartaoId.HasValue;
+
+    private static Despesa CriarDespesaEspelhoTransacaoEntreContas(Receita origem, int usuarioAutenticadoId) =>
+        new()
+        {
+            UsuarioCadastroId = origem.UsuarioCadastroId,
+            Descricao = origem.Descricao,
+            Observacao = origem.Observacao,
+            DataLancamento = origem.DataLancamento,
+            DataVencimento = origem.DataVencimento,
+            DataEfetivacao = origem.DataEfetivacao,
+            TipoDespesa = TipoDespesa.Outros,
+            TipoPagamento = ConverterParaTipoPagamento(origem.TipoRecebimento),
+            Recorrencia = origem.Recorrencia,
+            RecorrenciaFixa = origem.RecorrenciaFixa,
+            QuantidadeRecorrencia = origem.QuantidadeRecorrencia,
+            ValorTotal = origem.ValorTotal,
+            ValorLiquido = origem.ValorLiquido,
+            Desconto = origem.Desconto,
+            Acrescimo = origem.Acrescimo,
+            Imposto = origem.Imposto,
+            Juros = origem.Juros,
+            ValorEfetivacao = origem.ValorEfetivacao,
+            Status = ConverterStatusParaDespesa(origem.Status),
+            ContaBancariaId = origem.ContaDestinoId,
+            ContaDestinoId = origem.ContaBancariaId,
+            CartaoId = null,
+            ReceitaTransferenciaId = origem.Id,
+            Logs =
+            [
+                new DespesaLog
+                {
+                    UsuarioCadastroId = usuarioAutenticadoId,
+                    Acao = AcaoLogs.Cadastro,
+                    Descricao = "Despesa espelhada criada automaticamente por transacao entre contas."
+                }
+            ]
+        };
+
+    private static void AplicarSnapshotNoEspelhoDespesa(Receita origem, Despesa espelho)
+    {
+        espelho.Descricao = origem.Descricao;
+        espelho.Observacao = origem.Observacao;
+        espelho.DataLancamento = origem.DataLancamento;
+        espelho.DataVencimento = origem.DataVencimento;
+        espelho.DataEfetivacao = origem.DataEfetivacao;
+        espelho.TipoPagamento = ConverterParaTipoPagamento(origem.TipoRecebimento);
+        espelho.Recorrencia = origem.Recorrencia;
+        espelho.RecorrenciaFixa = origem.RecorrenciaFixa;
+        espelho.QuantidadeRecorrencia = origem.QuantidadeRecorrencia;
+        espelho.ValorTotal = origem.ValorTotal;
+        espelho.ValorLiquido = origem.ValorLiquido;
+        espelho.Desconto = origem.Desconto;
+        espelho.Acrescimo = origem.Acrescimo;
+        espelho.Imposto = origem.Imposto;
+        espelho.Juros = origem.Juros;
+        espelho.ValorEfetivacao = origem.ValorEfetivacao;
+        espelho.Status = ConverterStatusParaDespesa(origem.Status);
+        espelho.ContaBancariaId = origem.ContaDestinoId;
+        espelho.ContaDestinoId = origem.ContaBancariaId;
+        espelho.CartaoId = null;
+    }
+
+    private static TipoPagamento ConverterParaTipoPagamento(TipoRecebimento tipoRecebimento) =>
+        tipoRecebimento switch
+        {
+            TipoRecebimento.Pix => TipoPagamento.Pix,
+            TipoRecebimento.Transferencia => TipoPagamento.Transferencia,
+            _ => TipoPagamento.Transferencia
+        };
+
+    private static StatusDespesa ConverterStatusParaDespesa(StatusReceita status) =>
+        status switch
+        {
+            StatusReceita.Pendente => StatusDespesa.Pendente,
+            StatusReceita.Efetivada => StatusDespesa.Efetivada,
+            StatusReceita.Cancelada => StatusDespesa.Cancelada,
+            _ => StatusDespesa.Pendente
+        };
+
     private static string? NormalizarObservacao(string? observacao)
     {
         var observacaoNormalizada = observacao?.Trim();
@@ -1063,6 +1267,7 @@ public sealed partial class ReceitaService(
             receita.ValorEfetivacao,
             receita.Status.ToString().ToLowerInvariant(),
             receita.ContaBancariaId,
+            receita.ContaDestinoId,
             receita.CartaoId);
 
     private static ReceitaDto Map(Receita receita) =>
@@ -1095,6 +1300,7 @@ public sealed partial class ReceitaService(
                 x.SubArea?.Nome ?? string.Empty,
                 x.Valor)).ToArray(),
             receita.ContaBancariaId,
+            receita.ContaDestinoId,
             receita.CartaoId,
             receita.Documentos.Select(x => new DocumentoDto(x.NomeArquivo, x.CaminhoArquivo, x.ContentType, x.TamanhoBytes)).ToArray(),
             receita.Logs.Select(x => new ReceitaLogDto(x.Id, DateOnly.FromDateTime(x.DataHoraCadastro), x.Acao, x.Descricao)).ToArray());
