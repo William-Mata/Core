@@ -79,6 +79,7 @@ public sealed class ReembolsoService(
         {
             Descricao = descricao,
             Solicitante = solicitante,
+            Competencia = ResolverCompetencia(request.Competencia),
             DataLancamento = request.DataLancamento,
             DataEfetivacao = request.DataEfetivacao,
             Documentos = documentos,
@@ -114,6 +115,7 @@ public sealed class ReembolsoService(
 
         reembolso.Descricao = descricao;
         reembolso.Solicitante = solicitante;
+        reembolso.Competencia = ResolverCompetencia(request.Competencia, request.DataLancamento);
         reembolso.DataLancamento = request.DataLancamento;
         reembolso.DataEfetivacao = request.DataEfetivacao;
         if (request.Documentos is not null)
@@ -348,6 +350,7 @@ public sealed class ReembolsoService(
             reembolso.Id,
             reembolso.Descricao,
             reembolso.Solicitante,
+            reembolso.Competencia,
             reembolso.DataLancamento,
             reembolso.DataEfetivacao,
             reembolso.Despesas.Select(x => x.DespesaId).ToArray(),
@@ -360,6 +363,7 @@ public sealed class ReembolsoService(
             reembolso.Id,
             reembolso.Descricao,
             reembolso.Solicitante,
+            reembolso.Competencia,
             reembolso.DataLancamento,
             reembolso.DataEfetivacao,
             reembolso.ValorTotal,
@@ -422,5 +426,17 @@ public sealed class ReembolsoService(
         {
             throw new DomainException("periodo_invalido");
         }
+    }
+
+    private static string ResolverCompetencia(string? competencia, DateOnly? referencia = null)
+    {
+        var data = referencia?.ToDateTime(TimeOnly.MinValue) ?? DateTime.Now;
+
+        if (string.IsNullOrWhiteSpace(competencia))
+            return new DateTime(data.Year, data.Month, 1).ToString("yyyy-MM");
+
+        var periodo = CompetenciaPeriodoHelper.Resolver(competencia, null, null);
+        var competenciaData = periodo.DataInicio?.ToDateTime(TimeOnly.MinValue) ?? new DateTime(data.Year, data.Month, 1);
+        return competenciaData.ToString("yyyy-MM");
     }
 }

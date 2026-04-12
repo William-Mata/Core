@@ -22,7 +22,8 @@ public sealed class HistoricoTransacaoFinanceiraService(IHistoricoTransacaoFinan
         TipoRecebimento? tipoRecebimento = null,
         CancellationToken cancellationToken = default,
         string? observacao = null,
-        bool ocultarDoHistorico = false) =>
+        bool ocultarDoHistorico = false,
+        long? transacaoIdEspelho = null) =>
         RegistrarAsync(
             tipoTransacao,
             transacaoId,
@@ -40,6 +41,7 @@ public sealed class HistoricoTransacaoFinanceiraService(IHistoricoTransacaoFinan
             cartaoId,
             observacao,
             ocultarDoHistorico,
+            transacaoIdEspelho,
             cancellationToken);
 
     public async Task RegistrarEstornoAsync(
@@ -58,7 +60,8 @@ public sealed class HistoricoTransacaoFinanceiraService(IHistoricoTransacaoFinan
         TipoRecebimento? tipoRecebimento = null,
         CancellationToken cancellationToken = default,
         string? observacao = null,
-        bool ocultarDoHistorico = false)
+        bool ocultarDoHistorico = false,
+        long? transacaoIdEspelho = null)
     {
         if (!contaBancariaId.HasValue && !cartaoId.HasValue)
         {
@@ -73,8 +76,13 @@ public sealed class HistoricoTransacaoFinanceiraService(IHistoricoTransacaoFinan
             }
         }
 
+        var tipoTransacaoEspelho = ObterTipoTransacaoEspelho(tipoTransacao);
         if (ocultarDoHistorico)
+        {
             await repository.MarcarOcultoPorTransacaoAsync(tipoTransacao, transacaoId, cancellationToken);
+            if (tipoTransacaoEspelho.HasValue && transacaoIdEspelho.HasValue)
+                await repository.MarcarOcultoPorTransacaoAsync(tipoTransacaoEspelho.Value, transacaoIdEspelho.Value, cancellationToken);
+        }
 
         await RegistrarAsync(
             tipoTransacao,
@@ -93,6 +101,7 @@ public sealed class HistoricoTransacaoFinanceiraService(IHistoricoTransacaoFinan
             cartaoId,
             observacao,
             ocultarDoHistorico,
+            transacaoIdEspelho,
             cancellationToken);
     }
 
@@ -113,6 +122,7 @@ public sealed class HistoricoTransacaoFinanceiraService(IHistoricoTransacaoFinan
         long? cartaoId,
         string? observacao,
         bool ocultarDoHistorico,
+        long? transacaoIdEspelho,
         CancellationToken cancellationToken)
     {
         var historicoOrigem = CriarHistorico(
@@ -138,6 +148,7 @@ public sealed class HistoricoTransacaoFinanceiraService(IHistoricoTransacaoFinan
             contaBancariaId,
             contaDestinoId,
             cartaoId,
+            transacaoIdEspelho,
             cancellationToken);
     }
 
@@ -146,11 +157,12 @@ public sealed class HistoricoTransacaoFinanceiraService(IHistoricoTransacaoFinan
         long? contaBancariaIdOrigem,
         long? contaDestinoId,
         long? cartaoId,
+        long? transacaoIdEspelho,
         CancellationToken cancellationToken)
     {
         await repository.CriarAsync(historicoOrigem, cancellationToken);
 
-        var historicoEspelho = CriarHistoricoEspelhoSeTransferencia(historicoOrigem, contaBancariaIdOrigem, contaDestinoId, cartaoId);
+        var historicoEspelho = CriarHistoricoEspelhoSeTransferencia(historicoOrigem, contaBancariaIdOrigem, contaDestinoId, cartaoId, transacaoIdEspelho);
         if (historicoEspelho is null)
             return;
 
@@ -161,7 +173,8 @@ public sealed class HistoricoTransacaoFinanceiraService(IHistoricoTransacaoFinan
         HistoricoTransacaoFinanceira historicoOrigem,
         long? contaBancariaIdOrigem,
         long? contaDestinoId,
-        long? cartaoId)
+        long? cartaoId,
+        long? transacaoIdEspelho)
     {
         if (!contaDestinoId.HasValue || cartaoId.HasValue)
             return null;
@@ -171,12 +184,7 @@ public sealed class HistoricoTransacaoFinanceiraService(IHistoricoTransacaoFinan
         if (!ehMovimentacaoEntreContas)
             return null;
 
-        var tipoTransacaoEspelho = historicoOrigem.TipoTransacao switch
-        {
-            TipoTransacaoFinanceira.Despesa => TipoTransacaoFinanceira.Receita,
-            TipoTransacaoFinanceira.Receita => TipoTransacaoFinanceira.Despesa,
-            _ => (TipoTransacaoFinanceira?)null
-        };
+        var tipoTransacaoEspelho = ObterTipoTransacaoEspelho(historicoOrigem.TipoTransacao);
 
         if (!tipoTransacaoEspelho.HasValue)
             return null;
@@ -191,7 +199,7 @@ public sealed class HistoricoTransacaoFinanceiraService(IHistoricoTransacaoFinan
         return CriarHistorico(
             historicoOrigem.UsuarioOperacaoId,
             tipoTransacaoEspelho.Value,
-            historicoOrigem.TransacaoId,
+            transacaoIdEspelho ?? historicoOrigem.TransacaoId,
             historicoOrigem.TipoOperacao,
             contaDestinoId,
             contaBancariaIdOrigem,
@@ -206,6 +214,14 @@ public sealed class HistoricoTransacaoFinanceiraService(IHistoricoTransacaoFinan
             historicoOrigem.ValorTransacao,
             historicoOrigem.ValorDepoisTransacao);
     }
+
+    private static TipoTransacaoFinanceira? ObterTipoTransacaoEspelho(TipoTransacaoFinanceira tipoTransacao) =>
+        tipoTransacao switch
+        {
+            TipoTransacaoFinanceira.Despesa => TipoTransacaoFinanceira.Receita,
+            TipoTransacaoFinanceira.Receita => TipoTransacaoFinanceira.Despesa,
+            _ => (TipoTransacaoFinanceira?)null
+        };
 
     private static TipoPagamento? ConverterParaTipoPagamentoEspelho(TipoRecebimento? origemRecebimento, TipoPagamento? origemPagamento)
     {

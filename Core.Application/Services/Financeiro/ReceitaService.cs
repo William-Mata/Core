@@ -60,6 +60,7 @@ public sealed partial class ReceitaService(
             }
 
             return receitas
+                .Where(x => !EhTransacaoEntreContas(x))
                 .Select(MapLista)
                 .ToArray();
         }
@@ -121,6 +122,7 @@ public sealed partial class ReceitaService(
         {
             Descricao = req.Descricao.Trim(),
             Observacao = req.Observacao,
+            Competencia = ResolverCompetencia(req.Competencia),
             DataLancamento = req.DataLancamento,
             DataVencimento = req.DataVencimento,
             TipoReceita = req.TipoReceita,
@@ -237,10 +239,12 @@ public sealed partial class ReceitaService(
         foreach (var alvo in alvos)
         {
             var deslocamento = indicePorId.GetValueOrDefault(alvo.Id, indiceBase) - indiceBase;
+            var dataLancamentoBase = AvancarData(req.DataLancamento, req.Recorrencia, deslocamento);
 
             alvo.Descricao = req.Descricao.Trim();
             alvo.Observacao = req.Observacao;
-            alvo.DataLancamento = AvancarData(req.DataLancamento, req.Recorrencia, deslocamento);
+            alvo.Competencia = ResolverCompetencia(req.Competencia, dataLancamentoBase);
+            alvo.DataLancamento = dataLancamentoBase;
             alvo.DataVencimento = AvancarData(req.DataVencimento, req.Recorrencia, deslocamento);
             alvo.TipoReceita = req.TipoReceita;
             alvo.TipoRecebimento = req.TipoRecebimento;
@@ -376,7 +380,8 @@ public sealed partial class ReceitaService(
             receitaAtualizada.CartaoId,
             receitaAtualizada.TipoRecebimento,
             cancellationToken: cancellationToken,
-            observacao: NormalizarObservacao(req.ObservacaoHistorico));
+            observacao: NormalizarObservacao(req.ObservacaoHistorico),
+            transacaoIdEspelho: receitaAtualizada.DespesaTransferenciaId);
 
         return Map(receitaAtualizada);
     }
@@ -477,7 +482,8 @@ public sealed partial class ReceitaService(
             receita.TipoRecebimento,
             cancellationToken: cancellationToken,
             observacao: NormalizarObservacao(req.ObservacaoHistorico),
-            ocultarDoHistorico: req.OcultarDoHistorico);
+            ocultarDoHistorico: req.OcultarDoHistorico,
+            transacaoIdEspelho: receitaAtualizada.DespesaTransferenciaId);
 
         return Map(receitaAtualizada);
     }
@@ -1257,6 +1263,7 @@ public sealed partial class ReceitaService(
         new(
             receita.Id,
             receita.Descricao,
+            receita.Competencia,
             receita.DataLancamento,
             receita.DataVencimento,
             receita.DataEfetivacao,
@@ -1270,11 +1277,21 @@ public sealed partial class ReceitaService(
             receita.ContaDestinoId,
             receita.CartaoId);
 
+    private static bool EhTransacaoEntreContas(Receita receita) =>
+        receita.DespesaTransferenciaId.HasValue ||
+        (
+            receita.TipoRecebimento is TipoRecebimento.Transferencia or TipoRecebimento.Pix &&
+            receita.ContaBancariaId.HasValue &&
+            receita.ContaDestinoId.HasValue &&
+            !receita.CartaoId.HasValue
+        );
+
     private static ReceitaDto Map(Receita receita) =>
         new(
             receita.Id,
             receita.Descricao,
             receita.Observacao,
+            receita.Competencia,
             receita.DataLancamento,
             receita.DataVencimento,
             receita.DataEfetivacao,
@@ -1304,4 +1321,16 @@ public sealed partial class ReceitaService(
             receita.CartaoId,
             receita.Documentos.Select(x => new DocumentoDto(x.NomeArquivo, x.CaminhoArquivo, x.ContentType, x.TamanhoBytes)).ToArray(),
             receita.Logs.Select(x => new ReceitaLogDto(x.Id, DateOnly.FromDateTime(x.DataHoraCadastro), x.Acao, x.Descricao)).ToArray());
+
+    private static string ResolverCompetencia(string? competencia, DateOnly? referencia = null)
+    {
+        var data = referencia?.ToDateTime(TimeOnly.MinValue) ?? DateTime.Now;
+
+        if (string.IsNullOrWhiteSpace(competencia))
+            return new DateTime(data.Year, data.Month, 1).ToString("yyyy-MM");
+
+        var periodo = CompetenciaPeriodoHelper.Resolver(competencia, null, null);
+        var competenciaData = periodo.DataInicio?.ToDateTime(TimeOnly.MinValue) ?? new DateTime(data.Year, data.Month, 1);
+        return competenciaData.ToString("yyyy-MM");
+    }
 }

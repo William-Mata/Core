@@ -44,6 +44,12 @@ public sealed class AreaRepository(AppDbContext dbContext) : IAreaRepository
                 where rateio.UsuarioCadastroId == usuarioId
                     && rateio.Valor.HasValue
                     && despesa.Status == StatusDespesa.Efetivada
+                    && !despesa.ReceitaTransferenciaId.HasValue
+                    && !(
+                        (despesa.TipoPagamento == TipoPagamento.Transferencia || despesa.TipoPagamento == TipoPagamento.Pix)
+                        && despesa.ContaBancariaId.HasValue
+                        && despesa.ContaDestinoId.HasValue
+                        && !despesa.CartaoId.HasValue)
                 select rateio)
                 .GroupBy(x => new { x.AreaId, x.SubAreaId })
                 .Select(x => new AreaSubAreaRateioSoma(x.Key.AreaId, x.Key.SubAreaId, x.Sum(y => y.Valor ?? 0m)))
@@ -57,6 +63,12 @@ public sealed class AreaRepository(AppDbContext dbContext) : IAreaRepository
                 where rateio.UsuarioCadastroId == usuarioId
                     && rateio.Valor.HasValue
                     && receita.Status == StatusReceita.Efetivada
+                    && !receita.DespesaTransferenciaId.HasValue
+                    && !(
+                        (receita.TipoRecebimento == TipoRecebimento.Transferencia || receita.TipoRecebimento == TipoRecebimento.Pix)
+                        && receita.ContaBancariaId.HasValue
+                        && receita.ContaDestinoId.HasValue
+                        && !receita.CartaoId.HasValue)
                 select rateio)
                 .GroupBy(x => new { x.AreaId, x.SubAreaId })
                 .Select(x => new AreaSubAreaRateioSoma(x.Key.AreaId, x.Key.SubAreaId, x.Sum(y => y.Valor ?? 0m)))

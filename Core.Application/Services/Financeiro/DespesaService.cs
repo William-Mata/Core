@@ -60,6 +60,7 @@ public sealed partial class DespesaService(
             }
 
             return despesas
+                .Where(x => !EhTransacaoEntreContas(x))
                 .Select(MapLista)
                 .ToArray();
         }
@@ -124,6 +125,7 @@ public sealed partial class DespesaService(
         {
             Descricao = req.Descricao.Trim(),
             Observacao = req.Observacao,
+            Competencia = ResolverCompetencia(req.Competencia),
             DataLancamento = req.DataLancamento,
             DataVencimento = req.DataVencimento,
             TipoDespesa = req.TipoDespesa,
@@ -245,10 +247,12 @@ public sealed partial class DespesaService(
         foreach (var alvo in alvos)
         {
             var deslocamento = indicePorId.GetValueOrDefault(alvo.Id, indiceBase) - indiceBase;
+            var dataLancamentoBase = AvancarData(req.DataLancamento, recorrencia, deslocamento);
 
             alvo.Descricao = req.Descricao.Trim();
             alvo.Observacao = req.Observacao;
-            alvo.DataLancamento = AvancarData(req.DataLancamento, recorrencia, deslocamento);
+            alvo.Competencia = ResolverCompetencia(req.Competencia, dataLancamentoBase);
+            alvo.DataLancamento = dataLancamentoBase;
             alvo.DataVencimento = AvancarData(req.DataVencimento, recorrencia, deslocamento);
             alvo.TipoDespesa = req.TipoDespesa;
             alvo.TipoPagamento = req.TipoPagamento;
@@ -391,7 +395,8 @@ public sealed partial class DespesaService(
             contaDestinoId,
             despesaAtualizada.CartaoId,
             cancellationToken: cancellationToken,
-            observacao: NormalizarObservacao(req.ObservacaoHistorico));
+            observacao: NormalizarObservacao(req.ObservacaoHistorico),
+            transacaoIdEspelho: despesaAtualizada.ReceitaTransferenciaId);
 
         return Map(despesaAtualizada);
     }
@@ -470,7 +475,8 @@ public sealed partial class DespesaService(
             despesa.CartaoId,
             cancellationToken: cancellationToken,
             observacao: NormalizarObservacao(req.ObservacaoHistorico),
-            ocultarDoHistorico: req.OcultarDoHistorico);
+            ocultarDoHistorico: req.OcultarDoHistorico,
+            transacaoIdEspelho: despesaAtualizada.ReceitaTransferenciaId);
 
         return Map(despesaAtualizada);
     }
@@ -1267,6 +1273,7 @@ public sealed partial class DespesaService(
         new(
             despesa.Id,
             despesa.Descricao,
+            despesa.Competencia,
             despesa.DataLancamento,
             despesa.DataVencimento,
             despesa.DataEfetivacao,
@@ -1280,11 +1287,21 @@ public sealed partial class DespesaService(
             despesa.ContaDestinoId,
             despesa.CartaoId);
 
+    private static bool EhTransacaoEntreContas(Despesa despesa) =>
+        despesa.ReceitaTransferenciaId.HasValue ||
+        (
+            despesa.TipoPagamento is TipoPagamento.Transferencia or TipoPagamento.Pix &&
+            despesa.ContaBancariaId.HasValue &&
+            despesa.ContaDestinoId.HasValue &&
+            !despesa.CartaoId.HasValue
+        );
+
     private static DespesaDto Map(Despesa despesa) =>
         new(
             despesa.Id,
             despesa.Descricao,
             despesa.Observacao,
+            despesa.Competencia,
             despesa.DataLancamento,
             despesa.DataVencimento,
             despesa.DataEfetivacao,
@@ -1315,4 +1332,16 @@ public sealed partial class DespesaService(
             despesa.CartaoId,
             despesa.Documentos.Select(x => new DocumentoDto(x.NomeArquivo, x.CaminhoArquivo, x.ContentType, x.TamanhoBytes)).ToArray(),
             despesa.Logs.Select(x => new DespesaLogDto(x.Id, DateOnly.FromDateTime(x.DataHoraCadastro), x.Acao, x.Descricao)).ToArray());
+
+    private static string ResolverCompetencia(string? competencia, DateOnly? referencia = null)
+    {
+        var data = referencia?.ToDateTime(TimeOnly.MinValue) ?? DateTime.Now;
+
+        if (string.IsNullOrWhiteSpace(competencia))
+            return new DateTime(data.Year, data.Month, 1).ToString("yyyy-MM");
+
+        var periodo = CompetenciaPeriodoHelper.Resolver(competencia, null, null);
+        var competenciaData = periodo.DataInicio?.ToDateTime(TimeOnly.MinValue) ?? new DateTime(data.Year, data.Month, 1);
+        return competenciaData.ToString("yyyy-MM");
+    }
 }

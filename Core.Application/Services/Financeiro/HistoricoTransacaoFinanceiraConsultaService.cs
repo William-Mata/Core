@@ -62,7 +62,9 @@ public sealed class HistoricoTransacaoFinanceiraConsultaService(
             throw new DomainException("ano_invalido");
 
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
-        var historicos = await repository.ListarPorUsuarioResumoAsync(usuarioAutenticadoId, ano, cancellationToken);
+        var historicos = (await repository.ListarPorUsuarioResumoAsync(usuarioAutenticadoId, ano, cancellationToken))
+            .Where(x => !EhMovimentacaoEntreContas(x))
+            .ToArray();
         var totais = CalcularTotais(historicos);
 
         return new ResumoHistoricoTransacaoFinanceiraDto(
@@ -82,7 +84,9 @@ public sealed class HistoricoTransacaoFinanceiraConsultaService(
             throw new DomainException("ano_invalido");
 
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
-        var historicos = await repository.ListarPorUsuarioResumoAsync(usuarioAutenticadoId, ano, cancellationToken);
+        var historicos = (await repository.ListarPorUsuarioResumoAsync(usuarioAutenticadoId, ano, cancellationToken))
+            .Where(x => !EhMovimentacaoEntreContas(x))
+            .ToArray();
         var culturaPtBr = new CultureInfo("pt-BR");
 
         return Enumerable.Range(1, 12)
@@ -271,4 +275,11 @@ public sealed class HistoricoTransacaoFinanceiraConsultaService(
             totalEstornos,
             totalReceitas + totalDespesas + totalReembolsos + totalEstornos);
     }
+
+    private static bool EhMovimentacaoEntreContas(HistoricoTransacaoFinanceira historico) =>
+        (historico.TipoPagamento is TipoPagamento.Transferencia or TipoPagamento.Pix
+            || historico.TipoRecebimento is TipoRecebimento.Transferencia or TipoRecebimento.Pix)
+        && historico.ContaBancariaId.HasValue
+        && historico.ContaDestinoId.HasValue
+        && !historico.CartaoId.HasValue;
 }
