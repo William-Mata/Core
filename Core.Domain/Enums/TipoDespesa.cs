@@ -8,5 +8,6 @@ public enum TipoDespesa
     Lazer = 4,
     Saude = 5,
     Educacao = 6,
-    Servicos = 7
+    Servicos = 7,
+    Outros = 8
 }

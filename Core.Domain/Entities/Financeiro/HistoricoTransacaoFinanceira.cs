@@ -12,6 +12,7 @@ public sealed class HistoricoTransacaoFinanceira
     public TipoOperacaoTransacaoFinanceira TipoOperacao { get; set; }
     public TipoContaTransacaoFinanceira TipoConta { get; set; } = TipoContaTransacaoFinanceira.NaoInformado;
     public long? ContaBancariaId { get; set; }
+    public long? ContaDestinoId { get; set; }
     public long? CartaoId { get; set; }
     public DateOnly DataTransacao { get; set; }
     public string Descricao { get; set; } = string.Empty;

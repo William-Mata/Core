@@ -35,16 +35,24 @@ BEGIN
         ValorEfetivacao DECIMAL(18,2) NULL,
         Status NVARCHAR(20) NOT NULL CONSTRAINT DF_Receita_Status DEFAULT (N'Pendente'),
         ContaBancariaId BIGINT NULL,
+        ContaDestinoId BIGINT NULL,
+        DespesaTransferenciaId BIGINT NULL,
+        CartaoId BIGINT NULL,
         CONSTRAINT PK_Receita PRIMARY KEY CLUSTERED (Id),
         CONSTRAINT CK_Receita_Recorrencia CHECK (Recorrencia IN (N'Unica', N'Diaria', N'Semanal', N'Quinzenal', N'Mensal', N'Trimestral', N'Semestral', N'Anual')),
         CONSTRAINT CK_Receita_RecorrenciaFixa CHECK (Recorrencia <> N'Unica' OR RecorrenciaFixa = 0),
         CONSTRAINT CK_Receita_QuantidadeRecorrencia CHECK (QuantidadeRecorrencia IS NULL OR QuantidadeRecorrencia > 0),
         CONSTRAINT CK_Receita_Status CHECK (Status IN (N'Pendente', N'Efetivada', N'Cancelada')),
         CONSTRAINT CK_Receita_TipoReceita CHECK (TipoReceita IN (N'salario', N'freelance', N'reembolso', N'investimento', N'bonus', N'outros')),
-        CONSTRAINT CK_Receita_TipoRecebimento CHECK (TipoRecebimento IN (N'pix', N'transferencia', N'contaCorrente', N'dinheiro', N'boleto')),
+        CONSTRAINT CK_Receita_TipoRecebimento CHECK (TipoRecebimento IN (N'pix', N'transferencia', N'dinheiro', N'boleto', N'cartaoCredito', N'cartaoDebito')),
         CONSTRAINT CK_Receita_TipoRateioAmigos CHECK (TipoRateioAmigos IS NULL OR TipoRateioAmigos IN (N'Comum', N'Igualitario'))
     );
 END;
+GO
+
+UPDATE dbo.Receita
+SET TipoRecebimento = N'transferencia'
+WHERE TipoRecebimento = N'contaCorrente';
 GO
 
 IF COL_LENGTH('dbo.Receita', 'AnexoDocumento') IS NOT NULL
@@ -80,6 +88,18 @@ GO
 IF COL_LENGTH('dbo.Receita', 'DataEfetivacao') IS NULL
 BEGIN
     ALTER TABLE dbo.Receita ADD DataEfetivacao DATE NULL;
+END;
+GO
+
+IF COL_LENGTH('dbo.Receita', 'ContaDestinoId') IS NULL
+BEGIN
+    ALTER TABLE dbo.Receita ADD ContaDestinoId BIGINT NULL;
+END;
+GO
+
+IF COL_LENGTH('dbo.Receita', 'DespesaTransferenciaId') IS NULL
+BEGIN
+    ALTER TABLE dbo.Receita ADD DespesaTransferenciaId BIGINT NULL;
 END;
 GO
 

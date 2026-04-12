@@ -17,6 +17,8 @@ GO
     SELECT N'dbo.Despesa', N'TipoRateioAmigos' UNION ALL
     SELECT N'dbo.Despesa', N'DespesaRecorrenciaOrigemId' UNION ALL
     SELECT N'dbo.Despesa', N'ValorEfetivacao' UNION ALL
+    SELECT N'dbo.Despesa', N'ContaDestinoId' UNION ALL
+    SELECT N'dbo.Despesa', N'ReceitaTransferenciaId' UNION ALL
     SELECT N'dbo.DespesaAmigoRateio', N'Valor' UNION ALL
     SELECT N'dbo.DespesaAreaRateio', N'Valor' UNION ALL
     SELECT N'dbo.Receita', N'DataEfetivacao' UNION ALL
@@ -27,6 +29,8 @@ GO
     SELECT N'dbo.Receita', N'TipoRateioAmigos' UNION ALL
     SELECT N'dbo.Receita', N'ValorEfetivacao' UNION ALL
     SELECT N'dbo.Receita', N'ContaBancariaId' UNION ALL
+    SELECT N'dbo.Receita', N'ContaDestinoId' UNION ALL
+    SELECT N'dbo.Receita', N'DespesaTransferenciaId' UNION ALL
     SELECT N'dbo.ReceitaAmigoRateio', N'Valor' UNION ALL
     SELECT N'dbo.ReceitaAreaRateio', N'Valor' UNION ALL
     SELECT N'dbo.HistoricoTransacaoFinanceira', N'TipoPagamento' UNION ALL

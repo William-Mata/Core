@@ -10,6 +10,7 @@ BEGIN
         TipoOperacao NVARCHAR(30) NOT NULL,
         TipoConta NVARCHAR(30) NOT NULL,
         ContaBancariaId BIGINT NULL,
+        ContaDestinoId BIGINT NULL,
         CartaoId BIGINT NULL,
         DataTransacao DATE NOT NULL,
         Descricao NVARCHAR(300) NOT NULL,
@@ -23,6 +24,13 @@ BEGIN
         CONSTRAINT CK_HistoricoTransacaoFinanceira_ContaOuCartaoExclusivo
             CHECK (NOT (ContaBancariaId IS NOT NULL AND CartaoId IS NOT NULL))
     );
+END;
+GO
+
+IF COL_LENGTH(N'dbo.HistoricoTransacaoFinanceira', N'ContaDestinoId') IS NULL
+BEGIN
+    ALTER TABLE dbo.HistoricoTransacaoFinanceira
+        ADD ContaDestinoId BIGINT NULL;
 END;
 GO
 

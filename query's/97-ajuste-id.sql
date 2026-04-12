@@ -3,7 +3,7 @@ SELECT
     fk.name AS NomeFK,
     OBJECT_SCHEMA_NAME(fk.parent_object_id) + '.' + OBJECT_NAME(fk.parent_object_id) AS TabelaFilha
 FROM sys.foreign_keys fk
-WHERE fk.referenced_object_id = OBJECT_ID('dbo.DespesaLog');
+WHERE fk.referenced_object_id = OBJECT_ID('dbo.HistoricoTransacaoFinanceira');
 
 
 
@@ -14,13 +14,15 @@ WHERE fk.referenced_object_id = OBJECT_ID('dbo.DespesaLog');
     SELECT
         IdAtual = Id,
         NovoId  = ROW_NUMBER() OVER (ORDER BY Id)
-    FROM dbo.DespesaLog
+    FROM dbo.HistoricoTransacaoFinanceira
 )
 SELECT *
 FROM Mapeamento
 WHERE IdAtual <> NovoId
 ORDER BY IdAtual;
 
+
+select * from HistoricoTransacaoFinanceira where id = 0
 
 
 -- REALIZAR O AJUSTE
@@ -35,29 +37,33 @@ BEGIN TRY
 
     SELECT
         NovoId = ROW_NUMBER() OVER (ORDER BY Id),
-        DataHoraCadastro,	UsuarioCadastroId,	DespesaId,	Acao,	Descricao
+        DataHoraCadastro, UsuarioOperacaoId,	TipoTransacao,	TransacaoId,	TipoOperacao,	TipoConta,	ContaBancariaId,	CartaoId,	DataTransacao,	Descricao,	TipoPagamento,	ValorAntesTransacao,	ValorTransacao,	ValorDepoisTransacao,	TipoRecebimento,	Observacao,	OcultarDoHistorico,	ContaDestinoId
     INTO #Reordenado
-    FROM dbo.DespesaLog WITH (HOLDLOCK, TABLOCKX);
+    FROM dbo.HistoricoTransacaoFinanceira WITH (HOLDLOCK, TABLOCKX);
 
     DECLARE @Qtd INT = (SELECT COUNT(*) FROM #Reordenado);
 
-    DELETE FROM dbo.DespesaLog;
+    DELETE FROM dbo.HistoricoTransacaoFinanceira;
 
-    SET IDENTITY_INSERT dbo.DespesaLog ON;
+    SET IDENTITY_INSERT dbo.HistoricoTransacaoFinanceira ON;
 
-    INSERT INTO dbo.DespesaLog
+    INSERT INTO dbo.HistoricoTransacaoFinanceira
     (
-        Id,  DataHoraCadastro,	UsuarioCadastroId,	DespesaId,	Acao,	Descricao
+        Id,	         DataHoraCadastro, UsuarioOperacaoId,	TipoTransacao,	TransacaoId,	TipoOperacao,	TipoConta,	ContaBancariaId,	CartaoId,	DataTransacao,	Descricao,	TipoPagamento,	ValorAntesTransacao,	ValorTransacao,	ValorDepoisTransacao,	TipoRecebimento,	Observacao,	OcultarDoHistorico,	ContaDestinoId
+
+
     )
     SELECT
-        NovoId,  DataHoraCadastro,	UsuarioCadastroId,	DespesaId,	Acao,	Descricao
+        NovoId,           DataHoraCadastro, UsuarioOperacaoId,	TipoTransacao,	TransacaoId,	TipoOperacao,	TipoConta,	ContaBancariaId,	CartaoId,	DataTransacao,	Descricao,	TipoPagamento,	ValorAntesTransacao,	ValorTransacao,	ValorDepoisTransacao,	TipoRecebimento,	Observacao,	OcultarDoHistorico,	ContaDestinoId
+
+
     FROM #Reordenado
     ORDER BY NovoId;
 
-    SET IDENTITY_INSERT dbo.DespesaLog OFF;
+    SET IDENTITY_INSERT dbo.HistoricoTransacaoFinanceira OFF;
 
     DECLARE @cmd NVARCHAR(300);
-    SET @cmd = N'DBCC CHECKIDENT (''dbo.DespesaLog'', RESEED, ' 
+    SET @cmd = N'DBCC CHECKIDENT (''dbo.HistoricoTransacaoFinanceira'', RESEED, ' 
              + CAST(@Qtd AS VARCHAR(20)) 
              + N') WITH NO_INFOMSGS;';
     EXEC (@cmd);
@@ -75,3 +81,9 @@ BEGIN CATCH
 
     THROW;
 END CATCH;
+
+
+
+--DELETE HistoricoTransacaoFinanceira
+
+--DBCC CHECKIDENT (HistoricoTransacaoFinanceira, RESEED, 1 )

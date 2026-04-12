@@ -34,12 +34,16 @@ BEGIN
         Juros DECIMAL(18,2) NOT NULL CONSTRAINT DF_Despesa_Juros DEFAULT (0),
         ValorEfetivacao DECIMAL(18,2) NULL,
         Status NVARCHAR(20) NOT NULL CONSTRAINT DF_Despesa_Status DEFAULT (N'Pendente'),
+        ContaBancariaId BIGINT NULL,
+        ContaDestinoId BIGINT NULL,
+        ReceitaTransferenciaId BIGINT NULL,
+        CartaoId BIGINT NULL,
         CONSTRAINT PK_Despesa PRIMARY KEY CLUSTERED (Id),
         CONSTRAINT CK_Despesa_Recorrencia CHECK (Recorrencia IN (N'Unica', N'Diaria', N'Semanal', N'Quinzenal', N'Mensal', N'Trimestral', N'Semestral', N'Anual')),
         CONSTRAINT CK_Despesa_RecorrenciaFixa CHECK (Recorrencia <> N'Unica' OR RecorrenciaFixa = 0),
         CONSTRAINT CK_Despesa_QuantidadeRecorrencia CHECK (QuantidadeRecorrencia IS NULL OR QuantidadeRecorrencia > 0),
         CONSTRAINT CK_Despesa_Status CHECK (Status IN (N'Pendente', N'Efetivada', N'Cancelada')),
-        CONSTRAINT CK_Despesa_TipoDespesa CHECK (TipoDespesa IN (N'alimentacao', N'transporte', N'moradia', N'lazer', N'saude', N'educacao', N'servicos')),
+        CONSTRAINT CK_Despesa_TipoDespesa CHECK (TipoDespesa IN (N'alimentacao', N'transporte', N'moradia', N'lazer', N'saude', N'educacao', N'servicos', N'outros')),
         CONSTRAINT CK_Despesa_TipoPagamento CHECK (TipoPagamento IN (N'pix', N'cartaoCredito', N'cartaoDebito', N'boleto', N'transferencia', N'dinheiro')),
         CONSTRAINT CK_Despesa_TipoRateioAmigos CHECK (TipoRateioAmigos IS NULL OR TipoRateioAmigos IN (N'Comum', N'Igualitario'))
     );
@@ -88,6 +92,18 @@ BEGIN
 END;
 GO
 
+IF COL_LENGTH('dbo.Despesa', 'ContaDestinoId') IS NULL
+BEGIN
+    ALTER TABLE dbo.Despesa ADD ContaDestinoId BIGINT NULL;
+END;
+GO
+
+IF COL_LENGTH('dbo.Despesa', 'ReceitaTransferenciaId') IS NULL
+BEGIN
+    ALTER TABLE dbo.Despesa ADD ReceitaTransferenciaId BIGINT NULL;
+END;
+GO
+
 IF COL_LENGTH('dbo.Despesa', 'Recorrencia') IS NULL
 BEGIN
     ALTER TABLE dbo.Despesa
@@ -133,6 +149,18 @@ BEGIN
         WITH CHECK ADD CONSTRAINT CK_Despesa_QuantidadeRecorrencia
         CHECK (QuantidadeRecorrencia IS NULL OR QuantidadeRecorrencia > 0);
 END;
+GO
+
+IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_Despesa_TipoDespesa' AND parent_object_id = OBJECT_ID(N'dbo.Despesa'))
+BEGIN
+    ALTER TABLE dbo.Despesa
+        DROP CONSTRAINT CK_Despesa_TipoDespesa;
+END;
+GO
+
+ALTER TABLE dbo.Despesa
+    WITH CHECK ADD CONSTRAINT CK_Despesa_TipoDespesa
+    CHECK (TipoDespesa IN (N'alimentacao', N'transporte', N'moradia', N'lazer', N'saude', N'educacao', N'servicos', N'outros'));
 GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_Despesa_TipoRateioAmigos' AND parent_object_id = OBJECT_ID(N'dbo.Despesa'))

@@ -30,6 +30,8 @@ public sealed class Despesa
     public decimal? ValorEfetivacao { get; set; }
     public StatusDespesa Status { get; set; } = StatusDespesa.Pendente;
     public long? ContaBancariaId { get; set; }
+    public long? ContaDestinoId { get; set; }
+    public long? ReceitaTransferenciaId { get; set; }
     public long? CartaoId { get; set; }
     public List<Documento> Documentos { get; set; } = [];
     public List<DespesaAmigoRateio> AmigosRateio { get; set; } = [];

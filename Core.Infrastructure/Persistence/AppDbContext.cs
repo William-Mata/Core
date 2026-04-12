@@ -181,6 +181,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         modelBuilder.Entity<Despesa>().HasOne<Despesa>().WithMany().HasForeignKey(x => x.DespesaRecorrenciaOrigemId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<Despesa>().HasIndex(x => x.DespesaRecorrenciaOrigemId);
         modelBuilder.Entity<Despesa>().HasOne<ContaBancaria>().WithMany().HasForeignKey(x => x.ContaBancariaId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Despesa>().HasOne<Receita>().WithMany().HasForeignKey(x => x.ReceitaTransferenciaId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<Despesa>().HasOne<Cartao>().WithMany().HasForeignKey(x => x.CartaoId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<Despesa>().HasMany(x => x.AmigosRateio).WithOne().HasForeignKey(x => x.DespesaId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<Despesa>().HasMany(x => x.AreasRateio).WithOne().HasForeignKey(x => x.DespesaId).OnDelete(DeleteBehavior.Cascade);
@@ -252,6 +253,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         modelBuilder.Entity<ReceitaLog>().Property(x => x.Acao).HasConversion<string>();
         modelBuilder.Entity<Receita>().HasOne<Receita>().WithMany().HasForeignKey(x => x.ReceitaOrigemId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<Receita>().HasOne<ContaBancaria>().WithMany().HasForeignKey(x => x.ContaBancariaId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Receita>().HasOne<Despesa>().WithMany().HasForeignKey(x => x.DespesaTransferenciaId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<Receita>().HasOne<Cartao>().WithMany().HasForeignKey(x => x.CartaoId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<Receita>().HasMany(x => x.AmigosRateio).WithOne().HasForeignKey(x => x.ReceitaId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<Receita>().HasMany(x => x.AreasRateio).WithOne().HasForeignKey(x => x.ReceitaId).OnDelete(DeleteBehavior.Cascade);
