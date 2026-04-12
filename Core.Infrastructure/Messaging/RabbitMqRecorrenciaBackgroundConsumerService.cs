@@ -183,6 +183,7 @@ private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerial
                 Imposto = payload.Imposto,
                 Juros = payload.Juros,
                 ContaBancariaId = payload.ContaBancariaId,
+                ContaDestinoId = payload.ContaDestinoId,
                 CartaoId = payload.CartaoId,
                 Status = StatusDespesa.Pendente,
                 Documentos = (payload.Documentos ?? []).Select(x => new Documento
@@ -223,6 +224,8 @@ private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerial
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        await SincronizarReceitasEspelhoTransacaoEntreContasAsync(dbContext, origensCriadas, payload.UsuarioId, cancellationToken);
 
         if (origensCriadas.Count == 0 || payload.AmigosRateio.Count == 0)
             return;
@@ -268,6 +271,7 @@ private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerial
                     Imposto = 0m,
                     Juros = 0m,
                     ContaBancariaId = origem.ContaBancariaId,
+                    ContaDestinoId = origem.ContaDestinoId,
                     CartaoId = origem.CartaoId,
                     Status = StatusDespesa.PendenteAprovacao,
                     AreasRateio = DistribuirAreasDespesa(payload.AreasSubAreasRateio, payload.ValorTotal, amigo.Valor, amigo.AmigoId),
@@ -303,6 +307,26 @@ private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerial
         {
             var dataLancamento = AvancarData(payload.DataLancamento, payload.Recorrencia, numero - 1);
             var dataVencimento = AvancarData(payload.DataVencimento, payload.Recorrencia, numero - 1);
+            var origemJaExiste = await dbContext.Receitas
+                .AsNoTracking()
+                .AnyAsync(
+                    x =>
+                        x.ReceitaOrigemId == null &&
+                        x.UsuarioCadastroId == payload.UsuarioId &&
+                        x.DataHoraCadastro == payload.DataHoraCadastroOrigem &&
+                        x.Descricao == payload.Descricao &&
+                        x.TipoReceita == payload.TipoReceita &&
+                        x.TipoRecebimento == payload.TipoRecebimento &&
+                        x.Recorrencia == payload.Recorrencia &&
+                        x.RecorrenciaFixa == payload.RecorrenciaFixa &&
+                        x.ContaBancariaId == payload.ContaBancariaId &&
+                        x.CartaoId == payload.CartaoId &&
+                        x.DataLancamento == dataLancamento &&
+                        x.DataVencimento == dataVencimento,
+                    cancellationToken);
+
+            if (origemJaExiste)
+                continue;
 
             var origem = new Receita
             {
@@ -327,6 +351,7 @@ private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerial
                 Juros = payload.Juros,
                 Status = StatusReceita.Pendente,
                 ContaBancariaId = payload.ContaBancariaId,
+                ContaDestinoId = payload.ContaDestinoId,
                 CartaoId = payload.CartaoId,
                 Documentos = (payload.Documentos ?? []).Select(x => new Documento
                 {
@@ -366,6 +391,8 @@ private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerial
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        await SincronizarDespesasEspelhoTransacaoEntreContasAsync(dbContext, origensCriadas, payload.UsuarioId, cancellationToken);
 
         if (origensCriadas.Count == 0 || payload.AmigosRateio.Count == 0)
             return;
@@ -412,6 +439,7 @@ private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerial
                     Juros = 0m,
                     Status = StatusReceita.PendenteAprovacao,
                     ContaBancariaId = origem.ContaBancariaId,
+                    ContaDestinoId = origem.ContaDestinoId,
                     CartaoId = origem.CartaoId,
                     AreasRateio = DistribuirAreasReceita(payload.AreasSubAreasRateio, payload.ValorTotal, amigo.Valor, amigo.AmigoId),
                     Logs =
@@ -429,6 +457,186 @@ private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerial
 
         await dbContext.SaveChangesAsync(cancellationToken);
     }
+
+    private static async Task SincronizarDespesasEspelhoTransacaoEntreContasAsync(
+        AppDbContext dbContext,
+        IReadOnlyCollection<Receita> origensCriadas,
+        int usuarioId,
+        CancellationToken cancellationToken)
+    {
+        var recorrenciasTransferencia = origensCriadas
+            .Where(receita => EhTransacaoEntreContasReceita(receita.TipoRecebimento, receita.ContaBancariaId, receita.ContaDestinoId, receita.CartaoId))
+            .ToArray();
+
+        if (recorrenciasTransferencia.Length == 0)
+            return;
+
+        var idsReceitas = recorrenciasTransferencia.Select(x => x.Id).ToArray();
+        var despesasExistentes = await dbContext.Despesas
+            .AsNoTracking()
+            .Where(x => x.ReceitaTransferenciaId.HasValue && idsReceitas.Contains(x.ReceitaTransferenciaId.Value))
+            .ToDictionaryAsync(x => x.ReceitaTransferenciaId!.Value, cancellationToken);
+
+        var novasDespesas = new List<(Receita receita, Despesa despesa)>();
+        foreach (var receita in recorrenciasTransferencia)
+        {
+            if (despesasExistentes.TryGetValue(receita.Id, out var despesaExistente))
+            {
+                receita.DespesaTransferenciaId = despesaExistente.Id;
+                continue;
+            }
+
+            var despesa = CriarDespesaEspelhoTransacaoEntreContas(receita, usuarioId);
+            dbContext.Despesas.Add(despesa);
+            novasDespesas.Add((receita, despesa));
+        }
+
+        if (novasDespesas.Count == 0)
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        foreach (var (receita, despesa) in novasDespesas)
+            receita.DespesaTransferenciaId = despesa.Id;
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private static bool EhTransacaoEntreContasReceita(TipoRecebimento tipoRecebimento, long? contaOrigemId, long? contaDestinoId, long? cartaoId) =>
+        tipoRecebimento is TipoRecebimento.Transferencia or TipoRecebimento.Pix
+        && contaOrigemId.HasValue
+        && contaDestinoId.HasValue
+        && !cartaoId.HasValue;
+
+    private static Despesa CriarDespesaEspelhoTransacaoEntreContas(Receita origem, int usuarioId) =>
+        new()
+        {
+            UsuarioCadastroId = origem.UsuarioCadastroId,
+            Descricao = origem.Descricao,
+            Observacao = origem.Observacao,
+            DataLancamento = origem.DataLancamento,
+            DataVencimento = origem.DataVencimento,
+            DataEfetivacao = origem.DataEfetivacao,
+            TipoDespesa = TipoDespesa.Outros,
+            TipoPagamento = origem.TipoRecebimento == TipoRecebimento.Pix ? TipoPagamento.Pix : TipoPagamento.Transferencia,
+            Recorrencia = origem.Recorrencia,
+            RecorrenciaFixa = origem.RecorrenciaFixa,
+            QuantidadeRecorrencia = origem.QuantidadeRecorrencia,
+            ValorTotal = origem.ValorTotal,
+            ValorLiquido = origem.ValorLiquido,
+            Desconto = origem.Desconto,
+            Acrescimo = origem.Acrescimo,
+            Imposto = origem.Imposto,
+            Juros = origem.Juros,
+            ValorEfetivacao = origem.ValorEfetivacao,
+            Status = origem.Status == StatusReceita.Efetivada ? StatusDespesa.Efetivada : StatusDespesa.Pendente,
+            ContaBancariaId = origem.ContaDestinoId,
+            ContaDestinoId = origem.ContaBancariaId,
+            CartaoId = null,
+            ReceitaTransferenciaId = origem.Id,
+            Logs =
+            [
+                new DespesaLog
+                {
+                    UsuarioCadastroId = usuarioId,
+                    Acao = AcaoLogs.Cadastro,
+                    Descricao = "Despesa espelhada criada automaticamente por transacao entre contas."
+                }
+            ]
+        };
+
+    private static async Task SincronizarReceitasEspelhoTransacaoEntreContasAsync(
+        AppDbContext dbContext,
+        IReadOnlyCollection<Despesa> origensCriadas,
+        int usuarioId,
+        CancellationToken cancellationToken)
+    {
+        var recorrenciasTransferencia = origensCriadas
+            .Where(despesa => EhTransacaoEntreContasDespesa(despesa.TipoPagamento, despesa.ContaBancariaId, despesa.ContaDestinoId, despesa.CartaoId))
+            .ToArray();
+
+        if (recorrenciasTransferencia.Length == 0)
+            return;
+
+        var idsDespesas = recorrenciasTransferencia.Select(x => x.Id).ToArray();
+        var receitasExistentes = await dbContext.Receitas
+            .AsNoTracking()
+            .Where(x => x.DespesaTransferenciaId.HasValue && idsDespesas.Contains(x.DespesaTransferenciaId.Value))
+            .ToDictionaryAsync(x => x.DespesaTransferenciaId!.Value, cancellationToken);
+
+        var novasReceitas = new List<(Despesa despesa, Receita receita)>();
+        foreach (var despesa in recorrenciasTransferencia)
+        {
+            if (receitasExistentes.TryGetValue(despesa.Id, out var receitaExistente))
+            {
+                despesa.ReceitaTransferenciaId = receitaExistente.Id;
+                continue;
+            }
+
+            var receita = CriarReceitaEspelhoTransacaoEntreContas(despesa, usuarioId);
+            dbContext.Receitas.Add(receita);
+            novasReceitas.Add((despesa, receita));
+        }
+
+        if (novasReceitas.Count == 0)
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        foreach (var (despesa, receita) in novasReceitas)
+            despesa.ReceitaTransferenciaId = receita.Id;
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private static bool EhTransacaoEntreContasDespesa(TipoPagamento tipoPagamento, long? contaOrigemId, long? contaDestinoId, long? cartaoId) =>
+        tipoPagamento is TipoPagamento.Transferencia or TipoPagamento.Pix
+        && contaOrigemId.HasValue
+        && contaDestinoId.HasValue
+        && !cartaoId.HasValue;
+
+    private static Receita CriarReceitaEspelhoTransacaoEntreContas(Despesa origem, int usuarioId) =>
+        new()
+        {
+            UsuarioCadastroId = origem.UsuarioCadastroId,
+            Descricao = origem.Descricao,
+            Observacao = origem.Observacao,
+            DataLancamento = origem.DataLancamento,
+            DataVencimento = origem.DataVencimento,
+            DataEfetivacao = origem.DataEfetivacao,
+            TipoReceita = TipoReceita.Outros,
+            TipoRecebimento = origem.TipoPagamento == TipoPagamento.Pix ? TipoRecebimento.Pix : TipoRecebimento.Transferencia,
+            Recorrencia = origem.Recorrencia,
+            RecorrenciaFixa = origem.RecorrenciaFixa,
+            QuantidadeRecorrencia = origem.QuantidadeRecorrencia,
+            ValorTotal = origem.ValorTotal,
+            ValorLiquido = origem.ValorLiquido,
+            Desconto = origem.Desconto,
+            Acrescimo = origem.Acrescimo,
+            Imposto = origem.Imposto,
+            Juros = origem.Juros,
+            ValorEfetivacao = origem.ValorEfetivacao,
+            Status = origem.Status == StatusDespesa.Efetivada ? StatusReceita.Efetivada : StatusReceita.Pendente,
+            ContaBancariaId = origem.ContaDestinoId,
+            ContaDestinoId = origem.ContaBancariaId,
+            CartaoId = null,
+            DespesaTransferenciaId = origem.Id,
+            Logs =
+            [
+                new ReceitaLog
+                {
+                    UsuarioCadastroId = usuarioId,
+                    Acao = AcaoLogs.Cadastro,
+                    Descricao = "Receita espelhada criada automaticamente por transacao entre contas."
+                }
+            ]
+        };
 
     private static List<DespesaAreaRateio> DistribuirAreasDespesa(
         IReadOnlyCollection<RateioAreaBackgroundMessage> areasRateioOrigem,
