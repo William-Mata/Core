@@ -63,6 +63,7 @@ public sealed class HistoricoTransacaoFinanceiraServiceTests
             UltimoHistorico = new HistoricoTransacaoFinanceira
             {
                 ContaBancariaId = 12,
+                ContaDestinoId = 13,
                 TipoPagamento = TipoPagamento.Transferencia
             }
         };
@@ -78,11 +79,85 @@ public sealed class HistoricoTransacaoFinanceiraServiceTests
             200m,
             "Estorno de receita");
 
-        var historico = Assert.Single(repository.HistoricosCriados);
+        Assert.Equal(2, repository.HistoricosCriados.Count);
+        var historico = repository.HistoricosCriados[0];
         Assert.Equal(TipoOperacaoTransacaoFinanceira.Estorno, historico.TipoOperacao);
         Assert.Equal(TipoContaTransacaoFinanceira.ContaBancaria, historico.TipoConta);
         Assert.Equal(12, historico.ContaBancariaId);
+        Assert.Equal(13, historico.ContaDestinoId);
         Assert.Equal(TipoPagamento.Transferencia, historico.TipoPagamento);
+
+        var historicoEspelho = repository.HistoricosCriados[1];
+        Assert.Equal(TipoTransacaoFinanceira.Despesa, historicoEspelho.TipoTransacao);
+        Assert.Equal(13, historicoEspelho.ContaBancariaId);
+        Assert.Equal(12, historicoEspelho.ContaDestinoId);
+    }
+
+    [Fact]
+    public async Task DeveRegistrarMovimentacaoEspelhada_QuandoEfetivarTransferenciaComContaDestino()
+    {
+        var repository = new HistoricoRepositoryFake();
+        var service = new HistoricoTransacaoFinanceiraService(repository);
+
+        await service.RegistrarEfetivacaoAsync(
+            TipoTransacaoFinanceira.Despesa,
+            50,
+            99,
+            new DateOnly(2026, 3, 29),
+            0m,
+            120m,
+            120m,
+            "Efetivacao de despesa",
+            tipoPagamento: TipoPagamento.Transferencia,
+            contaBancariaId: 10,
+            contaDestinoId: 20);
+
+        Assert.Equal(2, repository.HistoricosCriados.Count);
+
+        var historicoOrigem = repository.HistoricosCriados[0];
+        Assert.Equal(TipoTransacaoFinanceira.Despesa, historicoOrigem.TipoTransacao);
+        Assert.Equal(10, historicoOrigem.ContaBancariaId);
+        Assert.Equal(20, historicoOrigem.ContaDestinoId);
+
+        var historicoEspelho = repository.HistoricosCriados[1];
+        Assert.Equal(TipoTransacaoFinanceira.Receita, historicoEspelho.TipoTransacao);
+        Assert.Equal(20, historicoEspelho.ContaBancariaId);
+        Assert.Equal(10, historicoEspelho.ContaDestinoId);
+        Assert.Equal(TipoRecebimento.Transferencia, historicoEspelho.TipoRecebimento);
+    }
+
+    [Fact]
+    public async Task DeveRegistrarMovimentacaoEspelhada_QuandoEfetivarPixComContaDestino()
+    {
+        var repository = new HistoricoRepositoryFake();
+        var service = new HistoricoTransacaoFinanceiraService(repository);
+
+        await service.RegistrarEfetivacaoAsync(
+            TipoTransacaoFinanceira.Receita,
+            51,
+            99,
+            new DateOnly(2026, 3, 30),
+            0m,
+            80m,
+            80m,
+            "Efetivacao de receita",
+            tipoRecebimento: TipoRecebimento.Pix,
+            contaBancariaId: 20,
+            contaDestinoId: 10);
+
+        Assert.Equal(2, repository.HistoricosCriados.Count);
+
+        var historicoOrigem = repository.HistoricosCriados[0];
+        Assert.Equal(TipoTransacaoFinanceira.Receita, historicoOrigem.TipoTransacao);
+        Assert.Equal(TipoRecebimento.Pix, historicoOrigem.TipoRecebimento);
+        Assert.Equal(20, historicoOrigem.ContaBancariaId);
+        Assert.Equal(10, historicoOrigem.ContaDestinoId);
+
+        var historicoEspelho = repository.HistoricosCriados[1];
+        Assert.Equal(TipoTransacaoFinanceira.Despesa, historicoEspelho.TipoTransacao);
+        Assert.Equal(TipoPagamento.Pix, historicoEspelho.TipoPagamento);
+        Assert.Equal(10, historicoEspelho.ContaBancariaId);
+        Assert.Equal(20, historicoEspelho.ContaDestinoId);
     }
 
     [Fact]

@@ -249,6 +249,54 @@ public sealed class DespesaServiceTests
     }
 
     [Fact]
+    public async Task DeveUsarQuantidadeDaOrigem_EmRecorrenciaNormal_AoRecuperarSerieComItemInflado()
+    {
+        var publisher = new RecorrenciaPublisherFake();
+        var repository = new DespesaRepositoryFake
+        {
+            DespesasListadas =
+            [
+                new Despesa
+                {
+                    Id = 500,
+                    UsuarioCadastroId = 1,
+                    Descricao = "Assinatura",
+                    DataLancamento = new DateOnly(2026, 4, 10),
+                    DataVencimento = new DateOnly(2026, 4, 10),
+                    TipoDespesa = TipoDespesa.Servicos,
+                    TipoPagamento = TipoPagamento.Pix,
+                    Recorrencia = Recorrencia.Mensal,
+                    QuantidadeRecorrencia = 21,
+                    ValorTotal = 120m,
+                    ValorLiquido = 120m,
+                    Status = StatusDespesa.Pendente
+                },
+                new Despesa
+                {
+                    Id = 501,
+                    UsuarioCadastroId = 1,
+                    Descricao = "Assinatura",
+                    DataLancamento = new DateOnly(2026, 5, 10),
+                    DataVencimento = new DateOnly(2026, 5, 10),
+                    TipoDespesa = TipoDespesa.Servicos,
+                    TipoPagamento = TipoPagamento.Pix,
+                    Recorrencia = Recorrencia.Mensal,
+                    QuantidadeRecorrencia = 371,
+                    ValorTotal = 120m,
+                    ValorLiquido = 120m,
+                    Status = StatusDespesa.Pendente
+                }
+            ]
+        };
+        var service = CriarService(repository, new AreaRepoFake(), publisher, 1);
+
+        await service.ListarAsync(new ListarDespesasRequest(null, null, "05/2026", null, null, true));
+
+        Assert.NotNull(publisher.DespesaMessage);
+        Assert.Equal(21, publisher.DespesaMessage!.QuantidadeRecorrencia);
+    }
+
+    [Fact]
     public async Task DeveExpandirMais100_QuandoRecorrenciaForFixaENaoHouverLacuna()
     {
         var publisher = new RecorrenciaPublisherFake();
@@ -394,6 +442,48 @@ public sealed class DespesaServiceTests
     }
 
     [Fact]
+    public async Task DeveImpedirTransferencia_QuandoContaDestinoForIgualContaOrigem()
+    {
+        var repository = new DespesaRepositoryFake
+        {
+            Despesa = new Despesa
+            {
+                Id = 1,
+                Descricao = "Transferencia",
+                DataLancamento = new DateOnly(2026, 3, 10),
+                DataVencimento = new DateOnly(2026, 3, 10),
+                TipoDespesa = TipoDespesa.Servicos,
+                TipoPagamento = TipoPagamento.Transferencia,
+                Recorrencia = Recorrencia.Unica,
+                ValorTotal = 100m,
+                ValorLiquido = 100m,
+                ContaBancariaId = 7,
+                Status = StatusDespesa.Pendente
+            }
+        };
+        var service = CriarService(repository, 1);
+
+        var ex = await Assert.ThrowsAsync<DomainException>(() =>
+            service.EfetivarAsync(
+                1,
+                new EfetivarDespesaRequest(
+                    new DateOnly(2026, 3, 10),
+                    TipoPagamento.Transferencia,
+                    100m,
+                    0m,
+                    0m,
+                    0m,
+                    0m,
+                    Documentos: null,
+                    ContaBancariaId: 7,
+                    CartaoId: null,
+                    ObservacaoHistorico: null,
+                    ContaDestinoId: 7)));
+
+        Assert.Equal("conta_destino_invalida", ex.Message);
+    }
+
+    [Fact]
     public async Task DevePublicarMensagemDeRecorrencia_AoCriarDespesaRecorrente()
     {
         var repository = new DespesaRepositoryFake();
@@ -512,6 +602,18 @@ public sealed class DespesaServiceTests
     }
 
     [Fact]
+    public async Task DevePermitirTipoDespesaOutros_AoCriarDespesa()
+    {
+        var repository = new DespesaRepositoryFake();
+        var service = CriarService(repository, 1);
+
+        var result = await service.CriarAsync(CriarRequestPadrao(tipoDespesa: TipoDespesa.Outros));
+
+        Assert.Equal(TipoDespesa.Outros, result.TipoDespesa);
+        Assert.Equal(TipoDespesa.Outros, repository.DespesasCriadas.Single().TipoDespesa);
+    }
+
+    [Fact]
     public async Task DevePermitirRateioIgualitarioComUsuarioLogadoSemGerarAutoEspelho()
     {
         var repository = new DespesaRepositoryFake();
@@ -541,6 +643,7 @@ public sealed class DespesaServiceTests
         var areaRepository = CriarAreaRepoValida(TipoAreaFinanceira.Despesa);
         var service = new DespesaService(
             new DespesaRepositoryFake(),
+            new ReceitaRepositoryTransferFake(),
             new ContaBancariaRepositoryFake(),
             new CartaoRepositoryFake(),
             areaRepository,
@@ -571,6 +674,38 @@ public sealed class DespesaServiceTests
         Assert.Equal(3, repository.DespesasCriadas.Count);
         Assert.Single(repository.DespesasCriadas.Where(x => x.DespesaOrigemId is null));
         Assert.Equal(2, repository.DespesasCriadas.Count(x => x.Status == StatusDespesa.PendenteAprovacao));
+    }
+
+    [Fact]
+    public async Task DeveCriarReceitaEspelhada_QuandoDespesaForTransacaoEntreContasComPix()
+    {
+        var despesaRepository = new DespesaRepositoryFake();
+        var receitaRepository = new ReceitaRepositoryTransferFake();
+        var areaRepository = CriarAreaRepoValida(TipoAreaFinanceira.Despesa);
+        var service = new DespesaService(
+            despesaRepository,
+            receitaRepository,
+            new ContaBancariaRepositoryFake(),
+            new CartaoRepositoryFake(),
+            areaRepository,
+            new AmizadeRepositoryFake(),
+            new UsuarioRepositoryFake(),
+            new UsuarioAutenticadoProviderFake(1),
+            new HistoricoTransacaoFinanceiraService(new HistoricoRepositoryFake()),
+            new DocumentoStorageServiceFake(),
+            new RecorrenciaPublisherFake());
+
+        await service.CriarAsync(CriarRequestPadrao(
+            tipoPagamento: TipoPagamento.Pix,
+            contaBancariaId: 10,
+            contaDestinoId: 20,
+            amigos: [],
+            areasRateio: [new DespesaAreaRateioRequest(1, 2, 100m)]));
+
+        var espelho = Assert.Single(receitaRepository.ReceitasCriadas);
+        Assert.Equal(20, espelho.ContaBancariaId);
+        Assert.Equal(10, espelho.ContaDestinoId);
+        Assert.Equal(TipoRecebimento.Pix, espelho.TipoRecebimento);
     }
 
     [Fact]
@@ -1043,6 +1178,7 @@ public sealed class DespesaServiceTests
         TipoDespesa tipoDespesa = TipoDespesa.Alimentacao,
         TipoPagamento tipoPagamento = TipoPagamento.Pix,
         long? contaBancariaId = null,
+        long? contaDestinoId = null,
         long? cartaoId = null,
         Recorrencia recorrencia = Recorrencia.Unica,
         int? quantidadeRecorrencia = null,
@@ -1076,6 +1212,7 @@ public sealed class DespesaServiceTests
             recorrenciaFixa,
             null,
             contaBancariaId,
+            contaDestinoId,
             cartaoId,
             valorTotalRateioAmigos);
     }
@@ -1119,6 +1256,8 @@ public sealed class DespesaServiceTests
             recorrenciaFixa,
             null,
             null,
+            null,
+            null,
             valorTotalRateioAmigos);
     }
 
@@ -1131,6 +1270,7 @@ public sealed class DespesaServiceTests
     private static DespesaService CriarService(IDespesaRepository repository, IAreaRepository areaRepository, IRecorrenciaBackgroundPublisher publisher, int? usuarioId) =>
         new(
             repository,
+            new ReceitaRepositoryTransferFake(),
             new ContaBancariaRepositoryFake(),
             new CartaoRepositoryFake(),
             areaRepository,
@@ -1252,6 +1392,48 @@ public sealed class DespesaServiceTests
             }
 
             return Task.FromResult(despesa);
+        }
+    }
+
+    private sealed class ReceitaRepositoryTransferFake : IReceitaRepository
+    {
+        public List<Receita> ReceitasCriadas { get; } = [];
+        public List<Receita> ReceitasAtualizadas { get; } = [];
+
+        public Task<List<Receita>> ListarAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(new List<Receita>());
+
+        public Task<List<Receita>> ListarAsync(string? filtroId, string? descricao, string? competencia, DateOnly? dataInicio, DateOnly? dataFim, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new List<Receita>());
+
+        public Task<List<Receita>> ListarPorUsuarioAsync(int usuarioCadastroId, string? filtroId, string? descricao, string? competencia, DateOnly? dataInicio, DateOnly? dataFim, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new List<Receita>());
+
+        public Task<List<Receita>> ListarPendentesAprovacaoPorUsuarioAsync(int usuarioCadastroId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new List<Receita>());
+
+        public Task<List<Receita>> ListarEspelhosPorOrigemAsync(long receitaOrigemId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new List<Receita>());
+
+        public Task<Receita?> ObterPorIdAsync(long id, CancellationToken cancellationToken = default) =>
+            Task.FromResult<Receita?>(ReceitasCriadas.Concat(ReceitasAtualizadas).FirstOrDefault(x => x.Id == id));
+
+        public Task<Receita?> ObterPorIdAsync(long id, int usuarioCadastroId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<Receita?>(ReceitasCriadas.Concat(ReceitasAtualizadas).FirstOrDefault(x => x.Id == id && x.UsuarioCadastroId == usuarioCadastroId));
+
+        public Task<Receita> CriarAsync(Receita receita, CancellationToken cancellationToken = default)
+        {
+            if (receita.Id == 0)
+                receita.Id = ReceitasCriadas.Count + 1000;
+
+            ReceitasCriadas.Add(receita);
+            return Task.FromResult(receita);
+        }
+
+        public Task<Receita> AtualizarAsync(Receita receita, CancellationToken cancellationToken = default)
+        {
+            ReceitasAtualizadas.Add(receita);
+            return Task.FromResult(receita);
         }
     }
 
