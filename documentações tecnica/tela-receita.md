@@ -138,7 +138,7 @@ Quando informado com valor fora do enum, a API retorna `escopo_recorrencia_inval
 - quando alvo de recorrencia for maior que 1, a API publica criacao em background
 
 ### Regras de recebimento e vinculo
-- tipos que exigem conta bancaria: `pix`, `transferencia`, `contaCorrente`
+- tipos que exigem conta bancaria: `pix`, `transferencia`
 - para `cartaoCredito` e `cartaoDebito`, `cartaoId` e obrigatorio
 - nao pode enviar conta e cartao ao mesmo tempo (`forma_pagamento_invalida`)
 - conta/cartao precisam existir para o usuario (`conta_bancaria_invalida`, `cartao_invalido`)
@@ -246,7 +246,6 @@ Regras:
 ### `tipoRecebimento`
 - `pix`
 - `transferencia`
-- `contaCorrente`
 - `dinheiro`
 - `boleto`
 - `cartaoCredito`
