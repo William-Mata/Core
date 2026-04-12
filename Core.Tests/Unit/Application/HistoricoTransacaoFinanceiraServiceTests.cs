@@ -77,7 +77,8 @@ public sealed class HistoricoTransacaoFinanceiraServiceTests
             400m,
             200m,
             200m,
-            "Estorno de receita");
+            "Estorno de receita",
+            transacaoIdEspelho: 130);
 
         Assert.Equal(2, repository.HistoricosCriados.Count);
         var historico = repository.HistoricosCriados[0];
@@ -89,6 +90,7 @@ public sealed class HistoricoTransacaoFinanceiraServiceTests
 
         var historicoEspelho = repository.HistoricosCriados[1];
         Assert.Equal(TipoTransacaoFinanceira.Despesa, historicoEspelho.TipoTransacao);
+        Assert.Equal(130, historicoEspelho.TransacaoId);
         Assert.Equal(13, historicoEspelho.ContaBancariaId);
         Assert.Equal(12, historicoEspelho.ContaDestinoId);
     }
@@ -110,7 +112,8 @@ public sealed class HistoricoTransacaoFinanceiraServiceTests
             "Efetivacao de despesa",
             tipoPagamento: TipoPagamento.Transferencia,
             contaBancariaId: 10,
-            contaDestinoId: 20);
+            contaDestinoId: 20,
+            transacaoIdEspelho: 150);
 
         Assert.Equal(2, repository.HistoricosCriados.Count);
 
@@ -121,6 +124,7 @@ public sealed class HistoricoTransacaoFinanceiraServiceTests
 
         var historicoEspelho = repository.HistoricosCriados[1];
         Assert.Equal(TipoTransacaoFinanceira.Receita, historicoEspelho.TipoTransacao);
+        Assert.Equal(150, historicoEspelho.TransacaoId);
         Assert.Equal(20, historicoEspelho.ContaBancariaId);
         Assert.Equal(10, historicoEspelho.ContaDestinoId);
         Assert.Equal(TipoRecebimento.Transferencia, historicoEspelho.TipoRecebimento);
@@ -143,7 +147,8 @@ public sealed class HistoricoTransacaoFinanceiraServiceTests
             "Efetivacao de receita",
             tipoRecebimento: TipoRecebimento.Pix,
             contaBancariaId: 20,
-            contaDestinoId: 10);
+            contaDestinoId: 10,
+            transacaoIdEspelho: 151);
 
         Assert.Equal(2, repository.HistoricosCriados.Count);
 
@@ -155,9 +160,35 @@ public sealed class HistoricoTransacaoFinanceiraServiceTests
 
         var historicoEspelho = repository.HistoricosCriados[1];
         Assert.Equal(TipoTransacaoFinanceira.Despesa, historicoEspelho.TipoTransacao);
+        Assert.Equal(151, historicoEspelho.TransacaoId);
         Assert.Equal(TipoPagamento.Pix, historicoEspelho.TipoPagamento);
         Assert.Equal(10, historicoEspelho.ContaBancariaId);
         Assert.Equal(20, historicoEspelho.ContaDestinoId);
+    }
+
+    [Fact]
+    public async Task DeveOcultarHistoricosDaOrigemEDoEspelho_QuandoEstornarComOcultarDoHistorico()
+    {
+        var repository = new HistoricoRepositoryFake();
+        var service = new HistoricoTransacaoFinanceiraService(repository);
+
+        await service.RegistrarEstornoAsync(
+            TipoTransacaoFinanceira.Despesa,
+            70,
+            99,
+            new DateOnly(2026, 4, 1),
+            300m,
+            300m,
+            0m,
+            "Estorno de despesa",
+            tipoPagamento: TipoPagamento.Transferencia,
+            contaBancariaId: 11,
+            contaDestinoId: 22,
+            ocultarDoHistorico: true,
+            transacaoIdEspelho: 170);
+
+        Assert.Contains(repository.TransacoesOcultadas, x => x.TipoTransacao == TipoTransacaoFinanceira.Despesa && x.TransacaoId == 70);
+        Assert.Contains(repository.TransacoesOcultadas, x => x.TipoTransacao == TipoTransacaoFinanceira.Receita && x.TransacaoId == 170);
     }
 
     [Fact]
@@ -185,6 +216,7 @@ public sealed class HistoricoTransacaoFinanceiraServiceTests
     private sealed class HistoricoRepositoryFake : IHistoricoTransacaoFinanceiraRepository
     {
         public List<HistoricoTransacaoFinanceira> HistoricosCriados { get; } = [];
+        public List<(TipoTransacaoFinanceira TipoTransacao, long TransacaoId)> TransacoesOcultadas { get; } = [];
         public HistoricoTransacaoFinanceira? UltimoHistorico { get; set; }
 
         public Task<HistoricoTransacaoFinanceira> CriarAsync(HistoricoTransacaoFinanceira historico, CancellationToken cancellationToken = default)
@@ -195,6 +227,12 @@ public sealed class HistoricoTransacaoFinanceiraServiceTests
 
         public Task<HistoricoTransacaoFinanceira?> ObterUltimoPorTransacaoAsync(TipoTransacaoFinanceira tipoTransacao, long transacaoId, CancellationToken cancellationToken = default) =>
             Task.FromResult(UltimoHistorico);
+
+        public Task MarcarOcultoPorTransacaoAsync(TipoTransacaoFinanceira tipoTransacao, long transacaoId, CancellationToken cancellationToken = default)
+        {
+            TransacoesOcultadas.Add((tipoTransacao, transacaoId));
+            return Task.CompletedTask;
+        }
 
         public Task<List<HistoricoTransacaoFinanceira>> ListarPorUsuarioAsync(int usuarioOperacaoId, int quantidadeRegistros, OrdemRegistrosHistoricoTransacaoFinanceira ordemRegistros, CancellationToken cancellationToken = default) =>
             Task.FromResult(new List<HistoricoTransacaoFinanceira>());

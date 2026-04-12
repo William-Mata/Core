@@ -20,12 +20,12 @@ public sealed class DespesaServiceTests
         var repository = new DespesaRepositoryFake();
         var service = CriarService(repository, 1);
 
-        await service.ListarAsync(new ListarDespesasRequest("12", "Telefone", "03/2026", null, null, false));
+        await service.ListarAsync(new ListarDespesasRequest("12", "Telefone", "2026-03", null, null, false));
 
         Assert.Equal(1, repository.UltimoUsuarioIdFiltro);
         Assert.Equal("12", repository.UltimoIdFiltro);
         Assert.Equal("Telefone", repository.UltimaDescricaoFiltro);
-        Assert.Equal("03/2026", repository.UltimaCompetenciaFiltro);
+        Assert.Equal("2026-03", repository.UltimaCompetenciaFiltro);
         Assert.Null(repository.UltimaDataInicioFiltro);
         Assert.Null(repository.UltimaDataFimFiltro);
     }
@@ -49,9 +49,9 @@ public sealed class DespesaServiceTests
         var repository = new DespesaRepositoryFake();
         var service = CriarService(repository, 1);
 
-        await service.ListarAsync(new ListarDespesasRequest(null, null, "04-2026", new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 31), false));
+        await service.ListarAsync(new ListarDespesasRequest(null, null, "2026-04", new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 31), false));
 
-        Assert.Equal("04-2026", repository.UltimaCompetenciaFiltro);
+        Assert.Equal("2026-04", repository.UltimaCompetenciaFiltro);
         Assert.Equal(new DateOnly(2026, 1, 1), repository.UltimaDataInicioFiltro);
         Assert.Equal(new DateOnly(2026, 1, 31), repository.UltimaDataFimFiltro);
     }
@@ -1194,6 +1194,7 @@ public sealed class DespesaServiceTests
         return new CriarDespesaRequest(
             descricao,
             null,
+            null,
             dataLancamento ?? new DateOnly(2026, 3, 1),
             dataVencimento ?? new DateOnly(2026, 3, 2),
             tipoDespesa,
@@ -1237,6 +1238,7 @@ public sealed class DespesaServiceTests
 
         return new AtualizarDespesaRequest(
             descricao,
+            null,
             null,
             dataLancamento ?? new DateOnly(2026, 3, 1),
             dataVencimento ?? new DateOnly(2026, 3, 2),

@@ -18,10 +18,10 @@ public sealed class ReembolsoServiceTests
         var repository = new ReembolsoRepositoryFake();
         var service = CriarService(repository, new DespesaRepositoryFake(), 1);
 
-        await service.ListarAsync(new ListarReembolsosRequest(null, null, "02/2026", null, null));
+        await service.ListarAsync(new ListarReembolsosRequest(null, null, "2026-02", null, null));
 
         Assert.Equal(1, repository.UltimoUsuarioIdFiltro);
-        Assert.Equal("02/2026", repository.UltimaCompetenciaFiltro);
+        Assert.Equal("2026-02", repository.UltimaCompetenciaFiltro);
         Assert.Null(repository.UltimaDataInicioFiltro);
         Assert.Null(repository.UltimaDataFimFiltro);
     }
@@ -233,6 +233,7 @@ public sealed class ReembolsoServiceTests
         new(
             "Viagem comercial - semana 2",
             "Joao Silva",
+            null,
             new DateOnly(2026, 3, 18),
             dataEfetivacao,
             despesasVinculadas ?? [CriarJsonNumero(1), CriarJsonNumero(3)],

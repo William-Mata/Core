@@ -20,12 +20,12 @@ public sealed class ReceitaServiceTests
         var repository = new ReceitaRepoFake();
         var service = CriarService(repository, new ContaRepoFake(), new AreaRepoFake(), 99);
 
-        await service.ListarAsync(new ListarReceitasRequest("10", "Salario", "04/2026", null, null, false));
+        await service.ListarAsync(new ListarReceitasRequest("10", "Salario", "2026-04", null, null, false));
 
         Assert.Equal(99, repository.UltimoUsuarioIdFiltro);
         Assert.Equal("10", repository.UltimoIdFiltro);
         Assert.Equal("Salario", repository.UltimaDescricaoFiltro);
-        Assert.Equal("04/2026", repository.UltimaCompetenciaFiltro);
+        Assert.Equal("2026-04", repository.UltimaCompetenciaFiltro);
         Assert.Null(repository.UltimaDataInicioFiltro);
         Assert.Null(repository.UltimaDataFimFiltro);
     }
@@ -72,9 +72,9 @@ public sealed class ReceitaServiceTests
         var repository = new ReceitaRepoFake();
         var service = CriarService(repository, new ContaRepoFake(), new AreaRepoFake(), 99);
 
-        await service.ListarAsync(new ListarReceitasRequest(null, null, "2026/04", new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 31), false));
+        await service.ListarAsync(new ListarReceitasRequest(null, null, "2026-04", new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 31), false));
 
-        Assert.Equal("2026/04", repository.UltimaCompetenciaFiltro);
+        Assert.Equal("2026-04", repository.UltimaCompetenciaFiltro);
         Assert.Equal(new DateOnly(2026, 1, 1), repository.UltimaDataInicioFiltro);
         Assert.Equal(new DateOnly(2026, 1, 31), repository.UltimaDataFimFiltro);
     }
@@ -837,6 +837,7 @@ public sealed class ReceitaServiceTests
         var request = new AtualizarReceitaRequest(
             "Receita Atualizada",
             null,
+            null,
             new DateOnly(2026, 3, 10),
             new DateOnly(2026, 3, 12),
             TipoReceita.Freelance,
@@ -1060,6 +1061,7 @@ public sealed class ReceitaServiceTests
         return new CriarReceitaRequest(
             "Freelance",
             null,
+            null,
             new DateOnly(2026, 3, 1),
             new DateOnly(2026, 3, 2),
             TipoReceita.Freelance,
@@ -1099,6 +1101,7 @@ public sealed class ReceitaServiceTests
 
         return new AtualizarReceitaRequest(
             "Receita Atualizada",
+            null,
             null,
             new DateOnly(2026, 3, 1),
             new DateOnly(2026, 3, 2),
