@@ -11,6 +11,8 @@ Trabalhar no backend deste repositorio sem quebrar a separacao entre API, aplica
 
 Ler [references/project-structure.md](references/project-structure.md) antes de alterar partes grandes do fluxo ou quando houver duvida sobre onde cada mudanca deve entrar.
 
+Aplicar sempre os principios SOLID, KISS, DRY, Clean Code e YAGNI ao decidir onde e como implementar cada mudanca.
+
 ## Fluxo de trabalho
 
 1. Identificar o modulo afetado: autenticacao, dashboard, administracao de usuarios ou financeiro.
@@ -37,6 +39,16 @@ Lancar `DomainException` e `NotFoundException` para erros de negocio e ausencia 
 ## Regras praticas deste projeto
 
 Seguir o padrao existente de nomeacao: `*Controller`, `*Service`, `*Repository`, `*Request`, `*Dto`, `*Validator`.
+
+Aplicar SOLID para manter responsabilidades coesas, reduzir acoplamento e favorecer extensao sem quebrar contratos existentes.
+
+Aplicar KISS para priorizar solucoes simples e legiveis, evitando arquiteturas ou abstrações desnecessarias.
+
+Aplicar DRY para remover duplicacao de regras, validacoes e mapeamentos, centralizando comportamento reutilizavel na camada correta.
+
+Aplicar Clean Code com nomes claros, metodos curtos e intencao explicita, evitando complexidade acidental e comentarios redundantes.
+
+Aplicar YAGNI para nao implementar variacoes, extensoes ou otimizacoes antecipadas sem demanda real do requisito atual.
 
 Ao alterar autenticacao, preservar a cadeia `AutenticacaoController` -> `AutenticacaoService` -> interfaces de `Core.Domain.Interfaces` -> implementacoes em `Core.Infrastructure`, incluindo JWT, refresh token e bloqueio por tentativas invalidas.
 
