@@ -16,6 +16,7 @@ BEGIN
         UsuarioCadastroId INT NOT NULL,
         Descricao NVARCHAR(200) NOT NULL,
         Observacao NVARCHAR(1000) NULL,
+        Competencia CHAR(7) NOT NULL CONSTRAINT DF_Receita_Competencia DEFAULT (CONVERT(char(7), SYSUTCDATETIME(), 120)),
         DataLancamento DATE NOT NULL,
         DataVencimento DATE NOT NULL,
         DataEfetivacao DATE NULL,
@@ -89,6 +90,19 @@ IF COL_LENGTH('dbo.Receita', 'DataEfetivacao') IS NULL
 BEGIN
     ALTER TABLE dbo.Receita ADD DataEfetivacao DATE NULL;
 END;
+GO
+
+IF COL_LENGTH('dbo.Receita', 'Competencia') IS NULL
+BEGIN
+    ALTER TABLE dbo.Receita
+        ADD Competencia CHAR(7) NOT NULL
+            CONSTRAINT DF_Receita_Competencia DEFAULT (CONVERT(char(7), SYSUTCDATETIME(), 120));
+END;
+GO
+
+UPDATE dbo.Receita
+SET Competencia = CONVERT(char(7), DataLancamento, 120)
+WHERE Competencia IS NULL OR Competencia = '';
 GO
 
 IF COL_LENGTH('dbo.Receita', 'ContaDestinoId') IS NULL
@@ -178,6 +192,13 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_Receita_UsuarioCadast
 BEGIN
     CREATE NONCLUSTERED INDEX IX_Receita_UsuarioCadastroId_Status_DataVencimento
         ON dbo.Receita (UsuarioCadastroId, Status, DataVencimento);
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_Receita_Competencia' AND object_id = OBJECT_ID(N'dbo.Receita'))
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_Receita_Competencia
+        ON dbo.Receita (Competencia, Id DESC);
 END;
 GO
 

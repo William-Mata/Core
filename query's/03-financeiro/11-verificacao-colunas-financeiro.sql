@@ -16,6 +16,7 @@ GO
     SELECT N'dbo.Despesa', N'ValorTotalRateioAmigos' UNION ALL
     SELECT N'dbo.Despesa', N'TipoRateioAmigos' UNION ALL
     SELECT N'dbo.Despesa', N'DespesaRecorrenciaOrigemId' UNION ALL
+    SELECT N'dbo.Despesa', N'Competencia' UNION ALL
     SELECT N'dbo.Despesa', N'ValorEfetivacao' UNION ALL
     SELECT N'dbo.Despesa', N'ContaDestinoId' UNION ALL
     SELECT N'dbo.Despesa', N'ReceitaTransferenciaId' UNION ALL
@@ -27,6 +28,7 @@ GO
     SELECT N'dbo.Receita', N'QuantidadeRecorrencia' UNION ALL
     SELECT N'dbo.Receita', N'ValorTotalRateioAmigos' UNION ALL
     SELECT N'dbo.Receita', N'TipoRateioAmigos' UNION ALL
+    SELECT N'dbo.Receita', N'Competencia' UNION ALL
     SELECT N'dbo.Receita', N'ValorEfetivacao' UNION ALL
     SELECT N'dbo.Receita', N'ContaBancariaId' UNION ALL
     SELECT N'dbo.Receita', N'ContaDestinoId' UNION ALL
@@ -38,6 +40,7 @@ GO
     SELECT N'dbo.HistoricoTransacaoFinanceira', N'Observacao' UNION ALL
     SELECT N'dbo.HistoricoTransacaoFinanceira', N'OcultarDoHistorico' UNION ALL
     SELECT N'dbo.Reembolso', N'DataLancamento' UNION ALL
+    SELECT N'dbo.Reembolso', N'Competencia' UNION ALL
     SELECT N'dbo.Reembolso', N'DataEfetivacao' UNION ALL
     SELECT N'dbo.Documento', N'NomeArquivo' UNION ALL
     SELECT N'dbo.Documento', N'CaminhoArquivo' UNION ALL

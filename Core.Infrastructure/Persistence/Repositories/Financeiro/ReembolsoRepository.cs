@@ -48,9 +48,8 @@ public sealed class ReembolsoRepository(AppDbContext dbContext) : IReembolsoRepo
 
         if (competenciaMesAno.HasValue)
         {
-            query = query.Where(x =>
-                x.DataLancamento.Year == competenciaMesAno.Value.Ano &&
-                x.DataLancamento.Month == competenciaMesAno.Value.Mes);
+            var competenciaNormalizada = $"{competenciaMesAno.Value.Ano:D4}-{competenciaMesAno.Value.Mes:D2}";
+            query = query.Where(x => x.Competencia == competenciaNormalizada);
         }
 
         return query.ToListAsync(cancellationToken);

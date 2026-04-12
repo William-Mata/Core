@@ -9,6 +9,7 @@ public sealed class Reembolso
     public int UsuarioCadastroId { get; set; }
     public string Descricao { get; set; } = string.Empty;
     public string Solicitante { get; set; } = string.Empty;
+    public string Competencia { get; set; } = string.Empty;
     public DateOnly DataLancamento { get; set; }
     public DateOnly? DataEfetivacao { get; set; }
     public List<Documento> Documentos { get; set; } = [];

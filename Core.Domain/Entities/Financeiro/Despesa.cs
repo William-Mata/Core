@@ -11,6 +11,7 @@ public sealed class Despesa
     public int UsuarioCadastroId { get; set; }
     public string Descricao { get; set; } = string.Empty;
     public string? Observacao { get; set; }
+    public string Competencia { get; set; } = string.Empty;
     public DateOnly DataLancamento { get; set; }
     public DateOnly DataVencimento { get; set; }
     public DateOnly? DataEfetivacao { get; set; }
