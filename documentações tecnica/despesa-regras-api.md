@@ -29,6 +29,9 @@ Documentar o contrato real do `DespesaController`, com regras de negocio do serv
 - Exige usuario autenticado (`usuario_nao_autenticado`).
 - `valorLiquido = valorTotal - desconto + acrescimo + imposto + juros`.
 - Criacao inicia com `status = Pendente`.
+- `competencia` e a fonte de verdade para cadastro, edicao e listagem.
+- `competencia` armazena apenas mes/ano no formato `yyyy-MM`.
+- Quando `competencia` nao for informada, a API assume a competencia atual.
 - Atualizacao/cancelamento/efetivacao/estorno validam status atual da despesa.
 - `Pix` e `Transferencia` exigem `contaBancariaId`.
 - `CartaoCredito` e `CartaoDebito` exigem `cartaoId` e nao permitem `contaBancariaId`.
@@ -50,6 +53,7 @@ Documentar o contrato real do `DespesaController`, com regras de negocio do serv
 #### Regras
 - Se `dataInicio > dataFim`, retorna `periodo_invalido`.
 - Se nenhum periodo for informado, aplica competencia atual.
+- Quando `competencia` for informada, a listagem filtra pela competencia normalizada e nao depende de `dataLancamento`.
 
 #### Exemplo de resposta (200)
 ```json
@@ -193,6 +197,7 @@ Documentar o contrato real do `DespesaController`, com regras de negocio do serv
 - `descricao` obrigatoria.
 - `valorTotal > 0`.
 - `dataVencimento >= dataLancamento`.
+- `competencia` opcional; quando ausente, assume a competencia atual.
 - Enums validos; caso contrario `enum_invalida`.
 - Regra de meio financeiro (`conta_bancaria_obrigatoria`, `cartao_obrigatorio`, `forma_pagamento_invalida`).
 - Regras de recorrencia/parcelamento.
@@ -213,6 +218,7 @@ Documentar o contrato real do `DespesaController`, com regras de negocio do serv
 - Despesa precisa estar `Pendente`.
 - Respeita mesmas validacoes de criacao.
 - Atualiza somente alvos permitidos pelo escopo.
+- A competencia salva na despesa passa a ser o criterio de consulta da listagem.
 
 #### Exemplo de request (payload completo)
 ```json

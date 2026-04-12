@@ -12,6 +12,9 @@
 ## Regras principais
 - Exige autenticacao JWT.
 - Operacoes sao restritas ao usuario autenticado.
+- `competencia` e a fonte de verdade para cadastro, edicao e listagem.
+- `competencia` armazena apenas mes/ano no formato `yyyy-MM`.
+- Quando `competencia` nao for informada, a API assume a competencia atual.
 - Efetivacao e estorno obedecem as regras de status do reembolso.
 - Exclusao retorna `204 No Content` quando sucesso.
 - Efetivacao e estorno registram historico financeiro em `HistoricoTransacaoFinanceira`.
@@ -21,6 +24,7 @@
 
 ## Filtros de listagem
 - `id`, `descricao`, `competencia`, `dataInicio`, `dataFim`
+- Quando `competencia` for informada, a listagem filtra pela competencia normalizada e nao depende de `dataLancamento`.
 
 ## Contratos de efetivacao e estorno
 - `POST /api/financeiro/reembolsos/{id}/efetivar`
