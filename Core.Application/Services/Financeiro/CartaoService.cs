@@ -132,7 +132,6 @@ public sealed class CartaoService(
 
     private static CartaoDto Map(Cartao c) =>
         new(c.Id, c.Descricao, c.Bandeira, c.Tipo, c.Limite, c.SaldoDisponivel, c.DiaVencimento, c.DataVencimentoCartao, c.Status.ToString().ToLowerInvariant(),
-            c.Lancamentos.Select(x => new CartaoLancamentoDto(x.Id, DateOnly.FromDateTime(x.DataHoraCadastro), x.Descricao, x.Valor)).ToArray(),
             c.Logs.Select(x => new CartaoLogDto(x.Id, DateOnly.FromDateTime(x.DataHoraCadastro), x.Acao, x.Descricao)).ToArray());
 
     private static LancamentoVinculadoDto MapLancamento(HistoricoTransacaoFinanceira historico) =>

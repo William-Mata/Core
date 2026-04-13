@@ -34,13 +34,16 @@ public static class DependencyInjection
         services.AddScoped<IDespesaRepository, DespesaRepository>();
         services.AddScoped<IReceitaRepository, ReceitaRepository>();
         services.AddScoped<IReembolsoRepository, ReembolsoRepository>();
+        services.AddScoped<IFaturaCartaoRepository, FaturaCartaoRepository>();
         services.AddScoped<IHistoricoTransacaoFinanceiraRepository, HistoricoTransacaoFinanceiraRepository>();
         services.AddScoped<IAreaRepository, AreaRepository>();
         services.AddScoped<IAmizadeRepository, AmizadeRepository>();
         services.AddScoped<IUsuarioRepository, UsuarioRepository>();
         services.AddScoped<IDocumentoStorageService, LocalDocumentoStorageService>();
         services.AddScoped<ITokenService, JwtTokenService>();
-        services.AddSingleton<IRecorrenciaBackgroundPublisher, RabbitMqRecorrenciaBackgroundPublisher>();
+        services.AddSingleton<RabbitMqRecorrenciaBackgroundPublisher>();
+        services.AddSingleton<IRecorrenciaBackgroundPublisher>(sp => sp.GetRequiredService<RabbitMqRecorrenciaBackgroundPublisher>());
+        services.AddSingleton<IFaturaCartaoBackgroundPublisher>(sp => sp.GetRequiredService<RabbitMqRecorrenciaBackgroundPublisher>());
         services.AddHostedService<RabbitMqRecorrenciaBackgroundConsumerService>();
 
         services.AddScoped<AutenticacaoService>();
@@ -51,6 +54,7 @@ public static class DependencyInjection
         services.AddScoped<DespesaService>();
         services.AddScoped<ReceitaService>();
         services.AddScoped<ReembolsoService>();
+        services.AddScoped<FaturaCartaoService>();
         services.AddScoped<HistoricoTransacaoFinanceiraService>();
         services.AddScoped<HistoricoTransacaoFinanceiraConsultaService>();
         services.AddScoped<UsuarioService>();

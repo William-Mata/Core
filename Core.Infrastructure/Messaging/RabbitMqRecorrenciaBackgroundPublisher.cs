@@ -10,7 +10,7 @@ namespace Core.Infrastructure.Messaging;
 
 public sealed class RabbitMqRecorrenciaBackgroundPublisher(
     IOptions<RabbitMqOptions> options,
-    ILogger<RabbitMqRecorrenciaBackgroundPublisher> logger) : IRecorrenciaBackgroundPublisher
+    ILogger<RabbitMqRecorrenciaBackgroundPublisher> logger) : IRecorrenciaBackgroundPublisher, IFaturaCartaoBackgroundPublisher
 {
 private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web)
 {
@@ -25,6 +25,11 @@ private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerial
     public async Task PublicarReceitaAsync(ReceitaRecorrenciaBackgroundMessage message, CancellationToken cancellationToken = default)
     {
         await PublicarAsync(options.Value.QueueRecorrenciaReceita, message, cancellationToken);
+    }
+
+    public async Task PublicarGarantiaESaneamentoAsync(FaturaCartaoGarantiaSaneamentoBackgroundMessage message, CancellationToken cancellationToken = default)
+    {
+        await PublicarAsync(options.Value.QueueFaturaCartaoGarantiaSaneamento, message, cancellationToken);
     }
 
     private async Task PublicarAsync<T>(string queueName, T message, CancellationToken cancellationToken)

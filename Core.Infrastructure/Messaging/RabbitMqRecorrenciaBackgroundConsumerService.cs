@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Core.Application.Contracts.Financeiro;
+using Core.Application.Services.Financeiro;
 using Core.Domain.Entities.Financeiro;
 using Core.Domain.Enums;
 using Core.Infrastructure.Persistence;
@@ -74,6 +75,7 @@ private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerial
 
         await _channel.QueueDeclareAsync(options.Value.QueueRecorrenciaDespesa, true, false, false, cancellationToken: stoppingToken);
         await _channel.QueueDeclareAsync(options.Value.QueueRecorrenciaReceita, true, false, false, cancellationToken: stoppingToken);
+        await _channel.QueueDeclareAsync(options.Value.QueueFaturaCartaoGarantiaSaneamento, true, false, false, cancellationToken: stoppingToken);
         await _channel.BasicQosAsync(0, 1, false, stoppingToken);
 
         var despesaConsumer = new AsyncEventingBasicConsumer(_channel);
@@ -83,6 +85,10 @@ private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerial
         var receitaConsumer = new AsyncEventingBasicConsumer(_channel);
         receitaConsumer.ReceivedAsync += OnReceitaReceivedAsync;
         await _channel.BasicConsumeAsync(options.Value.QueueRecorrenciaReceita, false, receitaConsumer, stoppingToken);
+
+        var faturaGarantiaSaneamentoConsumer = new AsyncEventingBasicConsumer(_channel);
+        faturaGarantiaSaneamentoConsumer.ReceivedAsync += OnFaturaGarantiaSaneamentoReceivedAsync;
+        await _channel.BasicConsumeAsync(options.Value.QueueFaturaCartaoGarantiaSaneamento, false, faturaGarantiaSaneamentoConsumer, stoppingToken);
     }
 
     private async Task OnDespesaReceivedAsync(object sender, BasicDeliverEventArgs eventArgs)
@@ -121,6 +127,32 @@ private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerial
             logger.LogError(ex, "Erro ao processar mensagem de recorrencia de receita.");
             await _channel.BasicNackAsync(eventArgs.DeliveryTag, false, true);
         }
+    }
+
+    private async Task OnFaturaGarantiaSaneamentoReceivedAsync(object sender, BasicDeliverEventArgs eventArgs)
+    {
+        if (_channel is null) return;
+
+        try
+        {
+            var payload = JsonSerializer.Deserialize<FaturaCartaoGarantiaSaneamentoBackgroundMessage>(eventArgs.Body.Span, SerializerOptions);
+            if (payload is null) throw new InvalidOperationException("Mensagem de garantia/saneamento de fatura invalida.");
+
+            await ProcessarFaturaGarantiaSaneamentoAsync(payload, CancellationToken.None);
+            await _channel.BasicAckAsync(eventArgs.DeliveryTag, false);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Erro ao processar mensagem de garantia/saneamento de fatura.");
+            await _channel.BasicNackAsync(eventArgs.DeliveryTag, false, true);
+        }
+    }
+
+    private async Task ProcessarFaturaGarantiaSaneamentoAsync(FaturaCartaoGarantiaSaneamentoBackgroundMessage payload, CancellationToken cancellationToken)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var faturaCartaoService = scope.ServiceProvider.GetRequiredService<FaturaCartaoService>();
+        await faturaCartaoService.ProcessarGarantiaESaneamentoAsync(payload.UsuarioId, payload.Competencia, cancellationToken);
     }
 
     private async Task ProcessarDespesaAsync(DespesaRecorrenciaBackgroundMessage payload, CancellationToken cancellationToken)
