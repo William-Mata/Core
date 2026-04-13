@@ -20,6 +20,7 @@ GO
     SELECT N'dbo.Despesa', N'ValorEfetivacao' UNION ALL
     SELECT N'dbo.Despesa', N'ContaDestinoId' UNION ALL
     SELECT N'dbo.Despesa', N'ReceitaTransferenciaId' UNION ALL
+    SELECT N'dbo.Despesa', N'FaturaCartaoId' UNION ALL
     SELECT N'dbo.DespesaAmigoRateio', N'Valor' UNION ALL
     SELECT N'dbo.DespesaAreaRateio', N'Valor' UNION ALL
     SELECT N'dbo.Receita', N'DataEfetivacao' UNION ALL
@@ -33,6 +34,7 @@ GO
     SELECT N'dbo.Receita', N'ContaBancariaId' UNION ALL
     SELECT N'dbo.Receita', N'ContaDestinoId' UNION ALL
     SELECT N'dbo.Receita', N'DespesaTransferenciaId' UNION ALL
+    SELECT N'dbo.Receita', N'FaturaCartaoId' UNION ALL
     SELECT N'dbo.ReceitaAmigoRateio', N'Valor' UNION ALL
     SELECT N'dbo.ReceitaAreaRateio', N'Valor' UNION ALL
     SELECT N'dbo.HistoricoTransacaoFinanceira', N'TipoPagamento' UNION ALL
@@ -42,6 +44,15 @@ GO
     SELECT N'dbo.Reembolso', N'DataLancamento' UNION ALL
     SELECT N'dbo.Reembolso', N'Competencia' UNION ALL
     SELECT N'dbo.Reembolso', N'DataEfetivacao' UNION ALL
+    SELECT N'dbo.Reembolso', N'CartaoId' UNION ALL
+    SELECT N'dbo.Reembolso', N'FaturaCartaoId' UNION ALL
+    SELECT N'dbo.FaturaCartao', N'CartaoId' UNION ALL
+    SELECT N'dbo.FaturaCartao', N'Competencia' UNION ALL
+    SELECT N'dbo.FaturaCartao', N'DataFechamento' UNION ALL
+    SELECT N'dbo.FaturaCartao', N'DataEfetivacao' UNION ALL
+    SELECT N'dbo.FaturaCartao', N'DataEstorno' UNION ALL
+    SELECT N'dbo.FaturaCartao', N'ValorTotal' UNION ALL
+    SELECT N'dbo.FaturaCartao', N'Status' UNION ALL
     SELECT N'dbo.Documento', N'NomeArquivo' UNION ALL
     SELECT N'dbo.Documento', N'CaminhoArquivo' UNION ALL
     SELECT N'dbo.Documento', N'DespesaId' UNION ALL

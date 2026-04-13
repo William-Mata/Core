@@ -34,6 +34,7 @@ public sealed class Despesa
     public long? ContaDestinoId { get; set; }
     public long? ReceitaTransferenciaId { get; set; }
     public long? CartaoId { get; set; }
+    public long? FaturaCartaoId { get; set; }
     public List<Documento> Documentos { get; set; } = [];
     public List<DespesaAmigoRateio> AmigosRateio { get; set; } = [];
     public List<DespesaAreaRateio> AreasRateio { get; set; } = [];

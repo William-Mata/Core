@@ -44,45 +44,6 @@ BEGIN
 END;
 GO
 
-IF OBJECT_ID(N'dbo.CartaoLancamento', N'U') IS NULL
-BEGIN
-    CREATE TABLE dbo.CartaoLancamento
-    (
-        Id BIGINT IDENTITY(1,1) NOT NULL,
-        DataHoraCadastro DATETIME2(0) NOT NULL CONSTRAINT DF_CartaoLancamento_DataHoraCadastro DEFAULT (SYSUTCDATETIME()),
-        UsuarioCadastroId INT NOT NULL,
-        CartaoId BIGINT NOT NULL,
-        Descricao NVARCHAR(200) NOT NULL,
-        Valor DECIMAL(18,2) NOT NULL,
-        CONSTRAINT PK_CartaoLancamento PRIMARY KEY CLUSTERED (Id)
-    );
-END;
-GO
-
-IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_CartaoLancamento_Cartao_CartaoId')
-BEGIN
-    ALTER TABLE dbo.CartaoLancamento
-        WITH CHECK ADD CONSTRAINT FK_CartaoLancamento_Cartao_CartaoId
-        FOREIGN KEY (CartaoId) REFERENCES dbo.Cartao (Id)
-        ON DELETE CASCADE;
-END;
-GO
-
-IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_CartaoLancamento_Usuario_UsuarioCadastroId')
-BEGIN
-    ALTER TABLE dbo.CartaoLancamento
-        WITH CHECK ADD CONSTRAINT FK_CartaoLancamento_Usuario_UsuarioCadastroId
-        FOREIGN KEY (UsuarioCadastroId) REFERENCES dbo.Usuario (Id);
-END;
-GO
-
-IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_CartaoLancamento_CartaoId_DataHoraCadastro' AND object_id = OBJECT_ID(N'dbo.CartaoLancamento'))
-BEGIN
-    CREATE NONCLUSTERED INDEX IX_CartaoLancamento_CartaoId_DataHoraCadastro
-        ON dbo.CartaoLancamento (CartaoId, DataHoraCadastro DESC);
-END;
-GO
-
 IF OBJECT_ID(N'dbo.CartaoLog', N'U') IS NULL
 BEGIN
     CREATE TABLE dbo.CartaoLog

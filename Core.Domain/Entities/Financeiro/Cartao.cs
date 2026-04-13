@@ -15,6 +15,5 @@ public sealed class Cartao
     public DateOnly? DiaVencimento { get; set; }
     public DateOnly? DataVencimentoCartao { get; set; }
     public StatusCartao Status { get; set; } = StatusCartao.Ativo;
-    public List<CartaoLancamento> Lancamentos { get; set; } = [];
     public List<CartaoLog> Logs { get; set; } = [];
 }

@@ -22,8 +22,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<ContaBancariaExtrato> ContasBancariasExtrato => Set<ContaBancariaExtrato>();
     public DbSet<ContaBancariaLog> ContasBancariasLogs => Set<ContaBancariaLog>();
     public DbSet<Cartao> Cartoes => Set<Cartao>();
-    public DbSet<CartaoLancamento> CartoesLancamentos => Set<CartaoLancamento>();
     public DbSet<CartaoLog> CartoesLogs => Set<CartaoLog>();
+    public DbSet<FaturaCartao> FaturasCartoes => Set<FaturaCartao>();
     public DbSet<Despesa> Despesas => Set<Despesa>();
     public DbSet<DespesaAmigoRateio> DespesasAmigosRateio => Set<DespesaAmigoRateio>();
     public DbSet<DespesaAreaRateio> DespesasAreasRateio => Set<DespesaAreaRateio>();
@@ -148,13 +148,17 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
         modelBuilder.Entity<Cartao>().ToTable("Cartao");
         modelBuilder.Entity<Cartao>().HasKey(x => x.Id);
-        modelBuilder.Entity<CartaoLancamento>().ToTable("CartaoLancamento");
         modelBuilder.Entity<CartaoLog>().ToTable("CartaoLog");
         modelBuilder.Entity<Cartao>().Property(x => x.Status).HasConversion<string>();
         modelBuilder.Entity<Cartao>().Property(x => x.Tipo).HasConversion<string>();
         modelBuilder.Entity<CartaoLog>().Property(x => x.Acao).HasConversion<string>();
-        modelBuilder.Entity<Cartao>().HasMany(x => x.Lancamentos).WithOne().HasForeignKey(x => x.CartaoId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<Cartao>().HasMany(x => x.Logs).WithOne().HasForeignKey(x => x.CartaoId).OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<FaturaCartao>().ToTable("FaturaCartao");
+        modelBuilder.Entity<FaturaCartao>().HasKey(x => x.Id);
+        modelBuilder.Entity<FaturaCartao>().Property(x => x.Status).HasConversion<string>();
+        modelBuilder.Entity<FaturaCartao>().HasIndex(x => new { x.UsuarioCadastroId, x.CartaoId, x.Competencia }).IsUnique();
+        modelBuilder.Entity<FaturaCartao>().HasOne<Cartao>().WithMany().HasForeignKey(x => x.CartaoId).OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<Despesa>().ToTable("Despesa");
         modelBuilder.Entity<Despesa>().HasKey(x => x.Id);
@@ -183,6 +187,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         modelBuilder.Entity<Despesa>().HasOne<ContaBancaria>().WithMany().HasForeignKey(x => x.ContaBancariaId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<Despesa>().HasOne<Receita>().WithMany().HasForeignKey(x => x.ReceitaTransferenciaId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<Despesa>().HasOne<Cartao>().WithMany().HasForeignKey(x => x.CartaoId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Despesa>().HasOne<FaturaCartao>().WithMany().HasForeignKey(x => x.FaturaCartaoId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<Despesa>().HasMany(x => x.AmigosRateio).WithOne().HasForeignKey(x => x.DespesaId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<Despesa>().HasMany(x => x.AreasRateio).WithOne().HasForeignKey(x => x.DespesaId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<Despesa>().HasMany(x => x.Documentos).WithOne().HasForeignKey(x => x.DespesaId).OnDelete(DeleteBehavior.Cascade);
@@ -222,6 +227,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         modelBuilder.Entity<Reembolso>().ToTable("Reembolso");
         modelBuilder.Entity<Reembolso>().HasKey(x => x.Id);
         modelBuilder.Entity<Reembolso>().Property(x => x.Status).HasConversion<string>();
+        modelBuilder.Entity<Reembolso>().HasOne<Cartao>().WithMany().HasForeignKey(x => x.CartaoId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Reembolso>().HasOne<FaturaCartao>().WithMany().HasForeignKey(x => x.FaturaCartaoId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<Reembolso>().HasMany(x => x.Documentos).WithOne().HasForeignKey(x => x.ReembolsoId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<Reembolso>().HasMany(x => x.Despesas).WithOne().HasForeignKey(x => x.ReembolsoId).OnDelete(DeleteBehavior.Cascade);
 
@@ -255,6 +262,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         modelBuilder.Entity<Receita>().HasOne<ContaBancaria>().WithMany().HasForeignKey(x => x.ContaBancariaId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<Receita>().HasOne<Despesa>().WithMany().HasForeignKey(x => x.DespesaTransferenciaId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<Receita>().HasOne<Cartao>().WithMany().HasForeignKey(x => x.CartaoId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Receita>().HasOne<FaturaCartao>().WithMany().HasForeignKey(x => x.FaturaCartaoId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<Receita>().HasMany(x => x.AmigosRateio).WithOne().HasForeignKey(x => x.ReceitaId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<Receita>().HasMany(x => x.AreasRateio).WithOne().HasForeignKey(x => x.ReceitaId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<Receita>().HasMany(x => x.Documentos).WithOne().HasForeignKey(x => x.ReceitaId).OnDelete(DeleteBehavior.Cascade);

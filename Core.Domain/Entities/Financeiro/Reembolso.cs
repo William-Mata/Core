@@ -12,6 +12,8 @@ public sealed class Reembolso
     public string Competencia { get; set; } = string.Empty;
     public DateOnly DataLancamento { get; set; }
     public DateOnly? DataEfetivacao { get; set; }
+    public long? CartaoId { get; set; }
+    public long? FaturaCartaoId { get; set; }
     public List<Documento> Documentos { get; set; } = [];
     public decimal ValorTotal { get; set; }
     public StatusReembolso Status { get; set; } = StatusReembolso.Aguardando;

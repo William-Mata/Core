@@ -11,4 +11,5 @@ public sealed class RabbitMqOptions
     public string VirtualHost { get; set; } = "/";
     public string QueueRecorrenciaDespesa { get; set; } = "financeiro.recorrencia.despesa";
     public string QueueRecorrenciaReceita { get; set; } = "financeiro.recorrencia.receita";
+    public string QueueFaturaCartaoGarantiaSaneamento { get; set; } = "financeiro.fatura-cartao.garantia-saneamento";
 }

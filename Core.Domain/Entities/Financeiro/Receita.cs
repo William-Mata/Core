@@ -33,6 +33,7 @@ public sealed class Receita
     public long? ContaDestinoId { get; set; }
     public long? DespesaTransferenciaId { get; set; }
     public long? CartaoId { get; set; }
+    public long? FaturaCartaoId { get; set; }
     public List<Documento> Documentos { get; set; } = [];
     public List<ReceitaAmigoRateio> AmigosRateio { get; set; } = [];
     public List<ReceitaAreaRateio> AreasRateio { get; set; } = [];

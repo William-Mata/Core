@@ -15,7 +15,6 @@ public sealed class CartaoRepository(AppDbContext dbContext) : ICartaoRepository
     private Task<List<Cartao>> ListarCoreAsync(int? usuarioCadastroId, CancellationToken cancellationToken) =>
         dbContext.Cartoes
             .Where(x => !usuarioCadastroId.HasValue || x.UsuarioCadastroId == usuarioCadastroId.Value)
-            .Include(x => x.Lancamentos)
             .Include(x => x.Logs)
             .OrderByDescending(x => x.DataVencimentoCartao)
             .ToListAsync(cancellationToken);
@@ -30,7 +29,6 @@ public sealed class CartaoRepository(AppDbContext dbContext) : ICartaoRepository
         dbContext.Cartoes
             .Where(x => x.Id == id)
             .Where(x => !usuarioCadastroId.HasValue || x.UsuarioCadastroId == usuarioCadastroId.Value)
-            .Include(x => x.Lancamentos)
             .Include(x => x.Logs)
             .FirstOrDefaultAsync(cancellationToken);
 
