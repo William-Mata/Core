@@ -98,6 +98,32 @@ public sealed class CartaoServiceTests
         Assert.Equal("04/2026", historicoRepository.UltimaCompetenciaConsulta);
     }
 
+    [Fact]
+    public async Task DeveRetornarCartaoSemLancamentosNoContratoDeLeitura()
+    {
+        var repository = new CartaoRepositoryFake
+        {
+            Cartao = new Cartao
+            {
+                Id = 2,
+                Descricao = "Cartao",
+                Bandeira = "Visa",
+                Tipo = TipoCartao.Credito,
+                Limite = 1000m,
+                SaldoDisponivel = 700m,
+                Status = StatusCartao.Ativo,
+                Logs = [new CartaoLog { Id = 1, Descricao = "Criado", UsuarioCadastroId = 5, Acao = AcaoLogs.Cadastro }]
+            }
+        };
+        var service = new CartaoService(repository, new HistoricoRepositoryFake(), new UsuarioAutenticadoProviderFake(5));
+
+        var resultado = await service.ObterAsync(2);
+
+        Assert.Equal(2, resultado.Id);
+        Assert.Equal("Cartao", resultado.Descricao);
+        Assert.Single(resultado.Logs);
+    }
+
     private sealed class CartaoRepositoryFake : ICartaoRepository
     {
         public Cartao? Cartao { get; set; }
