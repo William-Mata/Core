@@ -30,14 +30,6 @@ Campos usados pelo front:
   "diaVencimento": "2026-03-12",
   "dataVencimentoCartao": "2026-03-12",
   "status": "ativo",
-  "lancamentos": [
-    {
-      "id": 1,
-      "data": "2026-03-05",
-      "descricao": "Supermercado",
-      "valor": 320.6
-    }
-  ],
   "logs": [
     {
       "id": 1,
@@ -67,7 +59,7 @@ Campos usados na UI:
 - `saldoDisponivel`
 - `diaVencimento`
 - `dataVencimentoCartao`
-- detalhe por `fatura`
+- detalhe por `fatura` como agrupador conceitual da tela
 
 ### Cartao de debito
 Campos usados na UI:
@@ -114,7 +106,6 @@ Ao salvar um novo cartao o front:
 - gera `id` localmente no mock atual
 - define `status = ativo`
 - cria `logs` com acao `CRIADO`
-- inicializa `lancamentos` como lista vazia
 
 Payload recomendado para criacao:
 
@@ -166,25 +157,14 @@ Comportamento atual:
 - mobile usa `Alert.alert`
 - ao alternar status, grava log com `ATIVADO` ou `INATIVADO`
 
-## Estrutura esperada de lancamentos
-Campos usados pelo front:
-- `id`
-- `data`
-- `descricao`
-- `valor`
-
-Regra atual:
-- a tela nao armazena tipo do lancamento do cartao
-- o valor e sempre exibido como gasto no detalhe do cartao
-
 ## Regra de fatura e extrato
 - para `credito`, a acao lateral exibe `fatura`
 - para `debito`, a acao lateral exibe `extrato`
 
 Comportamento atual:
 - ha navegacao mensal por `YYYY-MM`
-- o detalhe mostra apenas os `lancamentos` do mes selecionado
-- o total do periodo e a soma dos lancamentos filtrados pelo mes
+- o detalhe mostra os itens vinculados ao periodo selecionado via endpoint de expansao
+- o total do periodo e a soma dos itens filtrados pelo mes
 
 ## Regras de formatacao
 - valores devem ser enviados como numero
@@ -195,7 +175,7 @@ Comportamento atual:
 ## Regras importantes para integracao
 - `bandeira` hoje e texto, nao id numerico
 - a API pode retornar a bandeira como texto exibivel igual ao usado pelo cadastro
-- para suportar detalhe mensal corretamente, `lancamentos` devem trazer datas consistentes em ISO
+- para suportar detalhe mensal corretamente, os itens da fatura devem trazer datas consistentes em ISO
 
 ## Fora do escopo atual da tela
 - vinculacao real do cartao de debito com conta bancaria

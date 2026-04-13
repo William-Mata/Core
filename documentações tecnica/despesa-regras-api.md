@@ -49,11 +49,15 @@ Documentar o contrato real do `DespesaController`, com regras de negocio do serv
 - `dataInicio` (opcional)
 - `dataFim` (opcional)
 - `verificarUltimaRecorrencia` (opcional)
+- `desconsiderarVinculadosCartaoCredito` (opcional, default `false`)
+- `desconsiderarCancelados` (opcional, default `false`)
 
 #### Regras
 - Se `dataInicio > dataFim`, retorna `periodo_invalido`.
 - Se nenhum periodo for informado, aplica competencia atual.
 - Quando `competencia` for informada, a listagem filtra pela competencia normalizada e nao depende de `dataLancamento`.
+- Quando `desconsiderarVinculadosCartaoCredito=true`, a listagem nao retorna despesas vinculadas a `FaturaCartaoId` (itens exibidos no fluxo de fatura).
+- Quando `desconsiderarCancelados=true`, a listagem nao retorna despesas com status `Cancelada`.
 
 #### Exemplo de resposta (200)
 ```json

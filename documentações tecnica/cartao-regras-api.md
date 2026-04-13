@@ -51,7 +51,6 @@ Body:
   "diaVencimento": "2026-04-10",
   "dataVencimentoCartao": "2026-04-25",
   "status": "ativo",
-  "lancamentos": [],
   "logs": [
     {
       "id": 1,
@@ -94,14 +93,6 @@ Headers:
   "diaVencimento": "2026-04-10",
   "dataVencimentoCartao": "2026-04-25",
   "status": "ativo",
-  "lancamentos": [
-    {
-      "id": 90,
-      "data": "2026-04-03",
-      "descricao": "Compra supermercado",
-      "valor": 300.00
-    }
-  ],
   "logs": [
     {
       "id": 1,
@@ -158,7 +149,6 @@ Body:
   "diaVencimento": "2026-04-12",
   "dataVencimentoCartao": "2026-04-27",
   "status": "ativo",
-  "lancamentos": [],
   "logs": [
     {
       "id": 2,

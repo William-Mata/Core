@@ -23,8 +23,10 @@
 - Estorno aceita `ocultarDoHistorico` (default `true`) para ocultar registros da transacao no historico.
 
 ## Filtros de listagem
-- `id`, `descricao`, `competencia`, `dataInicio`, `dataFim`
+- `id`, `descricao`, `competencia`, `dataInicio`, `dataFim`, `desconsiderarVinculadosCartaoCredito` (opcional, default `false`), `desconsiderarCancelados` (opcional, default `false`)
 - Quando `competencia` for informada, a listagem filtra pela competencia normalizada e nao depende de `dataLancamento`.
+- Quando `desconsiderarVinculadosCartaoCredito=true`, a listagem nao retorna reembolsos vinculados a `FaturaCartaoId` (itens exibidos no fluxo de fatura).
+- Quando `desconsiderarCancelados=true`, a listagem nao retorna reembolsos com status `Cancelado`.
 
 ## Contratos de efetivacao e estorno
 - `POST /api/financeiro/reembolsos/{id}/efetivar`
