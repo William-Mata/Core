@@ -19,8 +19,10 @@ public sealed class ReceitaController(ReceitaService service) : ControllerBase
         [FromQuery] DateOnly? dataInicio,
         [FromQuery] DateOnly? dataFim,
         [FromQuery] bool verificarUltimaRecorrencia,
+        [FromQuery] bool desconsiderarVinculadosCartaoCredito,
+        [FromQuery] bool desconsiderarCancelados,
         CancellationToken cancellationToken) =>
-        Ok(await service.ListarAsync(new ListarReceitasRequest(id, descricao, competencia, dataInicio, dataFim, verificarUltimaRecorrencia), cancellationToken));
+        Ok(await service.ListarAsync(new ListarReceitasRequest(id, descricao, competencia, dataInicio, dataFim, verificarUltimaRecorrencia, desconsiderarVinculadosCartaoCredito, desconsiderarCancelados), cancellationToken));
 
     [HttpGet("{id:long}")]
     public async Task<IActionResult> Obter(long id, CancellationToken cancellationToken) => Ok(await service.ObterAsync(id, cancellationToken));

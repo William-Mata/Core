@@ -21,7 +21,8 @@ public sealed partial class DespesaService(
     IUsuarioAutenticadoProvider usuarioAutenticadoProvider,
     HistoricoTransacaoFinanceiraService historicoTransacaoFinanceiraService,
     IDocumentoStorageService documentoStorageService,
-    IRecorrenciaBackgroundPublisher recorrenciaBackgroundPublisher)
+    IRecorrenciaBackgroundPublisher recorrenciaBackgroundPublisher,
+    FaturaCartaoService? faturaCartaoService = null)
 {
     private sealed record AmigoRateioValidado(int AmigoId, string Nome, decimal Valor);
 
@@ -54,6 +55,7 @@ public sealed partial class DespesaService(
                 dataInicio,
                 dataFim,
                 cancellationToken);
+
             if (!cancellationToken.IsCancellationRequested && request.VerificarUltimaRecorrencia)
             {
                 await VerificarUltimasRecorrenciasERecuperarFalhasAsync(usuarioAutenticadoId, request.Competencia, cancellationToken);
@@ -61,6 +63,8 @@ public sealed partial class DespesaService(
 
             return despesas
                 .Where(x => !EhTransacaoEntreContas(x))
+                .Where(x => !request.DesconsiderarVinculadosCartaoCredito || !x.FaturaCartaoId.HasValue)
+                .Where(x => !request.DesconsiderarCancelados || x.Status != StatusDespesa.Cancelada)
                 .Select(MapLista)
                 .ToArray();
         }
@@ -119,13 +123,16 @@ public sealed partial class DespesaService(
             req.ContaDestinoId,
             usuarioAutenticadoId,
             cancellationToken);
+        var competencia = ResolverCompetencia(req.Competencia);
+        var faturaCartaoId = await ResolverFaturaCartaoIdAsync(vinculo.CartaoId, competencia, usuarioAutenticadoId, cancellationToken);
+        var ehLancamentoCartao = vinculo.CartaoId.HasValue;
         var documentos = await SalvarDocumentosAsync(req.Documentos ?? [], usuarioAutenticadoId, cancellationToken: cancellationToken);
 
         var despesa = new Despesa
         {
             Descricao = req.Descricao.Trim(),
             Observacao = req.Observacao,
-            Competencia = ResolverCompetencia(req.Competencia),
+            Competencia = competencia,
             DataLancamento = req.DataLancamento,
             DataVencimento = req.DataVencimento,
             TipoDespesa = req.TipoDespesa,
@@ -144,8 +151,11 @@ public sealed partial class DespesaService(
             ContaBancariaId = vinculo.ContaBancariaId,
             ContaDestinoId = contaDestinoId,
             CartaoId = vinculo.CartaoId,
+            FaturaCartaoId = faturaCartaoId,
             UsuarioCadastroId = usuarioAutenticadoId,
-            Status = StatusDespesa.Pendente,
+            Status = ehLancamentoCartao ? StatusDespesa.Efetivada : StatusDespesa.Pendente,
+            DataEfetivacao = ehLancamentoCartao ? req.DataLancamento : null,
+            ValorEfetivacao = ehLancamentoCartao ? liquido : null,
             Documentos = documentos,
             AmigosRateio = amigosValidados.Select(x => new DespesaAmigoRateio
             {
@@ -161,12 +171,40 @@ public sealed partial class DespesaService(
                 SubAreaId = x.SubAreaId,
                 Valor = x.Valor
             }).ToList(),
-            Logs = [new DespesaLog { UsuarioCadastroId = usuarioAutenticadoId, Acao = AcaoLogs.Cadastro, Descricao = "Despesa criada com status pendente." }]
+            Logs =
+            [
+                new DespesaLog
+                {
+                    UsuarioCadastroId = usuarioAutenticadoId,
+                    Acao = AcaoLogs.Cadastro,
+                    Descricao = ehLancamentoCartao
+                        ? "Despesa criada com status efetivado por lancamento em cartao."
+                        : "Despesa criada com status pendente."
+                }
+            ]
         };
 
         var despesaCriada = await repository.CriarAsync(despesa, cancellationToken);
         await CriarEspelhosRateioAsync(despesaCriada, amigosValidados, req.AreasSubAreasRateio ?? [], cancellationToken);
         despesaCriada = await SincronizarTransacaoEntreContasAsync(despesaCriada, usuarioAutenticadoId, cancellationToken);
+        if (ehLancamentoCartao)
+        {
+            await historicoTransacaoFinanceiraService.RegistrarEfetivacaoAsync(
+                TipoTransacaoFinanceira.Despesa,
+                despesaCriada.Id,
+                usuarioAutenticadoId,
+                despesaCriada.DataLancamento,
+                0m,
+                despesaCriada.ValorEfetivacao ?? despesaCriada.ValorLiquido,
+                despesaCriada.ValorEfetivacao ?? despesaCriada.ValorLiquido,
+                "Efetivacao de despesa",
+                despesaCriada.TipoPagamento,
+                despesaCriada.ContaBancariaId,
+                despesaCriada.ContaDestinoId,
+                despesaCriada.CartaoId,
+                cancellationToken: cancellationToken);
+        }
+        await RecalcularFaturaAsync(despesaCriada.FaturaCartaoId, usuarioAutenticadoId, cancellationToken);
 
         var alvo = recorrenciaFixa ? 100 : quantidadeRecorrencia.GetValueOrDefault(1);
         if (alvo > 1)
@@ -212,8 +250,11 @@ public sealed partial class DespesaService(
     {
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
         var despesa = await repository.ObterPorIdAsync(id, usuarioAutenticadoId, cancellationToken) ?? throw new NotFoundException("despesa_nao_encontrada");
-        if (despesa.Status != StatusDespesa.Pendente) throw new DomainException("status_invalido");
+        if (despesa.Status != StatusDespesa.Pendente &&
+            !(despesa.FaturaCartaoId.HasValue && despesa.Status == StatusDespesa.Efetivada))
+            throw new DomainException("status_invalido");
         if (!Enum.IsDefined(escopoRecorrencia)) throw new DomainException("escopo_recorrencia_invalido");
+        await ValidarFaturaParaAlteracaoAsync(despesa.FaturaCartaoId, usuarioAutenticadoId, cancellationToken);
 
         var quantidadeRecorrencia = ResolverQuantidadeRecorrencia(req.TipoPagamento, req.QuantidadeRecorrencia, req.QuantidadeParcelas);
         var recorrencia = ResolverRecorrencia(req.TipoPagamento, req.Recorrencia);
@@ -236,6 +277,7 @@ public sealed partial class DespesaService(
             cancellationToken);
 
         var serie = await ListarSerieRecorrenteAsync(despesa, usuarioAutenticadoId, cancellationToken);
+        var faturasOriginais = serie.Where(x => x.FaturaCartaoId.HasValue).Select(x => x.FaturaCartaoId!.Value).ToHashSet();
         var alvos = SelecionarAlvosPorEscopo(serie, despesa, escopoRecorrencia);
         var indicePorId = serie
             .Select((item, indice) => new { item.Id, Indice = indice })
@@ -270,6 +312,13 @@ public sealed partial class DespesaService(
             alvo.ContaBancariaId = vinculo.ContaBancariaId;
             alvo.ContaDestinoId = contaDestinoIdBase;
             alvo.CartaoId = vinculo.CartaoId;
+            alvo.FaturaCartaoId = await ResolverFaturaCartaoIdAsync(vinculo.CartaoId, alvo.Competencia, usuarioAutenticadoId, cancellationToken);
+            if (vinculo.CartaoId.HasValue)
+            {
+                alvo.Status = StatusDespesa.Efetivada;
+                alvo.DataEfetivacao = alvo.DataLancamento;
+                alvo.ValorEfetivacao = liquido;
+            }
             if (req.Documentos is not null)
                 alvo.Documentos = await SalvarDocumentosAsync(req.Documentos, usuarioAutenticadoId, alvo.Id, cancellationToken: cancellationToken);
 
@@ -298,6 +347,10 @@ public sealed partial class DespesaService(
             if (atualizado.Id == id)
                 despesaAtualizada = atualizado;
         }
+
+        var faturasAtualizadas = alvos.Where(x => x.FaturaCartaoId.HasValue).Select(x => x.FaturaCartaoId!.Value).ToHashSet();
+        foreach (var faturaId in faturasOriginais.Union(faturasAtualizadas))
+            await RecalcularFaturaAsync(faturaId, usuarioAutenticadoId, cancellationToken);
 
         return Map(despesaAtualizada ?? despesa);
     }
@@ -344,6 +397,7 @@ public sealed partial class DespesaService(
     {
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
         var despesa = await repository.ObterPorIdAsync(id, usuarioAutenticadoId, cancellationToken) ?? throw new NotFoundException("despesa_nao_encontrada");
+        await ValidarFaturaParaAlteracaoAsync(despesa.FaturaCartaoId, usuarioAutenticadoId, cancellationToken);
         if (despesa.Status != StatusDespesa.Pendente) throw new DomainException("status_invalido");
         if (!Enum.IsDefined(req.TipoPagamento) || req.ValorTotal <= 0) throw new DomainException("dados_invalidos");
         if (req.DataEfetivacao < despesa.DataLancamento) throw new DomainException("periodo_invalido");
@@ -372,6 +426,7 @@ public sealed partial class DespesaService(
         despesa.ContaBancariaId = vinculo.ContaBancariaId;
         despesa.ContaDestinoId = contaDestinoId;
         despesa.CartaoId = vinculo.CartaoId;
+        despesa.FaturaCartaoId = await ResolverFaturaCartaoIdAsync(vinculo.CartaoId, despesa.Competencia, usuarioAutenticadoId, cancellationToken);
         despesa.ValorLiquido = liquido;
         despesa.ValorEfetivacao = liquido;
         despesa.Status = StatusDespesa.Efetivada;
@@ -398,6 +453,8 @@ public sealed partial class DespesaService(
             observacao: NormalizarObservacao(req.ObservacaoHistorico),
             transacaoIdEspelho: despesaAtualizada.ReceitaTransferenciaId);
 
+        await RecalcularFaturaAsync(despesaAtualizada.FaturaCartaoId, usuarioAutenticadoId, cancellationToken);
+
         return Map(despesaAtualizada);
     }
 
@@ -408,6 +465,45 @@ public sealed partial class DespesaService(
     {
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
         var despesa = await repository.ObterPorIdAsync(id, usuarioAutenticadoId, cancellationToken) ?? throw new NotFoundException("despesa_nao_encontrada");
+        await ValidarFaturaParaAlteracaoAsync(despesa.FaturaCartaoId, usuarioAutenticadoId, cancellationToken);
+        if (despesa.FaturaCartaoId.HasValue && despesa.Status == StatusDespesa.Efetivada)
+        {
+            if (escopoRecorrencia != EscopoRecorrencia.ApenasEssa)
+                throw new DomainException("status_invalido");
+
+            var valorAntesTransacao = despesa.ValorEfetivacao ?? despesa.ValorLiquido;
+            var dataEstorno = DateOnly.FromDateTime(DateTime.Now);
+            despesa.Status = StatusDespesa.Cancelada;
+            despesa.DataEfetivacao = null;
+            despesa.ValorEfetivacao = null;
+            despesa.Logs.Add(new DespesaLog
+            {
+                DespesaId = despesa.Id,
+                UsuarioCadastroId = usuarioAutenticadoId,
+                Acao = AcaoLogs.Exclusao,
+                Descricao = "Despesa estornada e cancelada."
+            });
+
+            var cancelada = await repository.AtualizarAsync(despesa, cancellationToken);
+            cancelada = await SincronizarTransacaoEntreContasAsync(cancelada, usuarioAutenticadoId, cancellationToken);
+            await historicoTransacaoFinanceiraService.RegistrarEstornoAsync(
+                TipoTransacaoFinanceira.Despesa,
+                cancelada.Id,
+                usuarioAutenticadoId,
+                dataEstorno,
+                valorAntesTransacao,
+                valorAntesTransacao,
+                0m,
+                "Estorno de despesa",
+                cancelada.TipoPagamento,
+                cancelada.ContaBancariaId,
+                cancelada.ContaDestinoId,
+                cancelada.CartaoId,
+                cancellationToken: cancellationToken);
+            await RecalcularFaturaAsync(cancelada.FaturaCartaoId, usuarioAutenticadoId, cancellationToken);
+            return Map(cancelada);
+        }
+
         if (despesa.Status != StatusDespesa.Pendente) throw new DomainException("status_invalido");
         if (!Enum.IsDefined(escopoRecorrencia)) throw new DomainException("escopo_recorrencia_invalido");
 
@@ -436,6 +532,9 @@ public sealed partial class DespesaService(
             }
         }
 
+        foreach (var faturaId in alvos.Where(x => x.FaturaCartaoId.HasValue).Select(x => x.FaturaCartaoId!.Value).Distinct())
+            await RecalcularFaturaAsync(faturaId, usuarioAutenticadoId, cancellationToken);
+
         return Map(despesaAtualizada ?? despesa);
     }
 
@@ -443,6 +542,7 @@ public sealed partial class DespesaService(
     {
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
         var despesa = await repository.ObterPorIdAsync(id, usuarioAutenticadoId, cancellationToken) ?? throw new NotFoundException("despesa_nao_encontrada");
+        await ValidarFaturaParaAlteracaoAsync(despesa.FaturaCartaoId, usuarioAutenticadoId, cancellationToken);
         if (despesa.Status != StatusDespesa.Efetivada) throw new DomainException("status_invalido");
         if (req.DataEstorno == default) throw new DomainException("data_estorno_obrigatoria");
         if (req.DataEstorno < despesa.DataLancamento) throw new DomainException("periodo_invalido");
@@ -478,8 +578,19 @@ public sealed partial class DespesaService(
             ocultarDoHistorico: req.OcultarDoHistorico,
             transacaoIdEspelho: despesaAtualizada.ReceitaTransferenciaId);
 
+        await RecalcularFaturaAsync(despesaAtualizada.FaturaCartaoId, usuarioAutenticadoId, cancellationToken);
+
         return Map(despesaAtualizada);
     }
+
+    private Task<long?> ResolverFaturaCartaoIdAsync(long? cartaoId, string competencia, int usuarioAutenticadoId, CancellationToken cancellationToken) =>
+        faturaCartaoService?.ResolverFaturaIdParaTransacaoCartaoAsync(cartaoId, competencia, usuarioAutenticadoId, cancellationToken) ?? Task.FromResult<long?>(null);
+
+    private Task RecalcularFaturaAsync(long? faturaCartaoId, int usuarioAutenticadoId, CancellationToken cancellationToken) =>
+        faturaCartaoService?.RecalcularTotalPorFaturaIdAsync(faturaCartaoId, usuarioAutenticadoId, cancellationToken) ?? Task.CompletedTask;
+
+    private Task ValidarFaturaParaAlteracaoAsync(long? faturaCartaoId, int usuarioAutenticadoId, CancellationToken cancellationToken) =>
+        faturaCartaoService?.ValidarFaturaPermiteAlteracaoAsync(faturaCartaoId, usuarioAutenticadoId, cancellationToken) ?? Task.CompletedTask;
 
     private int ObterUsuarioAutenticadoId() =>
         usuarioAutenticadoProvider.ObterUsuarioId() ?? throw new DomainException("usuario_nao_autenticado");

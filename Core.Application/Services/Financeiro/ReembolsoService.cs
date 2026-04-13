@@ -15,7 +15,8 @@ public sealed class ReembolsoService(
     IDespesaRepository despesaRepository,
     IUsuarioAutenticadoProvider usuarioAutenticadoProvider,
     HistoricoTransacaoFinanceiraService historicoTransacaoFinanceiraService,
-    IDocumentoStorageService documentoStorageService)
+    IDocumentoStorageService documentoStorageService,
+    FaturaCartaoService? faturaCartaoService = null)
 {
     public async Task<IReadOnlyCollection<ReembolsoListaDto>> ListarAsync(ListarReembolsosRequest request, CancellationToken cancellationToken = default)
     {
@@ -46,6 +47,8 @@ public sealed class ReembolsoService(
                     dataInicio,
                     dataFim,
                     cancellationToken))
+                .Where(x => !request.DesconsiderarVinculadosCartaoCredito || !x.FaturaCartaoId.HasValue)
+                .Where(x => !request.DesconsiderarCancelados || x.Status != StatusReembolso.Cancelado)
                 .Select(MapLista)
                 .ToArray();
         }
@@ -69,8 +72,12 @@ public sealed class ReembolsoService(
         var solicitante = ValidarSolicitante(request.Solicitante);
         var despesasIds = ExtrairDespesasIds(request.DespesasVinculadas);
         var despesas = await ObterDespesasValidasAsync(despesasIds, usuarioAutenticadoId, cancellationToken);
-        var status = NormalizarStatus(request.Status);
-        ValidarPeriodoEfetivacao(request.DataLancamento, request.DataEfetivacao, status);
+        var competencia = ResolverCompetencia(request.Competencia);
+        var ehLancamentoCartao = request.CartaoId.HasValue;
+        var status = ehLancamentoCartao ? StatusReembolso.Pago : NormalizarStatus(request.Status);
+        var dataEfetivacao = ehLancamentoCartao ? request.DataLancamento : request.DataEfetivacao;
+        ValidarPeriodoEfetivacao(request.DataLancamento, dataEfetivacao, status);
+        var faturaCartaoId = await ResolverFaturaCartaoIdAsync(request.CartaoId, competencia, usuarioAutenticadoId, cancellationToken);
         var documentos = await SalvarDocumentosAsync(request.Documentos ?? [], usuarioAutenticadoId, cancellationToken: cancellationToken);
 
         await ValidarDespesasVinculadasAsync(despesasIds, null, usuarioAutenticadoId, cancellationToken);
@@ -79,9 +86,11 @@ public sealed class ReembolsoService(
         {
             Descricao = descricao,
             Solicitante = solicitante,
-            Competencia = ResolverCompetencia(request.Competencia),
+            Competencia = competencia,
             DataLancamento = request.DataLancamento,
-            DataEfetivacao = request.DataEfetivacao,
+            DataEfetivacao = dataEfetivacao,
+            CartaoId = request.CartaoId,
+            FaturaCartaoId = faturaCartaoId,
             Documentos = documentos,
             ValorTotal = despesas.Sum(x => x.ValorTotal),
             Status = status,
@@ -95,7 +104,24 @@ public sealed class ReembolsoService(
                 .ToList()
         };
 
-        return Map(await repository.CriarAsync(reembolso, cancellationToken));
+        var reembolsoCriado = await repository.CriarAsync(reembolso, cancellationToken);
+        if (ehLancamentoCartao)
+        {
+            await historicoTransacaoFinanceiraService.RegistrarEfetivacaoAsync(
+                TipoTransacaoFinanceira.Reembolso,
+                reembolsoCriado.Id,
+                usuarioAutenticadoId,
+                reembolsoCriado.DataLancamento,
+                0m,
+                reembolsoCriado.ValorTotal,
+                reembolsoCriado.ValorTotal,
+                "Efetivacao de reembolso",
+                tipoPagamento: null,
+                cartaoId: reembolsoCriado.CartaoId,
+                cancellationToken: cancellationToken);
+        }
+        await RecalcularFaturaAsync(reembolsoCriado.FaturaCartaoId, usuarioAutenticadoId, cancellationToken);
+        return Map(reembolsoCriado);
     }
 
     public async Task<ReembolsoDto> AtualizarAsync(long id, SalvarReembolsoRequest request, CancellationToken cancellationToken = default)
@@ -103,21 +129,28 @@ public sealed class ReembolsoService(
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
         ValidarContaOuCartao(request.ContaBancariaId, request.CartaoId);
         var reembolso = await repository.ObterPorIdAsync(id, usuarioAutenticadoId, cancellationToken) ?? throw new NotFoundException("reembolso_nao_encontrado");
+        await ValidarFaturaParaAlteracaoAsync(reembolso.FaturaCartaoId, usuarioAutenticadoId, cancellationToken);
         var statusAnterior = reembolso.Status;
         var descricao = ValidarDescricao(request.Descricao);
         var solicitante = ValidarSolicitante(request.Solicitante);
         var despesasIds = ExtrairDespesasIds(request.DespesasVinculadas);
         var despesas = await ObterDespesasValidasAsync(despesasIds, usuarioAutenticadoId, cancellationToken);
-        var status = NormalizarStatus(request.Status);
-        ValidarPeriodoEfetivacao(request.DataLancamento, request.DataEfetivacao, status);
+        var competencia = ResolverCompetencia(request.Competencia, request.DataLancamento);
+        var ehLancamentoCartao = request.CartaoId.HasValue;
+        var status = ehLancamentoCartao ? StatusReembolso.Pago : NormalizarStatus(request.Status);
+        var dataEfetivacao = ehLancamentoCartao ? request.DataLancamento : request.DataEfetivacao;
+        ValidarPeriodoEfetivacao(request.DataLancamento, dataEfetivacao, status);
+        var faturaCartaoId = await ResolverFaturaCartaoIdAsync(request.CartaoId, competencia, usuarioAutenticadoId, cancellationToken);
 
         await ValidarDespesasVinculadasAsync(despesasIds, id, usuarioAutenticadoId, cancellationToken);
 
         reembolso.Descricao = descricao;
         reembolso.Solicitante = solicitante;
-        reembolso.Competencia = ResolverCompetencia(request.Competencia, request.DataLancamento);
+        reembolso.Competencia = competencia;
         reembolso.DataLancamento = request.DataLancamento;
-        reembolso.DataEfetivacao = request.DataEfetivacao;
+        reembolso.DataEfetivacao = dataEfetivacao;
+        reembolso.CartaoId = request.CartaoId;
+        reembolso.FaturaCartaoId = faturaCartaoId;
         if (request.Documentos is not null)
             reembolso.Documentos = await SalvarDocumentosAsync(request.Documentos, usuarioAutenticadoId, reembolsoId: reembolso.Id, cancellationToken: cancellationToken);
         reembolso.ValorTotal = despesas.Sum(x => x.ValorTotal);
@@ -151,7 +184,7 @@ public sealed class ReembolsoService(
                 "Efetivacao de reembolso",
                 tipoPagamento: null,
                 contaBancariaId: request.ContaBancariaId,
-                cartaoId: request.CartaoId,
+                cartaoId: reembolsoAtualizado.CartaoId,
                 cancellationToken: cancellationToken);
         }
         else if (statusAnterior == StatusReembolso.Pago && reembolsoAtualizado.Status != StatusReembolso.Pago)
@@ -167,9 +200,11 @@ public sealed class ReembolsoService(
                 "Estorno de reembolso",
                 tipoPagamento: null,
                 contaBancariaId: request.ContaBancariaId,
-                cartaoId: request.CartaoId,
+                cartaoId: reembolsoAtualizado.CartaoId,
                 cancellationToken: cancellationToken);
         }
+
+        await RecalcularFaturaAsync(reembolsoAtualizado.FaturaCartaoId, usuarioAutenticadoId, cancellationToken);
 
         return Map(reembolsoAtualizado);
     }
@@ -187,11 +222,17 @@ public sealed class ReembolsoService(
         ValidarDestinoParaPagamento(request.ContaBancariaId, request.CartaoId);
 
         var reembolso = await repository.ObterPorIdAsync(id, usuarioAutenticadoId, cancellationToken) ?? throw new NotFoundException("reembolso_nao_encontrado");
+        await ValidarFaturaParaAlteracaoAsync(reembolso.FaturaCartaoId, usuarioAutenticadoId, cancellationToken);
         if (reembolso.Status == StatusReembolso.Pago) throw new DomainException("status_invalido");
         if (request.DataEfetivacao < reembolso.DataLancamento) throw new DomainException("periodo_invalido");
 
         reembolso.Status = StatusReembolso.Pago;
-        reembolso.DataEfetivacao = request.DataEfetivacao;
+        reembolso.CartaoId = request.CartaoId ?? reembolso.CartaoId;
+        if (reembolso.CartaoId.HasValue)
+            reembolso.DataEfetivacao = reembolso.DataLancamento;
+        else
+            reembolso.DataEfetivacao = request.DataEfetivacao;
+        reembolso.FaturaCartaoId = await ResolverFaturaCartaoIdAsync(reembolso.CartaoId, reembolso.Competencia, usuarioAutenticadoId, cancellationToken);
         if (request.Documentos is not null)
             reembolso.Documentos = await SalvarDocumentosAsync(request.Documentos, usuarioAutenticadoId, reembolsoId: reembolso.Id, cancellationToken: cancellationToken);
 
@@ -200,16 +241,18 @@ public sealed class ReembolsoService(
             TipoTransacaoFinanceira.Reembolso,
             reembolsoAtualizado.Id,
             usuarioAutenticadoId,
-            request.DataEfetivacao,
+            reembolsoAtualizado.DataEfetivacao ?? request.DataEfetivacao,
             0m,
             reembolsoAtualizado.ValorTotal,
             reembolsoAtualizado.ValorTotal,
             "Efetivacao de reembolso",
             tipoPagamento: null,
             contaBancariaId: request.ContaBancariaId,
-            cartaoId: request.CartaoId,
+            cartaoId: reembolsoAtualizado.CartaoId,
             cancellationToken: cancellationToken,
             observacao: NormalizarObservacao(request.ObservacaoHistorico));
+
+        await RecalcularFaturaAsync(reembolsoAtualizado.FaturaCartaoId, usuarioAutenticadoId, cancellationToken);
 
         return Map(reembolsoAtualizado);
     }
@@ -218,6 +261,7 @@ public sealed class ReembolsoService(
     {
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
         var reembolso = await repository.ObterPorIdAsync(id, usuarioAutenticadoId, cancellationToken) ?? throw new NotFoundException("reembolso_nao_encontrado");
+        await ValidarFaturaParaAlteracaoAsync(reembolso.FaturaCartaoId, usuarioAutenticadoId, cancellationToken);
         if (reembolso.Status != StatusReembolso.Pago) throw new DomainException("status_invalido");
         if (request.DataEstorno == default) throw new DomainException("data_estorno_obrigatoria");
         if (request.DataEstorno < reembolso.DataLancamento) throw new DomainException("periodo_invalido");
@@ -241,6 +285,8 @@ public sealed class ReembolsoService(
             cancellationToken: cancellationToken,
             observacao: NormalizarObservacao(request.ObservacaoHistorico),
             ocultarDoHistorico: request.OcultarDoHistorico);
+
+        await RecalcularFaturaAsync(reembolsoAtualizado.FaturaCartaoId, usuarioAutenticadoId, cancellationToken);
 
         return Map(reembolsoAtualizado);
     }
@@ -275,6 +321,15 @@ public sealed class ReembolsoService(
         var observacaoNormalizada = observacao?.Trim();
         return string.IsNullOrWhiteSpace(observacaoNormalizada) ? null : observacaoNormalizada;
     }
+
+    private Task<long?> ResolverFaturaCartaoIdAsync(long? cartaoId, string competencia, int usuarioAutenticadoId, CancellationToken cancellationToken) =>
+        faturaCartaoService?.ResolverFaturaIdParaTransacaoCartaoAsync(cartaoId, competencia, usuarioAutenticadoId, cancellationToken) ?? Task.FromResult<long?>(null);
+
+    private Task RecalcularFaturaAsync(long? faturaCartaoId, int usuarioAutenticadoId, CancellationToken cancellationToken) =>
+        faturaCartaoService?.RecalcularTotalPorFaturaIdAsync(faturaCartaoId, usuarioAutenticadoId, cancellationToken) ?? Task.CompletedTask;
+
+    private Task ValidarFaturaParaAlteracaoAsync(long? faturaCartaoId, int usuarioAutenticadoId, CancellationToken cancellationToken) =>
+        faturaCartaoService?.ValidarFaturaPermiteAlteracaoAsync(faturaCartaoId, usuarioAutenticadoId, cancellationToken) ?? Task.CompletedTask;
 
     private static IReadOnlyCollection<long> ExtrairDespesasIds(IReadOnlyCollection<JsonElement>? despesasVinculadas)
     {
