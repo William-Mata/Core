@@ -12,6 +12,38 @@ namespace Core.Tests.Unit.Application;
 public sealed class CartaoServiceTests
 {
     [Fact]
+    public async Task DeveRecalcularSaldoDisponivel_QuandoAlterarLimiteDoCartaoDeCredito()
+    {
+        var repository = new CartaoRepositoryFake
+        {
+            Cartao = new Cartao
+            {
+                Id = 10,
+                Descricao = "Cartao principal",
+                Bandeira = "Visa",
+                Tipo = TipoCartao.Credito,
+                Limite = 1000m,
+                SaldoDisponivel = 400m,
+                DiaVencimento = new DateOnly(2026, 4, 10),
+                DataVencimentoCartao = new DateOnly(2026, 4, 25),
+                Status = StatusCartao.Ativo
+            }
+        };
+        var service = new CartaoService(repository, new HistoricoRepositoryFake(), new UsuarioAutenticadoProviderFake(5));
+
+        var atualizado = await service.AtualizarAsync(10, new AtualizarCartaoRequest(
+            "Cartao principal",
+            "Visa",
+            TipoCartao.Credito,
+            1500m,
+            new DateOnly(2026, 4, 10),
+            new DateOnly(2026, 4, 25)));
+
+        Assert.Equal(1500m, atualizado.Limite);
+        Assert.Equal(900m, atualizado.SaldoDisponivel);
+    }
+
+    [Fact]
     public async Task DeveListarCartoesFiltrandoPeloUsuarioAutenticado()
     {
         var repository = new CartaoRepositoryFake();
