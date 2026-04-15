@@ -145,7 +145,7 @@ Body:
   "bandeira": "Mastercard",
   "tipo": "Credito",
   "limite": 7000.00,
-  "saldoDisponivel": 4200.00,
+  "saldoDisponivel": 6200.00,
   "diaVencimento": "2026-04-12",
   "dataVencimentoCartao": "2026-04-27",
   "status": "ativo",
@@ -185,6 +185,7 @@ Fatos confirmados:
   - `Status = Ativo`
   - Se tipo nao for credito, `limite = 0`, `diaVencimento = null`, `dataVencimentoCartao = null`.
 - Na edicao, para validar saldo, o service usa o `saldoDisponivel` ja persistido no cartao (nao vem no payload de update).
+- Na edicao, quando o `limite` do cartao de credito muda, o service recalcula `saldoDisponivel` mantendo o limite utilizado (`limite - saldoDisponivel`).
 
 ### 3.3 Efeitos colaterais
 
