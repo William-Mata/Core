@@ -85,12 +85,19 @@ public sealed class CartaoService(
         var existente = await repository.ObterPorIdAsync(id, usuarioAutenticadoId, cancellationToken) ?? throw new NotFoundException("cartao_nao_encontrado");
         Validar(request.Descricao, request.Bandeira, request.Tipo, request.Limite, existente.SaldoDisponivel, request.DiaVencimento, request.DataVencimentoCartao);
 
+        var tipoAnterior = existente.Tipo;
+        var limiteAnterior = tipoAnterior == TipoCartao.Credito ? existente.Limite ?? 0m : 0m;
+        var novoLimite = request.Tipo == TipoCartao.Credito ? request.Limite ?? 0m : 0m;
+
         existente.Descricao = request.Descricao.Trim();
         existente.Bandeira = request.Bandeira.Trim();
         existente.Tipo = request.Tipo;
         existente.Limite = request.Tipo == TipoCartao.Credito ? request.Limite : 0m;
         existente.DiaVencimento = request.Tipo == TipoCartao.Credito ? request.DiaVencimento : null;
         existente.DataVencimentoCartao = request.Tipo == TipoCartao.Credito ? request.DataVencimentoCartao : null;
+        if (tipoAnterior == TipoCartao.Credito && request.Tipo == TipoCartao.Credito && limiteAnterior != novoLimite)
+            existente.SaldoDisponivel = RecalcularSaldoDisponivel(limiteAnterior, novoLimite, existente.SaldoDisponivel);
+
         existente.Logs.Add(new CartaoLog { UsuarioCadastroId = usuarioAutenticadoId, Acao = AcaoLogs.Atualizacao, Descricao = "Cartao atualizado." });
 
         return Map(await repository.AtualizarAsync(existente, cancellationToken));
@@ -128,6 +135,12 @@ public sealed class CartaoService(
         if (!Enum.IsDefined(tipo)) throw new DomainException("tipo_invalido");
         if (saldoDisponivel < 0) throw new DomainException("saldo_invalido");
         if (tipo == TipoCartao.Credito && (!limite.HasValue || limite <= 0 || !diaVencimento.HasValue || !dataVencimentoCartao.HasValue)) throw new DomainException("dados_credito_obrigatorios");
+    }
+
+    private static decimal RecalcularSaldoDisponivel(decimal limiteAnterior, decimal novoLimite, decimal saldoDisponivelAtual)
+    {
+        var variacaoLimite = novoLimite - limiteAnterior;
+        return saldoDisponivelAtual + variacaoLimite;
     }
 
     private static CartaoDto Map(Cartao c) =>
