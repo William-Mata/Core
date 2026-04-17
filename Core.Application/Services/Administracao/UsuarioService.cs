@@ -46,6 +46,7 @@ public sealed class UsuarioService(IUsuarioRepository repository, IUsuarioAutent
             PrimeiroAcesso = true,
             SenhaHash = string.Empty,
             Ativo = request.Status ?? true,
+            DataNascimento = request.DataNascimento,
             UsuarioCadastroId = usuarioAutenticadoId
         };
 
@@ -81,6 +82,7 @@ public sealed class UsuarioService(IUsuarioRepository repository, IUsuarioAutent
         usuario.Email = email;
         usuario.PerfilId = perfilId;
         usuario.Ativo = request.Status ?? usuario.Ativo;
+        usuario.DataNascimento = request.DataNascimento;
 
         await repository.AtualizarAsync(usuario, cancellationToken);
 
@@ -311,7 +313,7 @@ public sealed class UsuarioService(IUsuarioRepository repository, IUsuarioAutent
         };
 
     private static UsuarioDto Map(Usuario usuario) =>
-        new(usuario.Id, usuario.Nome, usuario.Email, MapearPerfil(usuario.PerfilId), usuario.DataHoraCadastro);
+        new(usuario.Id, usuario.Nome, usuario.Email, MapearPerfil(usuario.PerfilId), usuario.DataNascimento, usuario.DataHoraCadastro);
 
     private static UsuarioDetalheDto MapDetalhe(
         Usuario usuario,
@@ -360,6 +362,7 @@ public sealed class UsuarioService(IUsuarioRepository repository, IUsuarioAutent
             usuario.Nome,
             usuario.Email,
             MapearPerfil(usuario.PerfilId),
+            usuario.DataNascimento,
             usuario.Ativo,
             usuario.DataHoraCadastro,
             modulosAtivos);

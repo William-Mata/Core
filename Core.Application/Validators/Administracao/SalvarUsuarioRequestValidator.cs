@@ -7,6 +7,10 @@ public sealed class SalvarUsuarioRequestValidator : AbstractValidator<SalvarUsua
 {
     public SalvarUsuarioRequestValidator()
     {
+        RuleFor(x => x.DataNascimento)
+            .Must(DataNascimentoValida)
+            .WithMessage("A data de nascimento informada e invalida.");
+
         RuleFor(x => x.Nome)
             .NotEmpty()
             .WithMessage("O nome e obrigatorio.");
@@ -26,6 +30,18 @@ public sealed class SalvarUsuarioRequestValidator : AbstractValidator<SalvarUsua
         RuleFor(x => x.ModulosAtivos)
             .Must(ModulosValidos)
             .WithMessage("Os modulos informados sao invalidos.");
+    }
+
+    private static bool DataNascimentoValida(DateOnly? dataNascimento)
+    {
+        if (dataNascimento is null)
+        {
+            return true;
+        }
+
+        var hoje = DateOnly.FromDateTime(DateTime.UtcNow);
+        var dataMinima = new DateOnly(1900, 1, 1);
+        return dataNascimento.Value >= dataMinima && dataNascimento.Value <= hoje;
     }
 
     private static bool ModulosValidos(IReadOnlyCollection<SalvarModuloUsuarioRequest>? modulos)

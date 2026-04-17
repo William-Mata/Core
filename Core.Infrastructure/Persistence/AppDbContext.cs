@@ -48,11 +48,13 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         modelBuilder.Entity<Usuario>().ToTable("Usuario");
         modelBuilder.Entity<Usuario>().HasKey(x => x.Id);
         modelBuilder.Entity<Usuario>().HasIndex(x => x.Email).IsUnique();
+        modelBuilder.Entity<Usuario>().Property(x => x.DataNascimento).HasColumnType("date");
         modelBuilder.Entity<Usuario>().HasData(new
         {
             Id = 1,
             DataHoraCadastro = seedDate,
             UsuarioCadastroId = 1,
+            DataNascimento = (DateOnly?)null,
             Nome = "Usuario",
             Email = "admin@core.com",
             SenhaHash = "PBKDF2$100000$DqVvtU2jQnWQTuqbL+H8aQ==$zvCjIqD8J/r93o4azALW2k8vIjoWtM5ikW7PKfY2PA8=",

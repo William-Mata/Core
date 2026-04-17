@@ -14,6 +14,7 @@ public sealed class SalvarUsuarioRequestValidatorTests
             "William de Mata",
             "william.xavante@gmail.com",
             "USER",
+            new DateOnly(2000, 1, 1),
             true,
             [
                 new SalvarModuloUsuarioRequest(
@@ -43,6 +44,7 @@ public sealed class SalvarUsuarioRequestValidatorTests
             "William de Mata",
             "william.xavante@gmail.com",
             "USER",
+            null,
             true,
             [
                 new SalvarModuloUsuarioRequest(
@@ -65,6 +67,7 @@ public sealed class SalvarUsuarioRequestValidatorTests
             "William de Mata",
             "william.xavante@gmail.com",
             "USER",
+            null,
             true,
             [
                 new SalvarModuloUsuarioRequest(
@@ -93,6 +96,7 @@ public sealed class SalvarUsuarioRequestValidatorTests
             "William de Mata",
             "william.xavante@gmail.com",
             "USER",
+            null,
             true,
             [
                 new SalvarModuloUsuarioRequest(
@@ -114,5 +118,21 @@ public sealed class SalvarUsuarioRequestValidatorTests
 
         Assert.False(result.IsValid);
         Assert.Contains(result.Errors, x => x.ErrorMessage == "Os modulos informados sao invalidos.");
+    }
+
+    [Fact]
+    public void DeveInvalidar_QuandoDataNascimentoForNoFuturo()
+    {
+        var amanhaUtc = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1));
+        var request = new SalvarUsuarioRequest(
+            "William de Mata",
+            "william.xavante@gmail.com",
+            "USER",
+            amanhaUtc);
+
+        var result = _validator.Validate(request);
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, x => x.ErrorMessage == "A data de nascimento informada e invalida.");
     }
 }

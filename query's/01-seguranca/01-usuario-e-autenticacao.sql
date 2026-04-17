@@ -14,6 +14,7 @@ BEGIN
         Id INT IDENTITY(1,1) NOT NULL,
         DataHoraCadastro DATETIME2(0) NOT NULL CONSTRAINT DF_Usuario_DataHoraCadastro DEFAULT (SYSUTCDATETIME()),
         UsuarioCadastroId INT NOT NULL,
+        DataNascimento DATE NULL,
         Nome NVARCHAR(150) NOT NULL,
         Email NVARCHAR(200) NOT NULL,
         SenhaHash NVARCHAR(500) NOT NULL,
@@ -23,6 +24,13 @@ BEGIN
         CONSTRAINT PK_Usuario PRIMARY KEY CLUSTERED (Id),
         CONSTRAINT UQ_Usuario_Email UNIQUE (Email)
     );
+END;
+GO
+
+IF COL_LENGTH('dbo.Usuario', 'DataNascimento') IS NULL
+BEGIN
+    ALTER TABLE dbo.Usuario
+        ADD DataNascimento DATE NULL;
 END;
 GO
 
@@ -361,6 +369,7 @@ BEGIN
         Id,
         DataHoraCadastro,
         UsuarioCadastroId,
+        DataNascimento,
         Nome,
         Email,
         SenhaHash,
@@ -373,6 +382,7 @@ BEGIN
         1,
         '2026-01-01T00:00:00',
         1,
+        NULL,
         N'Usuario',
         N'admin@core.com',
         N'PBKDF2$100000$DqVvtU2jQnWQTuqbL+H8aQ==$zvCjIqD8J/r93o4azALW2k8vIjoWtM5ikW7PKfY2PA8=',

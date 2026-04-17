@@ -45,6 +45,7 @@ public sealed class UsuarioServiceTests
             "Novo Usuario",
             "novo@empresa.com",
             "USER",
+            null,
             true,
             [
                 new SalvarModuloUsuarioRequest(
@@ -111,6 +112,7 @@ public sealed class UsuarioServiceTests
             "Novo Usuario",
             "novo@empresa.com",
             "USER",
+            null,
             true,
             [
                 new SalvarModuloUsuarioRequest(
@@ -301,6 +303,7 @@ public sealed class UsuarioServiceTests
             "William de Mata",
             "william.xavante@gmail.com",
             "USER",
+            null,
             false,
             [
                 new SalvarModuloUsuarioRequest(
