@@ -17,6 +17,8 @@ public sealed class FaturaCartaoService(
     IUsuarioAutenticadoProvider usuarioAutenticadoProvider,
     IFaturaCartaoBackgroundPublisher? faturaCartaoBackgroundPublisher = null)
 {
+    private const int DiasAntesVencimentoParaFechamento = 7;
+
     public async Task<IReadOnlyCollection<FaturaCartaoListaDto>> ListarAsync(ListarFaturasCartaoRequest request, CancellationToken cancellationToken = default)
     {
         if (cancellationToken.IsCancellationRequested)
@@ -308,9 +310,12 @@ public sealed class FaturaCartaoService(
 
         var periodo = CompetenciaPeriodoHelper.Resolver(fatura.Competencia, null, null);
         var dataBase = periodo.DataInicio ?? DateOnly.FromDateTime(DateTime.Now);
-        var diaFechamento = cartao.DiaVencimento.Value.Day;
+        var diaVencimento = cartao.DiaVencimento.Value.Day;
         var ultimoDiaMes = DateTime.DaysInMonth(dataBase.Year, dataBase.Month);
-        var dataFechamento = new DateOnly(dataBase.Year, dataBase.Month, Math.Min(diaFechamento, ultimoDiaMes));
+        var dataVencimentoBase = new DateOnly(dataBase.Year, dataBase.Month, Math.Min(diaVencimento, ultimoDiaMes));
+        var dataVencimento = AjustarParaProximoDiaUtil(dataVencimentoBase);
+        var dataFechamentoBase = dataVencimento.AddDays(-DiasAntesVencimentoParaFechamento);
+        var dataFechamento = AjustarParaDiaUtilAnteriorOuIgual(dataFechamentoBase);
         var hoje = DateOnly.FromDateTime(DateTime.Now);
 
         if (hoje < dataFechamento)
@@ -319,6 +324,22 @@ public sealed class FaturaCartaoService(
         fatura.Status = StatusFaturaCartao.Fechada;
         fatura.DataFechamento = dataFechamento;
         await repository.AtualizarAsync(fatura, cancellationToken);
+    }
+
+    private static DateOnly AjustarParaProximoDiaUtil(DateOnly data)
+    {
+        while (data.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
+            data = data.AddDays(1);
+
+        return data;
+    }
+
+    private static DateOnly AjustarParaDiaUtilAnteriorOuIgual(DateOnly data)
+    {
+        while (data.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
+            data = data.AddDays(-1);
+
+        return data;
     }
 
     private static string ResolverCompetencia(string competencia)

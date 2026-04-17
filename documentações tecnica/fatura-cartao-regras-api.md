@@ -115,6 +115,9 @@ Fatos confirmados:
   - nao vincula transacoes de outra competencia.
 - no detalhe, quando `tipoTransacao` nao for informado, a API considera todos os tipos vinculados.
 - o fechamento automatico da fatura pode ser aplicado na consulta conforme regra de fechamento do cartao.
+- a fatura muda para `fechada` quando a data atual atingir `dataVencimento - 7 dias`.
+- `dataVencimento` da fatura e calculada com base no `diaVencimento` do cartao para a competencia consultada e ajustada para o proximo dia util quando cair em fim de semana.
+- `dataFechamento` e calculada a partir de `dataVencimento - 7 dias` e ajustada para o dia util anterior quando cair em fim de semana.
 - o total persistido da fatura e recalculado no fluxo de consulta para manter consistencia.
 - a rotina e idempotente: reprocessar a mesma competencia nao duplica faturas nem religa itens ja vinculados.
 - por ser background, o detalhamento pode refletir o saneamento de forma eventual.
