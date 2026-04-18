@@ -1,4 +1,5 @@
 using Core.Application.DTOs.Administracao;
+using Core.Domain.Common;
 using FluentValidation;
 
 namespace Core.Application.Validators.Administracao;
@@ -39,7 +40,7 @@ public sealed class SalvarUsuarioRequestValidator : AbstractValidator<SalvarUsua
             return true;
         }
 
-        var hoje = DateOnly.FromDateTime(DateTime.UtcNow);
+        var hoje = DataHoraBrasil.Hoje();
         var dataMinima = new DateOnly(1900, 1, 1);
         return dataNascimento.Value >= dataMinima && dataNascimento.Value <= hoje;
     }

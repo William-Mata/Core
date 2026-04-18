@@ -3,7 +3,7 @@ using Core.Application.Services.Administracao;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Core.Api.Controllers.Administracao;
+namespace Core.Api.Controllers;
 
 [ApiController]
 [Route("api/usuarios")]
@@ -24,7 +24,7 @@ public sealed class UsuarioController(UsuarioService service) : ControllerBase
     public async Task<IActionResult> Obter([FromRoute] int id, CancellationToken cancellationToken)
         => Ok(await service.ObterAsync(id, cancellationToken));
 
-    [Authorize(Roles = "ADMIN")]
+    [AllowAnonymous]
     [HttpPost]
     public async Task<IActionResult> Criar([FromBody] SalvarUsuarioRequest request, CancellationToken cancellationToken)
         => Ok(await service.CriarAsync(request, cancellationToken));

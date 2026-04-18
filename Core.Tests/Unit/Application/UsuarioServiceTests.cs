@@ -11,14 +11,27 @@ namespace Core.Tests.Unit.Application;
 public sealed class UsuarioServiceTests
 {
     [Fact]
-    public async Task DeveImpedirCriacao_QuandoUsuarioNaoEstiverAutenticado()
+    public async Task DevePermitirCadastroPublico_QuandoUsuarioNaoEstiverAutenticado()
     {
         var repository = new UsuarioRepositoryFake();
         var service = new UsuarioService(repository, new UsuarioAutenticadoProviderFake(null));
 
-        var ex = await Assert.ThrowsAsync<DomainException>(() => service.CriarAsync(new SalvarUsuarioRequest("Novo Usuario", "novo@empresa.com", "USER")));
+        var response = await service.CriarAsync(new SalvarUsuarioRequest("Novo Usuario", "novo@empresa.com", "USER"));
 
-        Assert.Equal("usuario_nao_autenticado", ex.Message);
+        Assert.True(response.Sucesso);
+        Assert.Equal("Usuario cadastrado com sucesso", response.Mensagem);
+        Assert.Equal("USER", response.Dados.Perfil);
+    }
+
+    [Fact]
+    public async Task DeveImpedirCadastroPublico_QuandoPerfilForAdmin()
+    {
+        var repository = new UsuarioRepositoryFake();
+        var service = new UsuarioService(repository, new UsuarioAutenticadoProviderFake(null));
+
+        var ex = await Assert.ThrowsAsync<DomainException>(() => service.CriarAsync(new SalvarUsuarioRequest("Novo Usuario", "novo@empresa.com", "ADMIN")));
+
+        Assert.Equal("perfil_invalido", ex.Message);
     }
 
     [Fact]

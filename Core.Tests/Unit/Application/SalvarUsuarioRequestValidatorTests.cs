@@ -1,5 +1,6 @@
 using Core.Application.DTOs;
 using Core.Application.Validators.Administracao;
+using Core.Domain.Common;
 
 namespace Core.Tests.Unit.Application;
 
@@ -123,7 +124,7 @@ public sealed class SalvarUsuarioRequestValidatorTests
     [Fact]
     public void DeveInvalidar_QuandoDataNascimentoForNoFuturo()
     {
-        var amanhaUtc = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1));
+        var amanhaUtc = DataHoraBrasil.Hoje().AddDays(1);
         var request = new SalvarUsuarioRequest(
             "William de Mata",
             "william.xavante@gmail.com",

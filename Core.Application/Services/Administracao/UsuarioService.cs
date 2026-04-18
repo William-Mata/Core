@@ -30,10 +30,17 @@ public sealed class UsuarioService(IUsuarioRepository repository, IUsuarioAutent
 
     public async Task<CriarUsuarioResponse> CriarAsync(SalvarUsuarioRequest request, CancellationToken cancellationToken = default)
     {
-        var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
+        var usuarioAutenticadoId = ObterUsuarioAutenticadoId(false);
+        var isCadastroPublico = !usuarioAutenticadoId.HasValue;
         var nome = ValidarNome(request.Nome);
         var email = ValidarEmail(request.Email);
-        var perfilId = MapearPerfilId(request.Perfil);
+
+        if (isCadastroPublico && !string.Equals(request.Perfil?.Trim(), "USER", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new DomainException("perfil_invalido");
+        }
+
+        var perfilId = isCadastroPublico ? 2 : MapearPerfilId(request.Perfil);
 
         var usuarioExistente = await repository.ObterPorEmailAsync(email, cancellationToken);
         if (usuarioExistente is not null) throw new DomainException("email_em_uso");
@@ -45,31 +52,31 @@ public sealed class UsuarioService(IUsuarioRepository repository, IUsuarioAutent
             PerfilId = perfilId,
             PrimeiroAcesso = true,
             SenhaHash = string.Empty,
-            Ativo = request.Status ?? true,
+            Ativo = isCadastroPublico ? true : request.Status ?? true,
             DataNascimento = request.DataNascimento,
-            UsuarioCadastroId = usuarioAutenticadoId
+            UsuarioCadastroId = usuarioAutenticadoId ?? 1
         };
 
         var criado = await repository.CriarAsync(usuario, cancellationToken);
 
-        if (request.ModulosAtivos is not null)
+        if (!isCadastroPublico && request.ModulosAtivos is not null)
         {
             var permissoes = await MapearPermissoesAtivasAsync(request.ModulosAtivos, cancellationToken);
             await repository.SincronizarPermissoesAsync(
                 criado.Id,
-                usuarioAutenticadoId,
+                usuarioAutenticadoId!.Value,
                 permissoes.ModulosAtivosIds,
                 permissoes.TelasAtivasIds,
                 permissoes.FuncionalidadesAtivasIds,
                 cancellationToken);
         }
 
-        return new CriarUsuarioResponse(true, "Usuario criado com sucesso", Map(criado));
+        return new CriarUsuarioResponse(true, isCadastroPublico ? "Usuario cadastrado com sucesso" : "Usuario criado com sucesso", Map(criado));
     }
 
     public async Task<ResultadoUsuarioResponse> AtualizarAsync(int id, SalvarUsuarioRequest request, CancellationToken cancellationToken = default)
     {
-        var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
+        var usuarioAutenticadoId = ObterUsuarioAutenticadoId()!.Value;
         var usuario = await repository.ObterPorIdAsync(id, cancellationToken) ?? throw new NotFoundException("usuario_nao_encontrado");
         var nome = ValidarNome(request.Nome);
         var email = ValidarEmail(request.Email);
@@ -103,7 +110,7 @@ public sealed class UsuarioService(IUsuarioRepository repository, IUsuarioAutent
 
     public async Task<ResultadoUsuarioResponse> ExcluirAsync(int id, CancellationToken cancellationToken = default)
     {
-        var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
+        var usuarioAutenticadoId = ObterUsuarioAutenticadoId()!.Value;
         var usuario = await repository.ObterPorIdAsync(id, cancellationToken) ?? throw new NotFoundException("usuario_nao_encontrado");
 
         if (usuario.Id == usuarioAutenticadoId) throw new DomainException("usuario_admin_nao_pode_excluir_a_si_mesmo");
@@ -125,7 +132,7 @@ public sealed class UsuarioService(IUsuarioRepository repository, IUsuarioAutent
         if(novaSenha == senhaAtual) throw new DomainException("nova_senha_igual_senha_atual");
         if (!string.Equals(novaSenha, confirmarSenha, StringComparison.Ordinal)) throw new DomainException("confirmacao_senha_diferente");
 
-        var usuarioId = ObterUsuarioAutenticadoId();
+        var usuarioId = ObterUsuarioAutenticadoId()!.Value;
         var usuario = await repository.ObterPorIdAsync(usuarioId, cancellationToken)
             ?? throw new DomainException("usuario_inativo_ou_nao_encontrado");
 
@@ -136,8 +143,14 @@ public sealed class UsuarioService(IUsuarioRepository repository, IUsuarioAutent
         return "Senha alterada com sucesso.";
     }
 
-    private int ObterUsuarioAutenticadoId() =>
-        usuarioAutenticadoProvider.ObterUsuarioId() ?? throw new DomainException("usuario_nao_autenticado");
+    private int? ObterUsuarioAutenticadoId(bool isObrigatorio = true)
+    {
+        var usuarioId = usuarioAutenticadoProvider.ObterUsuarioId();
+        
+        if (isObrigatorio && !usuarioId.HasValue) throw new DomainException("usuario_nao_autenticado");
+
+        return usuarioId ?? null;
+    }
 
     private static string ValidarNome(string? nome)
     {
