@@ -2,6 +2,7 @@ using System.Text.Json;
 using Core.Application.Contracts.Financeiro;
 using Core.Application.DTOs.Financeiro;
 using Core.Application.Services.Financeiro;
+using Core.Domain.Common;
 using Core.Domain.Entities.Financeiro;
 using Core.Domain.Enums;
 using Core.Domain.Exceptions;
@@ -34,7 +35,7 @@ public sealed class ReembolsoServiceTests
 
         await service.ListarAsync(new ListarReembolsosRequest(null, null, null, null, null));
 
-        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        var hoje = DataHoraBrasil.Hoje();
         Assert.Equal(new DateOnly(hoje.Year, hoje.Month, 1), repository.UltimaDataInicioFiltro);
         Assert.Equal(new DateOnly(hoje.Year, hoje.Month, DateTime.DaysInMonth(hoje.Year, hoje.Month)), repository.UltimaDataFimFiltro);
     }
@@ -155,6 +156,53 @@ public sealed class ReembolsoServiceTests
 
         Assert.Equal("PAGO", response.Status);
         Assert.Equal(new DateOnly(2026, 3, 18), response.DataEfetivacao);
+    }
+
+    [Fact]
+    public async Task NaoDeveEfetivarReembolsoAoAtualizarComCartao()
+    {
+        var repository = new ReembolsoRepositoryFake
+        {
+            Reembolso = new Reembolso
+            {
+                Id = 10,
+                UsuarioCadastroId = 1,
+                Descricao = "Reembolso",
+                Solicitante = "Joao",
+                Competencia = "2026-03",
+                DataLancamento = new DateOnly(2026, 3, 18),
+                ValorTotal = 100m,
+                Status = StatusReembolso.Aguardando
+            }
+        };
+        var service = CriarService(
+            repository,
+            new DespesaRepositoryFake
+            {
+                Despesas =
+                [
+                    new Despesa { Id = 1, Descricao = "Combustivel", ValorTotal = 100m }
+                ]
+            },
+            1);
+
+        var response = await service.AtualizarAsync(
+            10,
+            new SalvarReembolsoRequest(
+                "Viagem comercial - semana 2",
+                "Joao Silva",
+                null,
+                new DateOnly(2026, 3, 18),
+                null,
+                [CriarJsonNumero(1)],
+                null,
+                "AGUARDANDO",
+                CartaoId: 77));
+
+        Assert.Equal("AGUARDANDO", response.Status);
+        Assert.Null(response.DataEfetivacao);
+        Assert.Equal(StatusReembolso.Aguardando, repository.Reembolso!.Status);
+        Assert.Equal(77, repository.Reembolso.CartaoId);
     }
 
     [Fact]

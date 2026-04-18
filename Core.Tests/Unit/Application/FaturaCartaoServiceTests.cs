@@ -1,5 +1,6 @@
 using Core.Application.DTOs.Financeiro;
 using Core.Application.Services.Financeiro;
+using Core.Domain.Common;
 using Core.Domain.Entities.Financeiro;
 using Core.Domain.Enums;
 using Core.Domain.Interfaces;
@@ -12,7 +13,7 @@ public sealed class FaturaCartaoServiceTests
     [Fact]
     public async Task DeveFecharFaturaAutomaticamente_AjustandoVencimentoEFechamentoParaDiaUtil()
     {
-        var dataBase = DateTime.Now.AddMonths(-1);
+        var dataBase = DataHoraBrasil.Agora().AddMonths(-1);
         var competencia = dataBase.ToString("yyyy-MM");
         var ultimoDiaMes = DateTime.DaysInMonth(dataBase.Year, dataBase.Month);
         var dataVencimentoBase = Enumerable.Range(1, ultimoDiaMes)
@@ -51,14 +52,16 @@ public sealed class FaturaCartaoServiceTests
 
         var fatura = Assert.Single(resultado);
         Assert.Equal("fechada", fatura.Status);
+        Assert.Equal(dataVencimentoEsperada, fatura.DataVencimento);
         Assert.Equal(dataFechamentoEsperada, fatura.DataFechamento);
-        Assert.DoesNotContain(fatura.DataFechamento!.Value.DayOfWeek, [DayOfWeek.Saturday, DayOfWeek.Sunday]);
+        Assert.NotEqual(DayOfWeek.Saturday, fatura.DataFechamento!.Value.DayOfWeek);
+        Assert.NotEqual(DayOfWeek.Sunday, fatura.DataFechamento.Value.DayOfWeek);
     }
 
     [Fact]
     public async Task NaoDeveFecharFaturaAutomaticamente_QuandoAindaNaoChegarDataDeFechamento()
     {
-        var dataBaseFutura = DateTime.Now.AddYears(5);
+        var dataBaseFutura = DataHoraBrasil.Agora().AddYears(5);
         var competencia = dataBaseFutura.ToString("yyyy-MM");
         var dataVencimento = new DateOnly(dataBaseFutura.Year, dataBaseFutura.Month, 28);
 
@@ -95,6 +98,39 @@ public sealed class FaturaCartaoServiceTests
         Assert.Null(fatura.DataFechamento);
     }
 
+    [Fact]
+    public async Task DeveCriarFaturaComDataVencimentoAjustadaParaProximoDiaUtil()
+    {
+        var dataBaseFutura = DataHoraBrasil.Agora().AddYears(5);
+        var competencia = dataBaseFutura.ToString("yyyy-MM");
+        var ultimoDiaMes = DateTime.DaysInMonth(dataBaseFutura.Year, dataBaseFutura.Month);
+        var dataVencimentoBase = Enumerable.Range(1, ultimoDiaMes)
+            .Select(dia => new DateOnly(dataBaseFutura.Year, dataBaseFutura.Month, dia))
+            .First(data => data.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday);
+        var dataVencimentoEsperada = AjustarParaProximoDiaUtil(dataVencimentoBase);
+
+        var repository = new FaturaCartaoRepositoryFake();
+        var cartaoRepository = new CartaoRepositoryFake
+        {
+            Cartao = new Cartao
+            {
+                Id = 9,
+                Tipo = TipoCartao.Credito,
+                DiaVencimento = dataVencimentoBase
+            }
+        };
+        var service = CriarService(repository, cartaoRepository, 5);
+
+        var faturaId = await service.ResolverFaturaIdParaTransacaoCartaoAsync(9, competencia, 5);
+
+        Assert.NotNull(faturaId);
+        var faturaCriada = Assert.Single(repository.Faturas);
+        Assert.Equal(faturaId.Value, faturaCriada.Id);
+        Assert.Equal(dataVencimentoEsperada, faturaCriada.DataVencimento);
+        Assert.NotEqual(DayOfWeek.Saturday, faturaCriada.DataVencimento!.Value.DayOfWeek);
+        Assert.NotEqual(DayOfWeek.Sunday, faturaCriada.DataVencimento.Value.DayOfWeek);
+    }
+
     private static FaturaCartaoService CriarService(
         IFaturaCartaoRepository faturaRepository,
         ICartaoRepository cartaoRepository,
@@ -129,6 +165,9 @@ public sealed class FaturaCartaoServiceTests
 
         public Task<FaturaCartao> CriarAsync(FaturaCartao fatura, CancellationToken cancellationToken = default)
         {
+            if (fatura.Id <= 0)
+                fatura.Id = Faturas.Count == 0 ? 1 : Faturas.Max(x => x.Id) + 1;
+
             Faturas.Add(fatura);
             return Task.FromResult(fatura);
         }

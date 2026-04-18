@@ -1,6 +1,7 @@
 ﻿using Core.Application.DTOs.Financeiro;
 using Core.Application.Contracts.Financeiro;
 using Core.Application.Services.Financeiro;
+using Core.Domain.Common;
 using Core.Domain.Entities;
 using Core.Domain.Entities.Administracao;
 using Core.Domain.Entities.Financeiro;
@@ -38,7 +39,7 @@ public sealed class DespesaServiceTests
 
         await service.ListarAsync(new ListarDespesasRequest(null, null, null, null, null, false));
 
-        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        var hoje = DataHoraBrasil.Hoje();
         Assert.Equal(new DateOnly(hoje.Year, hoje.Month, 1), repository.UltimaDataInicioFiltro);
         Assert.Equal(new DateOnly(hoje.Year, hoje.Month, DateTime.DaysInMonth(hoje.Year, hoje.Month)), repository.UltimaDataFimFiltro);
     }
@@ -870,6 +871,44 @@ public sealed class DespesaServiceTests
     }
 
     [Fact]
+    public async Task NaoDeveEfetivarDespesaAoAtualizarComCartao()
+    {
+        var repository = new DespesaRepositoryFake
+        {
+            Despesa = new Despesa
+            {
+                Id = 1,
+                UsuarioCadastroId = 1,
+                Descricao = "Despesa",
+                DataLancamento = new DateOnly(2026, 3, 1),
+                DataVencimento = new DateOnly(2026, 3, 2),
+                TipoDespesa = TipoDespesa.Alimentacao,
+                TipoPagamento = TipoPagamento.Pix,
+                Recorrencia = Recorrencia.Unica,
+                ValorTotal = 100m,
+                ValorLiquido = 100m,
+                Status = StatusDespesa.Pendente
+            }
+        };
+        var service = CriarService(repository, CriarAreaRepoValida(TipoAreaFinanceira.Despesa), 1);
+
+        var response = await service.AtualizarAsync(
+            1,
+            CriarAtualizacaoPadrao(
+                tipoPagamento: TipoPagamento.CartaoCredito,
+                cartaoId: 99,
+                quantidadeParcelas: 1,
+                areasRateio: [new DespesaAreaRateioRequest(1, 2, 100m)]));
+
+        var atualizada = repository.DespesasAtualizadas.Last(x => x.Id == 1);
+        Assert.Equal("pendente", response.Status);
+        Assert.Equal(StatusDespesa.Pendente, atualizada.Status);
+        Assert.Equal(99, atualizada.CartaoId);
+        Assert.Null(atualizada.DataEfetivacao);
+        Assert.Null(atualizada.ValorEfetivacao);
+    }
+
+    [Fact]
     public async Task DeveDistribuirRateioDeAreaProporcionalmenteNoEspelho_ComFechamentoDeSoma()
     {
         var repository = new DespesaRepositoryFake();
@@ -1228,7 +1267,9 @@ public sealed class DespesaServiceTests
         Recorrencia recorrencia = Recorrencia.Unica,
         int? quantidadeRecorrencia = null,
         int? quantidadeParcelas = null,
-        bool recorrenciaFixa = false)
+        bool recorrenciaFixa = false,
+        long? contaBancariaId = null,
+        long? cartaoId = null)
     {
         var possuiRateioAmigos = amigos is not null && amigos.Count > 0;
         var desconto = possuiRateioAmigos ? 1m : 0m;
@@ -1257,9 +1298,9 @@ public sealed class DespesaServiceTests
             quantidadeParcelas,
             recorrenciaFixa,
             null,
+            contaBancariaId,
             null,
-            null,
-            null,
+            cartaoId,
             valorTotalRateioAmigos);
     }
 

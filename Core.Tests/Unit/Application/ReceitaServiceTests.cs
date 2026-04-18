@@ -1,6 +1,7 @@
 ﻿using Core.Application.DTOs.Financeiro;
 using Core.Application.Contracts.Financeiro;
 using Core.Application.Services.Financeiro;
+using Core.Domain.Common;
 using Core.Domain.Entities;
 using Core.Domain.Entities.Administracao;
 using Core.Domain.Entities.Financeiro;
@@ -38,7 +39,7 @@ public sealed class ReceitaServiceTests
 
         await service.ListarAsync(new ListarReceitasRequest(null, null, null, null, null, false));
 
-        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        var hoje = DataHoraBrasil.Hoje();
         Assert.Equal(new DateOnly(hoje.Year, hoje.Month, 1), repository.UltimaDataInicioFiltro);
         Assert.Equal(new DateOnly(hoje.Year, hoje.Month, DateTime.DaysInMonth(hoje.Year, hoje.Month)), repository.UltimaDataFimFiltro);
     }
@@ -539,6 +540,43 @@ public sealed class ReceitaServiceTests
 
         var espelhoCancelado = repository.ReceitasAtualizadas.Last(x => x.Id == 10);
         Assert.Equal(StatusReceita.Cancelada, espelhoCancelado.Status);
+    }
+
+    [Fact]
+    public async Task NaoDeveEfetivarReceitaAoAtualizarComCartao()
+    {
+        var repository = new ReceitaRepoFake
+        {
+            Receita = new Receita
+            {
+                Id = 1,
+                UsuarioCadastroId = 99,
+                Descricao = "Receita",
+                DataLancamento = new DateOnly(2026, 3, 1),
+                DataVencimento = new DateOnly(2026, 3, 2),
+                TipoReceita = TipoReceita.Freelance,
+                TipoRecebimento = TipoRecebimento.Dinheiro,
+                Recorrencia = Recorrencia.Unica,
+                ValorTotal = 1000m,
+                ValorLiquido = 1000m,
+                Status = StatusReceita.Pendente
+            }
+        };
+        var service = CriarService(repository, new ContaRepoFake(), CriarAreaRepoValida(TipoAreaFinanceira.Receita), 99);
+
+        var response = await service.AtualizarAsync(
+            1,
+            CriarAtualizacaoPadrao(
+                tipoRecebimento: TipoRecebimento.CartaoCredito,
+                cartaoId: 77,
+                areasRateio: [new ReceitaAreaRateioRequest(1, 2, 1000m)]));
+
+        var atualizada = repository.ReceitasAtualizadas.Last(x => x.Id == 1);
+        Assert.Equal("pendente", response.Status);
+        Assert.Equal(StatusReceita.Pendente, atualizada.Status);
+        Assert.Equal(77, atualizada.CartaoId);
+        Assert.Null(atualizada.DataEfetivacao);
+        Assert.Null(atualizada.ValorEfetivacao);
     }
 
     [Fact]
@@ -1087,6 +1125,7 @@ public sealed class ReceitaServiceTests
     private static AtualizarReceitaRequest CriarAtualizacaoPadrao(
         TipoRecebimento tipoRecebimento = TipoRecebimento.Dinheiro,
         long? contaBancariaId = null,
+        long? cartaoId = null,
         IReadOnlyCollection<ReceitaAreaRateioRequest>? areasRateio = null,
         IReadOnlyCollection<AmigoRateioRequest>? amigos = null,
         Recorrencia recorrencia = Recorrencia.Unica,
@@ -1121,7 +1160,7 @@ public sealed class ReceitaServiceTests
             null,
             contaBancariaId,
             null,
-            null,
+            cartaoId,
             valorTotalRateioAmigos);
     }
 
