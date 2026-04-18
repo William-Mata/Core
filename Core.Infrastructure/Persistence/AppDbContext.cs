@@ -1,9 +1,12 @@
 using System;
+using System.Linq;
+using Core.Domain.Common;
 using Core.Domain.Entities;
 using Core.Domain.Entities.Administracao;
 using Core.Domain.Entities.Financeiro;
 using Core.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 namespace Core.Infrastructure.Persistence;
 
@@ -40,6 +43,18 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<Area> Areas => Set<Area>();
     public DbSet<SubArea> SubAreas => Set<SubArea>();
     public DbSet<Documento> Documentos => Set<Documento>();
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        NormalizarDataHoraParaBrasil();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        NormalizarDataHoraParaBrasil();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -304,5 +319,26 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
     private static TEnum? ParseNullableEnum<TEnum>(string? value) where TEnum : struct, Enum =>
         string.IsNullOrWhiteSpace(value) ? null : Enum.Parse<TEnum>(value, true);
+
+    private void NormalizarDataHoraParaBrasil()
+    {
+        foreach (var entry in ChangeTracker.Entries().Where(x => x.State is EntityState.Added or EntityState.Modified))
+        {
+            foreach (var property in entry.Properties.Where(DeveNormalizarDataHora))
+            {
+                if (property.CurrentValue is DateTime dataHora)
+                    property.CurrentValue = DataHoraBrasil.Converter(dataHora);
+            }
+        }
+    }
+
+    private static bool DeveNormalizarDataHora(PropertyEntry property)
+    {
+        var tipo = property.Metadata.ClrType;
+        if (tipo != typeof(DateTime) && tipo != typeof(DateTime?))
+            return false;
+
+        return !property.Metadata.Name.EndsWith("Utc", StringComparison.OrdinalIgnoreCase);
+    }
 }
 

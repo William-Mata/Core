@@ -1,4 +1,5 @@
 using Core.Application.DTOs.Financeiro;
+using Core.Domain.Common;
 using Core.Domain.Entities.Financeiro;
 using Core.Domain.Enums;
 using Core.Domain.Exceptions;
@@ -142,7 +143,7 @@ public sealed class AmigoService(
 
         convite.Status = status;
         convite.UsuarioCadastroId = usuarioId;
-        convite.DataHoraResposta = DateTime.UtcNow;
+        convite.DataHoraResposta = DataHoraBrasil.Agora();
         await amizadeRepository.AtualizarConviteAsync(convite, cancellationToken);
 
         if (status == StatusConviteAmizade.Aceito && !await amizadeRepository.ExisteAmizadeAsync(convite.UsuarioOrigemId, convite.UsuarioDestinoId, cancellationToken))
