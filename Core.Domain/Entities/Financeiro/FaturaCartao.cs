@@ -9,6 +9,7 @@ public sealed class FaturaCartao
     public int UsuarioCadastroId { get; set; }
     public long CartaoId { get; set; }
     public string Competencia { get; set; } = string.Empty;
+    public DateOnly? DataVencimento { get; set; }
     public DateOnly? DataFechamento { get; set; }
     public DateOnly? DataEfetivacao { get; set; }
     public DateOnly? DataEstorno { get; set; }

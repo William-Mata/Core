@@ -1,5 +1,6 @@
 using Core.Application.Contracts.Financeiro;
 using Core.Application.DTOs.Financeiro;
+using Core.Domain.Common;
 using Core.Domain.Entities;
 using Core.Domain.Entities.Financeiro;
 using Core.Domain.Enums;
@@ -121,6 +122,7 @@ public sealed partial class ReceitaService(
             cancellationToken);
         var competencia = ResolverCompetencia(req.Competencia);
         var faturaCartaoId = await ResolverFaturaCartaoIdAsync(vinculo.CartaoId, competencia, usuarioAutenticadoId, cancellationToken);
+        var dataVencimentoFatura = await ObterDataVencimentoFaturaAsync(faturaCartaoId, usuarioAutenticadoId, cancellationToken);
         var ehLancamentoCartao = vinculo.CartaoId.HasValue;
         var documentos = await SalvarDocumentosAsync(req.Documentos ?? [], usuarioAutenticadoId, cancellationToken: cancellationToken);
 
@@ -130,7 +132,7 @@ public sealed partial class ReceitaService(
             Observacao = req.Observacao,
             Competencia = competencia,
             DataLancamento = req.DataLancamento,
-            DataVencimento = req.DataVencimento,
+            DataVencimento = dataVencimentoFatura ?? req.DataVencimento,
             TipoReceita = req.TipoReceita,
             TipoRecebimento = req.TipoRecebimento,
             Recorrencia = req.Recorrencia,
@@ -287,7 +289,8 @@ public sealed partial class ReceitaService(
             alvo.Observacao = req.Observacao;
             alvo.Competencia = ResolverCompetencia(req.Competencia, dataLancamentoBase);
             alvo.DataLancamento = dataLancamentoBase;
-            alvo.DataVencimento = AvancarData(req.DataVencimento, req.Recorrencia, deslocamento);
+            var dataVencimentoAtualizada = AvancarData(req.DataVencimento, req.Recorrencia, deslocamento);
+            alvo.DataVencimento = dataVencimentoAtualizada;
             alvo.TipoReceita = req.TipoReceita;
             alvo.TipoRecebimento = req.TipoRecebimento;
             alvo.Recorrencia = req.Recorrencia;
@@ -305,11 +308,18 @@ public sealed partial class ReceitaService(
             alvo.ContaDestinoId = contaDestinoIdBase;
             alvo.CartaoId = vinculo.CartaoId;
             alvo.FaturaCartaoId = await ResolverFaturaCartaoIdAsync(vinculo.CartaoId, alvo.Competencia, usuarioAutenticadoId, cancellationToken);
-            if (vinculo.CartaoId.HasValue)
+            var dataVencimentoFatura = await ObterDataVencimentoFaturaAsync(alvo.FaturaCartaoId, usuarioAutenticadoId, cancellationToken);
+            if (dataVencimentoFatura.HasValue)
+                alvo.DataVencimento = dataVencimentoFatura.Value;
+            if (alvo.Status == StatusReceita.Efetivada)
             {
-                alvo.Status = StatusReceita.Efetivada;
-                alvo.DataEfetivacao = alvo.DataLancamento;
+                alvo.DataEfetivacao ??= alvo.DataLancamento;
                 alvo.ValorEfetivacao = liquido;
+            }
+            else
+            {
+                alvo.DataEfetivacao = null;
+                alvo.ValorEfetivacao = null;
             }
             if (req.Documentos is not null)
                 alvo.Documentos = await SalvarDocumentosAsync(req.Documentos, usuarioAutenticadoId, receitaId: alvo.Id, cancellationToken: cancellationToken);
@@ -407,6 +417,9 @@ public sealed partial class ReceitaService(
         receita.ContaDestinoId = contaDestinoId;
         receita.CartaoId = vinculo.CartaoId;
         receita.FaturaCartaoId = await ResolverFaturaCartaoIdAsync(vinculo.CartaoId, receita.Competencia, usuarioAutenticadoId, cancellationToken);
+        var dataVencimentoFatura = await ObterDataVencimentoFaturaAsync(receita.FaturaCartaoId, usuarioAutenticadoId, cancellationToken);
+        if (dataVencimentoFatura.HasValue)
+            receita.DataVencimento = dataVencimentoFatura.Value;
         receita.ValorTotal = req.ValorTotal;
         receita.Desconto = req.Desconto;
         receita.Acrescimo = req.Acrescimo;
@@ -457,7 +470,7 @@ public sealed partial class ReceitaService(
                 throw new DomainException("status_invalido");
 
             var valorAntesTransacao = receita.ValorEfetivacao ?? receita.ValorLiquido;
-            var dataEstorno = DateOnly.FromDateTime(DateTime.Now);
+            var dataEstorno = DataHoraBrasil.Hoje();
             receita.Status = StatusReceita.Cancelada;
             receita.DataEfetivacao = null;
             receita.ValorEfetivacao = null;
@@ -596,6 +609,9 @@ public sealed partial class ReceitaService(
 
     private Task<long?> ResolverFaturaCartaoIdAsync(long? cartaoId, string competencia, int usuarioAutenticadoId, CancellationToken cancellationToken) =>
         faturaCartaoService?.ResolverFaturaIdParaTransacaoCartaoAsync(cartaoId, competencia, usuarioAutenticadoId, cancellationToken) ?? Task.FromResult<long?>(null);
+
+    private Task<DateOnly?> ObterDataVencimentoFaturaAsync(long? faturaCartaoId, int usuarioAutenticadoId, CancellationToken cancellationToken) =>
+        faturaCartaoService?.ObterDataVencimentoPorFaturaIdAsync(faturaCartaoId, usuarioAutenticadoId, cancellationToken) ?? Task.FromResult<DateOnly?>(null);
 
     private Task RecalcularFaturaAsync(long? faturaCartaoId, int usuarioAutenticadoId, CancellationToken cancellationToken) =>
         faturaCartaoService?.RecalcularTotalPorFaturaIdAsync(faturaCartaoId, usuarioAutenticadoId, cancellationToken) ?? Task.CompletedTask;
@@ -1436,7 +1452,7 @@ public sealed partial class ReceitaService(
 
     private static string ResolverCompetencia(string? competencia, DateOnly? referencia = null)
     {
-        var data = referencia?.ToDateTime(TimeOnly.MinValue) ?? DateTime.Now;
+        var data = referencia?.ToDateTime(TimeOnly.MinValue) ?? DataHoraBrasil.Agora();
 
         if (string.IsNullOrWhiteSpace(competencia))
             return new DateTime(data.Year, data.Month, 1).ToString("yyyy-MM");

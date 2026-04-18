@@ -16,6 +16,7 @@ public sealed record ReembolsoListaDto(
     string Solicitante,
     string Competencia,
     DateOnly DataLancamento,
+    DateOnly? DataVencimento,
     DateOnly? DataEfetivacao,
     decimal ValorTotal,
     string Status);
@@ -26,6 +27,7 @@ public sealed record ReembolsoDto(
     string Solicitante,
     string Competencia,
     DateOnly DataLancamento,
+    DateOnly? DataVencimento,
     DateOnly? DataEfetivacao,
     IReadOnlyCollection<long> DespesasVinculadas,
     IReadOnlyCollection<DocumentoDto> Documentos,

@@ -1,5 +1,6 @@
 using Core.Application.Contracts.Financeiro;
 using Core.Application.DTOs.Financeiro;
+using Core.Domain.Common;
 using Core.Domain.Entities;
 using Core.Domain.Entities.Financeiro;
 using Core.Domain.Enums;
@@ -125,6 +126,7 @@ public sealed partial class DespesaService(
             cancellationToken);
         var competencia = ResolverCompetencia(req.Competencia);
         var faturaCartaoId = await ResolverFaturaCartaoIdAsync(vinculo.CartaoId, competencia, usuarioAutenticadoId, cancellationToken);
+        var dataVencimentoFatura = await ObterDataVencimentoFaturaAsync(faturaCartaoId, usuarioAutenticadoId, cancellationToken);
         var ehLancamentoCartao = vinculo.CartaoId.HasValue;
         var documentos = await SalvarDocumentosAsync(req.Documentos ?? [], usuarioAutenticadoId, cancellationToken: cancellationToken);
 
@@ -134,7 +136,7 @@ public sealed partial class DespesaService(
             Observacao = req.Observacao,
             Competencia = competencia,
             DataLancamento = req.DataLancamento,
-            DataVencimento = req.DataVencimento,
+            DataVencimento = dataVencimentoFatura ?? req.DataVencimento,
             TipoDespesa = req.TipoDespesa,
             TipoPagamento = req.TipoPagamento,
             Recorrencia = recorrencia,
@@ -295,7 +297,8 @@ public sealed partial class DespesaService(
             alvo.Observacao = req.Observacao;
             alvo.Competencia = ResolverCompetencia(req.Competencia, dataLancamentoBase);
             alvo.DataLancamento = dataLancamentoBase;
-            alvo.DataVencimento = AvancarData(req.DataVencimento, recorrencia, deslocamento);
+            var dataVencimentoAtualizada = AvancarData(req.DataVencimento, recorrencia, deslocamento);
+            alvo.DataVencimento = dataVencimentoAtualizada;
             alvo.TipoDespesa = req.TipoDespesa;
             alvo.TipoPagamento = req.TipoPagamento;
             alvo.Recorrencia = recorrencia;
@@ -313,11 +316,18 @@ public sealed partial class DespesaService(
             alvo.ContaDestinoId = contaDestinoIdBase;
             alvo.CartaoId = vinculo.CartaoId;
             alvo.FaturaCartaoId = await ResolverFaturaCartaoIdAsync(vinculo.CartaoId, alvo.Competencia, usuarioAutenticadoId, cancellationToken);
-            if (vinculo.CartaoId.HasValue)
+            var dataVencimentoFatura = await ObterDataVencimentoFaturaAsync(alvo.FaturaCartaoId, usuarioAutenticadoId, cancellationToken);
+            if (dataVencimentoFatura.HasValue)
+                alvo.DataVencimento = dataVencimentoFatura.Value;
+            if (alvo.Status == StatusDespesa.Efetivada)
             {
-                alvo.Status = StatusDespesa.Efetivada;
-                alvo.DataEfetivacao = alvo.DataLancamento;
+                alvo.DataEfetivacao ??= alvo.DataLancamento;
                 alvo.ValorEfetivacao = liquido;
+            }
+            else
+            {
+                alvo.DataEfetivacao = null;
+                alvo.ValorEfetivacao = null;
             }
             if (req.Documentos is not null)
                 alvo.Documentos = await SalvarDocumentosAsync(req.Documentos, usuarioAutenticadoId, alvo.Id, cancellationToken: cancellationToken);
@@ -427,6 +437,9 @@ public sealed partial class DespesaService(
         despesa.ContaDestinoId = contaDestinoId;
         despesa.CartaoId = vinculo.CartaoId;
         despesa.FaturaCartaoId = await ResolverFaturaCartaoIdAsync(vinculo.CartaoId, despesa.Competencia, usuarioAutenticadoId, cancellationToken);
+        var dataVencimentoFatura = await ObterDataVencimentoFaturaAsync(despesa.FaturaCartaoId, usuarioAutenticadoId, cancellationToken);
+        if (dataVencimentoFatura.HasValue)
+            despesa.DataVencimento = dataVencimentoFatura.Value;
         despesa.ValorLiquido = liquido;
         despesa.ValorEfetivacao = liquido;
         despesa.Status = StatusDespesa.Efetivada;
@@ -472,7 +485,7 @@ public sealed partial class DespesaService(
                 throw new DomainException("status_invalido");
 
             var valorAntesTransacao = despesa.ValorEfetivacao ?? despesa.ValorLiquido;
-            var dataEstorno = DateOnly.FromDateTime(DateTime.Now);
+            var dataEstorno = DataHoraBrasil.Hoje();
             despesa.Status = StatusDespesa.Cancelada;
             despesa.DataEfetivacao = null;
             despesa.ValorEfetivacao = null;
@@ -585,6 +598,9 @@ public sealed partial class DespesaService(
 
     private Task<long?> ResolverFaturaCartaoIdAsync(long? cartaoId, string competencia, int usuarioAutenticadoId, CancellationToken cancellationToken) =>
         faturaCartaoService?.ResolverFaturaIdParaTransacaoCartaoAsync(cartaoId, competencia, usuarioAutenticadoId, cancellationToken) ?? Task.FromResult<long?>(null);
+
+    private Task<DateOnly?> ObterDataVencimentoFaturaAsync(long? faturaCartaoId, int usuarioAutenticadoId, CancellationToken cancellationToken) =>
+        faturaCartaoService?.ObterDataVencimentoPorFaturaIdAsync(faturaCartaoId, usuarioAutenticadoId, cancellationToken) ?? Task.FromResult<DateOnly?>(null);
 
     private Task RecalcularFaturaAsync(long? faturaCartaoId, int usuarioAutenticadoId, CancellationToken cancellationToken) =>
         faturaCartaoService?.RecalcularTotalPorFaturaIdAsync(faturaCartaoId, usuarioAutenticadoId, cancellationToken) ?? Task.CompletedTask;
@@ -1446,7 +1462,7 @@ public sealed partial class DespesaService(
 
     private static string ResolverCompetencia(string? competencia, DateOnly? referencia = null)
     {
-        var data = referencia?.ToDateTime(TimeOnly.MinValue) ?? DateTime.Now;
+        var data = referencia?.ToDateTime(TimeOnly.MinValue) ?? DataHoraBrasil.Agora();
 
         if (string.IsNullOrWhiteSpace(competencia))
             return new DateTime(data.Year, data.Month, 1).ToString("yyyy-MM");

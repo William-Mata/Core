@@ -1,5 +1,6 @@
 using Core.Application.DTOs.Financeiro;
 using Core.Application.Contracts.Financeiro;
+using Core.Domain.Common;
 using Core.Domain.Entities.Financeiro;
 using Core.Domain.Enums;
 using Core.Domain.Exceptions;
@@ -76,7 +77,7 @@ public sealed class FaturaCartaoService(
         await RecalcularTotalInternoAsync(fatura, usuarioAutenticadoId, cancellationToken);
 
         fatura.Status = StatusFaturaCartao.Efetivada;
-        fatura.DataEfetivacao = DateOnly.FromDateTime(DateTime.Now);
+        fatura.DataEfetivacao = DataHoraBrasil.Hoje();
         fatura.DataEstorno = null;
         fatura = await repository.AtualizarAsync(fatura, cancellationToken);
         return MapLista(fatura);
@@ -89,7 +90,7 @@ public sealed class FaturaCartaoService(
         if (fatura.Status != StatusFaturaCartao.Efetivada) throw new DomainException("status_invalido");
 
         fatura.Status = StatusFaturaCartao.Estornada;
-        fatura.DataEstorno = DateOnly.FromDateTime(DateTime.Now);
+        fatura.DataEstorno = DataHoraBrasil.Hoje();
         fatura = await repository.AtualizarAsync(fatura, cancellationToken);
         return MapLista(fatura);
     }
@@ -104,6 +105,27 @@ public sealed class FaturaCartaoService(
 
         await AplicarFechamentoAutomaticoAsync(fatura, usuarioAutenticadoId, cancellationToken);
         return fatura.Id;
+    }
+
+    public async Task<DateOnly?> ObterDataVencimentoPorFaturaIdAsync(long? faturaCartaoId, int usuarioAutenticadoId, CancellationToken cancellationToken = default)
+    {
+        if (!faturaCartaoId.HasValue)
+            return null;
+
+        var fatura = await repository.ObterPorIdAsync(faturaCartaoId.Value, usuarioAutenticadoId, cancellationToken);
+        if (fatura is null)
+            return null;
+
+        if (fatura.DataVencimento.HasValue)
+            return fatura.DataVencimento.Value;
+
+        var dataVencimento = await ResolverDataVencimentoFaturaAsync(fatura.CartaoId, usuarioAutenticadoId, fatura.Competencia, cancellationToken);
+        if (!dataVencimento.HasValue)
+            return null;
+
+        fatura.DataVencimento = dataVencimento.Value;
+        await repository.AtualizarAsync(fatura, cancellationToken);
+        return dataVencimento.Value;
     }
 
     public async Task ValidarFaturaPermiteAlteracaoAsync(long? faturaCartaoId, int usuarioAutenticadoId, CancellationToken cancellationToken = default)
@@ -212,15 +234,25 @@ public sealed class FaturaCartaoService(
 
     private async Task<FaturaCartao> ObterOuCriarFaturaAsync(long cartaoId, int usuarioAutenticadoId, string competencia, CancellationToken cancellationToken)
     {
+        var dataVencimento = await ResolverDataVencimentoFaturaAsync(cartaoId, usuarioAutenticadoId, competencia, cancellationToken);
         var fatura = await repository.ObterPorCartaoCompetenciaAsync(cartaoId, usuarioAutenticadoId, competencia, cancellationToken);
         if (fatura is not null)
+        {
+            if (!fatura.DataVencimento.HasValue && dataVencimento.HasValue)
+            {
+                fatura.DataVencimento = dataVencimento.Value;
+                fatura = await repository.AtualizarAsync(fatura, cancellationToken);
+            }
+
             return fatura;
+        }
 
         return await repository.CriarAsync(new FaturaCartao
         {
             UsuarioCadastroId = usuarioAutenticadoId,
             CartaoId = cartaoId,
             Competencia = competencia,
+            DataVencimento = dataVencimento,
             Status = StatusFaturaCartao.Aberta,
             ValorTotal = 0m
         }, cancellationToken);
@@ -304,26 +336,43 @@ public sealed class FaturaCartaoService(
         if (fatura.Status != StatusFaturaCartao.Aberta)
             return;
 
-        var cartao = await cartaoRepository.ObterPorIdAsync(fatura.CartaoId, usuarioAutenticadoId, cancellationToken);
-        if (cartao?.DiaVencimento is null)
+        var dataVencimento = fatura.DataVencimento ??
+                             await ResolverDataVencimentoFaturaAsync(fatura.CartaoId, usuarioAutenticadoId, fatura.Competencia, cancellationToken);
+        if (!dataVencimento.HasValue)
             return;
 
-        var periodo = CompetenciaPeriodoHelper.Resolver(fatura.Competencia, null, null);
-        var dataBase = periodo.DataInicio ?? DateOnly.FromDateTime(DateTime.Now);
-        var diaVencimento = cartao.DiaVencimento.Value.Day;
-        var ultimoDiaMes = DateTime.DaysInMonth(dataBase.Year, dataBase.Month);
-        var dataVencimentoBase = new DateOnly(dataBase.Year, dataBase.Month, Math.Min(diaVencimento, ultimoDiaMes));
-        var dataVencimento = AjustarParaProximoDiaUtil(dataVencimentoBase);
-        var dataFechamentoBase = dataVencimento.AddDays(-DiasAntesVencimentoParaFechamento);
+        var precisaPersistirDataVencimento = !fatura.DataVencimento.HasValue;
+        if (precisaPersistirDataVencimento)
+            fatura.DataVencimento = dataVencimento.Value;
+
+        var dataFechamentoBase = dataVencimento.Value.AddDays(-DiasAntesVencimentoParaFechamento);
         var dataFechamento = AjustarParaDiaUtilAnteriorOuIgual(dataFechamentoBase);
-        var hoje = DateOnly.FromDateTime(DateTime.Now);
+        var hoje = DataHoraBrasil.Hoje();
 
         if (hoje < dataFechamento)
+        {
+            if (precisaPersistirDataVencimento)
+                await repository.AtualizarAsync(fatura, cancellationToken);
             return;
+        }
 
         fatura.Status = StatusFaturaCartao.Fechada;
         fatura.DataFechamento = dataFechamento;
         await repository.AtualizarAsync(fatura, cancellationToken);
+    }
+
+    private async Task<DateOnly?> ResolverDataVencimentoFaturaAsync(long cartaoId, int usuarioAutenticadoId, string competencia, CancellationToken cancellationToken)
+    {
+        var cartao = await cartaoRepository.ObterPorIdAsync(cartaoId, usuarioAutenticadoId, cancellationToken);
+        if (cartao?.DiaVencimento is null)
+            return null;
+
+        var periodo = CompetenciaPeriodoHelper.Resolver(competencia, null, null);
+        var dataBase = periodo.DataInicio ?? DataHoraBrasil.Hoje();
+        var diaVencimento = cartao.DiaVencimento.Value.Day;
+        var ultimoDiaMes = DateTime.DaysInMonth(dataBase.Year, dataBase.Month);
+        var dataVencimentoBase = new DateOnly(dataBase.Year, dataBase.Month, Math.Min(diaVencimento, ultimoDiaMes));
+        return AjustarParaProximoDiaUtil(dataVencimentoBase);
     }
 
     private static DateOnly AjustarParaProximoDiaUtil(DateOnly data)
@@ -345,10 +394,10 @@ public sealed class FaturaCartaoService(
     private static string ResolverCompetencia(string competencia)
     {
         if (string.IsNullOrWhiteSpace(competencia))
-            return DateTime.Now.ToString("yyyy-MM");
+            return DataHoraBrasil.Agora().ToString("yyyy-MM");
 
         var periodo = CompetenciaPeriodoHelper.Resolver(competencia, null, null);
-        var competenciaData = periodo.DataInicio?.ToDateTime(TimeOnly.MinValue) ?? DateTime.Now;
+        var competenciaData = periodo.DataInicio?.ToDateTime(TimeOnly.MinValue) ?? DataHoraBrasil.Agora();
         return competenciaData.ToString("yyyy-MM");
     }
 
@@ -363,7 +412,7 @@ public sealed class FaturaCartaoService(
     private static string[] ObterCompetenciasParaGarantia(string competencia)
     {
         var periodo = CompetenciaPeriodoHelper.Resolver(competencia, null, null);
-        var dataBase = periodo.DataInicio?.ToDateTime(TimeOnly.MinValue) ?? DateTime.Now;
+        var dataBase = periodo.DataInicio?.ToDateTime(TimeOnly.MinValue) ?? DataHoraBrasil.Agora();
         return
         [
             dataBase.ToString("yyyy-MM"),
@@ -389,6 +438,7 @@ public sealed class FaturaCartaoService(
             fatura.Id,
             fatura.CartaoId,
             fatura.Competencia,
+            fatura.DataVencimento,
             fatura.ValorTotal,
             fatura.Status.ToString().ToLowerInvariant(),
             fatura.DataFechamento,
@@ -402,6 +452,7 @@ public sealed class FaturaCartaoService(
             fatura.Id,
             fatura.CartaoId,
             fatura.Competencia,
+            fatura.DataVencimento,
             fatura.ValorTotal,
             valorTotalTransacoes,
             fatura.Status.ToString().ToLowerInvariant(),

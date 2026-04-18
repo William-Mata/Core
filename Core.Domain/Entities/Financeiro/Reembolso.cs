@@ -11,6 +11,7 @@ public sealed class Reembolso
     public string Solicitante { get; set; } = string.Empty;
     public string Competencia { get; set; } = string.Empty;
     public DateOnly DataLancamento { get; set; }
+    public DateOnly? DataVencimento { get; set; }
     public DateOnly? DataEfetivacao { get; set; }
     public long? CartaoId { get; set; }
     public long? FaturaCartaoId { get; set; }
