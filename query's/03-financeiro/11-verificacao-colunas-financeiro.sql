@@ -42,12 +42,14 @@ GO
     SELECT N'dbo.HistoricoTransacaoFinanceira', N'Observacao' UNION ALL
     SELECT N'dbo.HistoricoTransacaoFinanceira', N'OcultarDoHistorico' UNION ALL
     SELECT N'dbo.Reembolso', N'DataLancamento' UNION ALL
+    SELECT N'dbo.Reembolso', N'DataVencimento' UNION ALL
     SELECT N'dbo.Reembolso', N'Competencia' UNION ALL
     SELECT N'dbo.Reembolso', N'DataEfetivacao' UNION ALL
     SELECT N'dbo.Reembolso', N'CartaoId' UNION ALL
     SELECT N'dbo.Reembolso', N'FaturaCartaoId' UNION ALL
     SELECT N'dbo.FaturaCartao', N'CartaoId' UNION ALL
     SELECT N'dbo.FaturaCartao', N'Competencia' UNION ALL
+    SELECT N'dbo.FaturaCartao', N'DataVencimento' UNION ALL
     SELECT N'dbo.FaturaCartao', N'DataFechamento' UNION ALL
     SELECT N'dbo.FaturaCartao', N'DataEfetivacao' UNION ALL
     SELECT N'dbo.FaturaCartao', N'DataEstorno' UNION ALL

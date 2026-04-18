@@ -13,6 +13,7 @@ BEGIN
         Solicitante NVARCHAR(150) NOT NULL,
         Competencia CHAR(7) NOT NULL CONSTRAINT DF_Reembolso_Competencia DEFAULT (CONVERT(char(7), SYSUTCDATETIME(), 120)),
         DataLancamento DATE NOT NULL,
+        DataVencimento DATE NULL,
         DataEfetivacao DATE NULL,
         ValorTotal DECIMAL(18,2) NOT NULL,
         Status NVARCHAR(30) NOT NULL,
@@ -20,6 +21,18 @@ BEGIN
         CONSTRAINT CK_Reembolso_Status CHECK (Status IN (N'Aguardando', N'Aprovado', N'Pago', N'Cancelado', N'Rejeitado'))
     );
 END;
+GO
+
+IF COL_LENGTH(N'dbo.Reembolso', N'DataVencimento') IS NULL
+BEGIN
+    ALTER TABLE dbo.Reembolso
+        ADD DataVencimento DATE NULL;
+END;
+GO
+
+UPDATE dbo.Reembolso
+SET DataVencimento = DataLancamento
+WHERE DataVencimento IS NULL;
 GO
 
 IF COL_LENGTH(N'dbo.Reembolso', N'DataEfetivacao') IS NULL

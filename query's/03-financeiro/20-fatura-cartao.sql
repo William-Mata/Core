@@ -16,6 +16,7 @@ BEGIN
         UsuarioCadastroId INT NOT NULL,
         CartaoId BIGINT NOT NULL,
         Competencia CHAR(7) NOT NULL,
+        DataVencimento DATE NULL,
         DataFechamento DATE NULL,
         DataEfetivacao DATE NULL,
         DataEstorno DATE NULL,
@@ -24,6 +25,12 @@ BEGIN
         CONSTRAINT PK_FaturaCartao PRIMARY KEY CLUSTERED (Id),
         CONSTRAINT CK_FaturaCartao_Status CHECK (Status IN (N'Aberta', N'Fechada', N'Efetivada', N'Estornada'))
     );
+END;
+GO
+
+IF COL_LENGTH(N'dbo.FaturaCartao', N'DataVencimento') IS NULL
+BEGIN
+    ALTER TABLE dbo.FaturaCartao ADD DataVencimento DATE NULL;
 END;
 GO
 
@@ -140,4 +147,3 @@ BEGIN
         ON dbo.Reembolso (FaturaCartaoId);
 END;
 GO
-
