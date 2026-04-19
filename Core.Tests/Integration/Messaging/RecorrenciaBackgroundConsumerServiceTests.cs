@@ -15,6 +15,282 @@ namespace Core.Tests.Integration.Messaging;
 public sealed class RecorrenciaBackgroundConsumerServiceTests
 {
     [Fact]
+    public async Task NaoDeveDuplicarDespesa_QuandoSerieJaExistirComDataLancamentoAvancada()
+    {
+        var dbName = Guid.NewGuid().ToString("N");
+        using var scope = await CriarScope(dbName);
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var service = CriarConsumerService(scope.ServiceProvider);
+
+        var dataCadastroOrigem = new DateTime(2026, 1, 10, 8, 30, 0, DateTimeKind.Utc);
+        var dataLancamentoOrigem = new DateTime(2026, 1, 10, 0, 0, 0);
+        var dataVencimentoOrigem = DateOnly.FromDateTime(dataLancamentoOrigem);
+
+        context.Despesas.AddRange(
+            new Despesa
+            {
+                Id = 1,
+                UsuarioCadastroId = 99,
+                Descricao = "Recorrencia legado",
+                DataHoraCadastro = dataCadastroOrigem,
+                DataLancamento = dataLancamentoOrigem,
+                DataVencimento = dataVencimentoOrigem,
+                TipoDespesa = TipoDespesa.Servicos,
+                TipoPagamento = TipoPagamento.Pix,
+                Recorrencia = Recorrencia.Mensal,
+                QuantidadeRecorrencia = 3,
+                ValorTotal = 50m,
+                ValorLiquido = 50m,
+                Status = StatusDespesa.Pendente
+            },
+            new Despesa
+            {
+                UsuarioCadastroId = 99,
+                Descricao = "Recorrencia legado",
+                DataHoraCadastro = dataCadastroOrigem,
+                DataLancamento = dataLancamentoOrigem.AddMonths(1),
+                DataVencimento = dataVencimentoOrigem.AddMonths(1),
+                TipoDespesa = TipoDespesa.Servicos,
+                TipoPagamento = TipoPagamento.Pix,
+                Recorrencia = Recorrencia.Mensal,
+                QuantidadeRecorrencia = 3,
+                DespesaRecorrenciaOrigemId = 1,
+                ValorTotal = 50m,
+                ValorLiquido = 50m,
+                Status = StatusDespesa.Pendente
+            },
+            new Despesa
+            {
+                UsuarioCadastroId = 99,
+                Descricao = "Recorrencia legado",
+                DataHoraCadastro = dataCadastroOrigem,
+                DataLancamento = dataLancamentoOrigem.AddMonths(2),
+                DataVencimento = dataVencimentoOrigem.AddMonths(2),
+                TipoDespesa = TipoDespesa.Servicos,
+                TipoPagamento = TipoPagamento.Pix,
+                Recorrencia = Recorrencia.Mensal,
+                QuantidadeRecorrencia = 3,
+                DespesaRecorrenciaOrigemId = 1,
+                ValorTotal = 50m,
+                ValorLiquido = 50m,
+                Status = StatusDespesa.Pendente
+            });
+        await context.SaveChangesAsync();
+
+        var mensagem = new DespesaRecorrenciaBackgroundMessage(
+            99,
+            1,
+            "Recorrencia legado",
+            null,
+            dataCadastroOrigem,
+            dataLancamentoOrigem,
+            dataVencimentoOrigem,
+            TipoDespesa.Servicos,
+            TipoPagamento.Pix,
+            Recorrencia.Mensal,
+            false,
+            3,
+            50m,
+            0m,
+            0m,
+            0m,
+            0m,
+            null,
+            null,
+            null,
+            null,
+            null,
+            [],
+            [],
+            []);
+
+        await InvocarProcessarDespesaAsync(service, mensagem);
+
+        var total = await context.Despesas.CountAsync(x => x.UsuarioCadastroId == 99 && x.Descricao == "Recorrencia legado");
+        Assert.Equal(3, total);
+    }
+
+    [Fact]
+    public async Task NaoDeveDuplicarReceita_QuandoSerieJaExistirComDataLancamentoAvancada()
+    {
+        var dbName = Guid.NewGuid().ToString("N");
+        using var scope = await CriarScope(dbName);
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var service = CriarConsumerService(scope.ServiceProvider);
+
+        var dataCadastroOrigem = new DateTime(2026, 1, 10, 8, 30, 0, DateTimeKind.Utc);
+        var dataLancamentoOrigem = new DateTime(2026, 1, 10, 0, 0, 0);
+        var dataVencimentoOrigem = DateOnly.FromDateTime(dataLancamentoOrigem);
+
+        context.Receitas.AddRange(
+            new Receita
+            {
+                Id = 1,
+                UsuarioCadastroId = 99,
+                Descricao = "Recorrencia legado receita",
+                DataHoraCadastro = dataCadastroOrigem,
+                DataLancamento = dataLancamentoOrigem,
+                DataVencimento = dataVencimentoOrigem,
+                TipoReceita = TipoReceita.Freelance,
+                TipoRecebimento = TipoRecebimento.Dinheiro,
+                Recorrencia = Recorrencia.Mensal,
+                QuantidadeRecorrencia = 3,
+                ValorTotal = 50m,
+                ValorLiquido = 50m,
+                Status = StatusReceita.Pendente
+            },
+            new Receita
+            {
+                UsuarioCadastroId = 99,
+                Descricao = "Recorrencia legado receita",
+                DataHoraCadastro = dataCadastroOrigem,
+                DataLancamento = dataLancamentoOrigem.AddMonths(1),
+                DataVencimento = dataVencimentoOrigem.AddMonths(1),
+                TipoReceita = TipoReceita.Freelance,
+                TipoRecebimento = TipoRecebimento.Dinheiro,
+                Recorrencia = Recorrencia.Mensal,
+                QuantidadeRecorrencia = 3,
+                ReceitaRecorrenciaOrigemId = 1,
+                ValorTotal = 50m,
+                ValorLiquido = 50m,
+                Status = StatusReceita.Pendente
+            },
+            new Receita
+            {
+                UsuarioCadastroId = 99,
+                Descricao = "Recorrencia legado receita",
+                DataHoraCadastro = dataCadastroOrigem,
+                DataLancamento = dataLancamentoOrigem.AddMonths(2),
+                DataVencimento = dataVencimentoOrigem.AddMonths(2),
+                TipoReceita = TipoReceita.Freelance,
+                TipoRecebimento = TipoRecebimento.Dinheiro,
+                Recorrencia = Recorrencia.Mensal,
+                QuantidadeRecorrencia = 3,
+                ReceitaRecorrenciaOrigemId = 1,
+                ValorTotal = 50m,
+                ValorLiquido = 50m,
+                Status = StatusReceita.Pendente
+            });
+        await context.SaveChangesAsync();
+
+        var mensagem = new ReceitaRecorrenciaBackgroundMessage(
+            99,
+            1,
+            "Recorrencia legado receita",
+            null,
+            dataCadastroOrigem,
+            dataLancamentoOrigem,
+            dataVencimentoOrigem,
+            TipoReceita.Freelance,
+            TipoRecebimento.Dinheiro,
+            Recorrencia.Mensal,
+            false,
+            3,
+            50m,
+            0m,
+            0m,
+            0m,
+            0m,
+            null,
+            null,
+            null,
+            null,
+            null,
+            [],
+            [],
+            []);
+
+        await InvocarProcessarReceitaAsync(service, mensagem);
+
+        var total = await context.Receitas.CountAsync(x => x.UsuarioCadastroId == 99 && x.Descricao == "Recorrencia legado receita");
+        Assert.Equal(3, total);
+    }
+
+    [Fact]
+    public async Task NaoDeveUltrapassarQuantidadeDaSerie_QuandoReceberMensagensComVencimentosDiferentes_Despesa()
+    {
+        var dbName = Guid.NewGuid().ToString("N");
+        using var scope = await CriarScope(dbName);
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var service = CriarConsumerService(scope.ServiceProvider);
+
+        var dataCadastroOrigem = new DateTime(2026, 3, 25, 19, 0, 0, DateTimeKind.Utc);
+        var dataLancamentoOrigem = new DateTime(2026, 3, 25, 19, 0, 0);
+
+        context.Despesas.Add(new Despesa
+        {
+            Id = 1403,
+            UsuarioCadastroId = 99,
+            Descricao = "Despesa conflito",
+            DataHoraCadastro = dataCadastroOrigem,
+            DataLancamento = dataLancamentoOrigem,
+            DataVencimento = new DateOnly(2026, 4, 9),
+            TipoDespesa = TipoDespesa.Servicos,
+            TipoPagamento = TipoPagamento.Pix,
+            Recorrencia = Recorrencia.Mensal,
+            QuantidadeRecorrencia = 3,
+            ValorTotal = 100m,
+            ValorLiquido = 100m,
+            Status = StatusDespesa.Pendente
+        });
+        await context.SaveChangesAsync();
+
+        var mensagemComVencimentoA = new DespesaRecorrenciaBackgroundMessage(
+            99, 1403, "Despesa conflito", null, dataCadastroOrigem, dataLancamentoOrigem, new DateOnly(2026, 3, 25),
+            TipoDespesa.Servicos, TipoPagamento.Pix, Recorrencia.Mensal, false, 3,
+            100m, 0m, 0m, 0m, 0m, null, null, null, null, null, [], [], []);
+        var mensagemComVencimentoB = mensagemComVencimentoA with { DataVencimento = new DateOnly(2026, 4, 9) };
+
+        await InvocarProcessarDespesaAsync(service, mensagemComVencimentoA);
+        await InvocarProcessarDespesaAsync(service, mensagemComVencimentoB);
+
+        var total = await context.Despesas.CountAsync(x => x.UsuarioCadastroId == 99 && x.Descricao == "Despesa conflito" && x.DespesaOrigemId == null);
+        Assert.Equal(3, total);
+    }
+
+    [Fact]
+    public async Task NaoDeveUltrapassarQuantidadeDaSerie_QuandoReceberMensagensComVencimentosDiferentes_Receita()
+    {
+        var dbName = Guid.NewGuid().ToString("N");
+        using var scope = await CriarScope(dbName);
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var service = CriarConsumerService(scope.ServiceProvider);
+
+        var dataCadastroOrigem = new DateTime(2026, 3, 25, 19, 0, 0, DateTimeKind.Utc);
+        var dataLancamentoOrigem = new DateTime(2026, 3, 25, 19, 0, 0);
+
+        context.Receitas.Add(new Receita
+        {
+            Id = 2403,
+            UsuarioCadastroId = 99,
+            Descricao = "Receita conflito",
+            DataHoraCadastro = dataCadastroOrigem,
+            DataLancamento = dataLancamentoOrigem,
+            DataVencimento = new DateOnly(2026, 4, 9),
+            TipoReceita = TipoReceita.Freelance,
+            TipoRecebimento = TipoRecebimento.Dinheiro,
+            Recorrencia = Recorrencia.Mensal,
+            QuantidadeRecorrencia = 3,
+            ValorTotal = 100m,
+            ValorLiquido = 100m,
+            Status = StatusReceita.Pendente
+        });
+        await context.SaveChangesAsync();
+
+        var mensagemComVencimentoA = new ReceitaRecorrenciaBackgroundMessage(
+            99, 2403, "Receita conflito", null, dataCadastroOrigem, dataLancamentoOrigem, new DateOnly(2026, 3, 25),
+            TipoReceita.Freelance, TipoRecebimento.Dinheiro, Recorrencia.Mensal, false, 3,
+            100m, 0m, 0m, 0m, 0m, null, null, null, null, null, [], [], []);
+        var mensagemComVencimentoB = mensagemComVencimentoA with { DataVencimento = new DateOnly(2026, 4, 9) };
+
+        await InvocarProcessarReceitaAsync(service, mensagemComVencimentoA);
+        await InvocarProcessarReceitaAsync(service, mensagemComVencimentoB);
+
+        var total = await context.Receitas.CountAsync(x => x.UsuarioCadastroId == 99 && x.Descricao == "Receita conflito" && x.ReceitaOrigemId == null);
+        Assert.Equal(3, total);
+    }
+
+    [Fact]
     public async Task DeveExpandirRecorrenciaFixaDeDespesaDe100Para200_SemDuplicar()
     {
         var dbName = Guid.NewGuid().ToString("N");

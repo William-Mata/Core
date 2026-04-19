@@ -168,14 +168,30 @@ private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerial
         var liquido = payload.ValorTotal - payload.Desconto + payload.Acrescimo + payload.Imposto + payload.Juros;
         var origensCriadas = new List<Despesa>();
         var dataHoraCadastroOrigem = DataHoraBrasil.Converter(payload.DataHoraCadastroOrigem);
+        var quantidadeGerada = await dbContext.Despesas
+            .AsNoTracking()
+            .CountAsync(
+                x =>
+                    x.DespesaOrigemId == null &&
+                    x.UsuarioCadastroId == payload.UsuarioId &&
+                    (
+                        x.DespesaRecorrenciaOrigemId == payload.DespesaRecorrenciaOrigemId ||
+                        (x.Id == payload.DespesaRecorrenciaOrigemId && x.DespesaRecorrenciaOrigemId == null) ||
+                        (x.DespesaRecorrenciaOrigemId == null &&
+                         x.DataHoraCadastro == dataHoraCadastroOrigem &&
+                         x.Descricao == payload.Descricao &&
+                         x.TipoDespesa == payload.TipoDespesa &&
+                         x.TipoPagamento == payload.TipoPagamento)
+                    ),
+                cancellationToken);
 
         for (var numero = 2; numero <= alvo; numero++)
         {
-            var dataLancamento = payload.DataLancamento;
+            if (quantidadeGerada >= alvo)
+                break;
+
             var dataVencimento = AvancarData(payload.DataVencimento, payload.Recorrencia, numero - 1);
             var competencia = new DateTime(dataVencimento.Year, dataVencimento.Month, 1).ToString("yyyy-MM");
-            var dataLancamentoInicio = dataLancamento.Date;
-            var dataLancamentoFim = dataLancamentoInicio.AddDays(1);
             var origemJaExiste = await dbContext.Despesas
                 .AsNoTracking()
                 .AnyAsync(
@@ -190,8 +206,6 @@ private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerial
                              x.TipoDespesa == payload.TipoDespesa &&
                              x.TipoPagamento == payload.TipoPagamento)
                         ) &&
-                        x.DataLancamento >= dataLancamentoInicio &&
-                        x.DataLancamento < dataLancamentoFim &&
                         x.DataVencimento == dataVencimento,
                     cancellationToken);
 
@@ -205,7 +219,7 @@ private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerial
                 Descricao = payload.Descricao,
                 Observacao = payload.Observacao,
                 Competencia = competencia,
-                DataLancamento = dataLancamento,
+                DataLancamento = payload.DataLancamento,
                 DataVencimento = dataVencimento,
                 TipoDespesa = payload.TipoDespesa,
                 TipoPagamento = payload.TipoPagamento,
@@ -260,6 +274,7 @@ private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerial
 
             dbContext.Despesas.Add(origem);
             origensCriadas.Add(origem);
+            quantidadeGerada++;
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -343,14 +358,30 @@ private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerial
         var liquido = payload.ValorTotal - payload.Desconto + payload.Acrescimo + payload.Imposto + payload.Juros;
         var origensCriadas = new List<Receita>();
         var dataHoraCadastroOrigem = DataHoraBrasil.Converter(payload.DataHoraCadastroOrigem);
+        var quantidadeGerada = await dbContext.Receitas
+            .AsNoTracking()
+            .CountAsync(
+                x =>
+                    x.ReceitaOrigemId == null &&
+                    x.UsuarioCadastroId == payload.UsuarioId &&
+                    (
+                        (payload.ReceitaRecorrenciaOrigemId.HasValue && x.ReceitaRecorrenciaOrigemId == payload.ReceitaRecorrenciaOrigemId.Value) ||
+                        (payload.ReceitaRecorrenciaOrigemId.HasValue && x.Id == payload.ReceitaRecorrenciaOrigemId.Value && x.ReceitaRecorrenciaOrigemId == null) ||
+                        (x.ReceitaRecorrenciaOrigemId == null &&
+                         x.DataHoraCadastro == dataHoraCadastroOrigem &&
+                         x.Descricao == payload.Descricao &&
+                         x.TipoReceita == payload.TipoReceita &&
+                         x.TipoRecebimento == payload.TipoRecebimento)
+                    ),
+                cancellationToken);
 
         for (var numero = 2; numero <= alvo; numero++)
         {
-            var dataLancamento = payload.DataLancamento;
+            if (quantidadeGerada >= alvo)
+                break;
+
             var dataVencimento = AvancarData(payload.DataVencimento, payload.Recorrencia, numero - 1);
             var competencia = new DateTime(dataVencimento.Year, dataVencimento.Month, 1).ToString("yyyy-MM");
-            var dataLancamentoInicio = dataLancamento.Date;
-            var dataLancamentoFim = dataLancamentoInicio.AddDays(1);
             var origemJaExiste = await dbContext.Receitas
                 .AsNoTracking()
                 .AnyAsync(
@@ -365,8 +396,6 @@ private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerial
                              x.TipoReceita == payload.TipoReceita &&
                              x.TipoRecebimento == payload.TipoRecebimento)
                         ) &&
-                        x.DataLancamento >= dataLancamentoInicio &&
-                        x.DataLancamento < dataLancamentoFim &&
                         x.DataVencimento == dataVencimento,
                     cancellationToken);
 
@@ -380,7 +409,7 @@ private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerial
                 Descricao = payload.Descricao,
                 Observacao = payload.Observacao,
                 Competencia = competencia,
-                DataLancamento = dataLancamento,
+                DataLancamento = payload.DataLancamento,
                 DataVencimento = dataVencimento,
                 TipoReceita = payload.TipoReceita,
                 TipoRecebimento = payload.TipoRecebimento,
@@ -435,6 +464,7 @@ private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerial
 
             dbContext.Receitas.Add(origem);
             origensCriadas.Add(origem);
+            quantidadeGerada++;
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
