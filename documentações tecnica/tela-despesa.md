@@ -32,6 +32,11 @@ Todos os endpoints exigem autenticacao (`[Authorize]`).
 
 Quando informado com valor fora do enum, a API retorna `escopo_recorrencia_invalido` (400).
 
+## Formato de datas
+- `dataLancamento` e `dataEfetivacao`: `DateTime` em ISO 8601 (`yyyy-MM-ddTHH:mm:ss`).
+- `dataVencimento`, `dataInicio` e `dataFim`: `DateOnly` em `yyyy-MM-dd`.
+- Para preservar o horario escolhido no front, enviar `dataLancamento`/`dataEfetivacao` sem sufixo de fuso.
+
 ## Contrato de listagem
 ### Query params
 - `id` (opcional)
@@ -53,7 +58,7 @@ Quando informado com valor fora do enum, a API retorna `escopo_recorrencia_inval
   {
     "id": 12,
     "descricao": "Almoco com cliente",
-    "dataLancamento": "2026-03-10",
+    "dataLancamento": "2026-03-10T09:30:00",
     "dataVencimento": "2026-03-15",
     "dataEfetivacao": null,
     "tipoDespesa": "alimentacao",
@@ -83,7 +88,7 @@ Quando informado com valor fora do enum, a API retorna `escopo_recorrencia_inval
 {
   "descricao": "Almoco com cliente",
   "observacao": "Reuniao comercial",
-  "dataLancamento": "2026-03-10",
+  "dataLancamento": "2026-03-10T09:30:00",
   "dataVencimento": "2026-03-15",
   "tipoDespesa": "alimentacao",
   "tipoPagamento": "pix",
@@ -124,7 +129,9 @@ Quando informado com valor fora do enum, a API retorna `escopo_recorrencia_inval
 ### Regras de criacao/atualizacao
 - `descricao` obrigatoria (`descricao_obrigatoria`)
 - `valorTotal > 0` (`valor_total_invalido`)
-- `dataVencimento >= dataLancamento` (`periodo_invalido`)
+- para `tipoPagamento = cartaoCredito`, `dataVencimento` e opcional
+- em `cartaoCredito`, `periodo_invalido` so ocorre quando `dataVencimento` estiver preenchida e for menor que `dataLancamento`
+- para os demais tipos de pagamento, `dataVencimento` continua obrigatoria e deve ser `>= dataLancamento` (`periodo_invalido`)
 - `tipoDespesa`, `tipoPagamento` e `recorrencia` devem ser validos (`enum_invalida`)
 - status inicial sempre `pendente`
 - `valorLiquido` e recalculado no backend: `valorTotal - desconto + acrescimo + imposto + juros`
@@ -167,7 +174,7 @@ Quando informado com valor fora do enum, a API retorna `escopo_recorrencia_inval
 ### Request (`POST /api/financeiro/despesas/{id}/efetivar`)
 ```json
 {
-  "dataEfetivacao": "2026-03-15",
+  "dataEfetivacao": "2026-03-15T11:45:00",
   "tipoPagamento": "pix",
   "valorTotal": 150.0,
   "desconto": 5.0,

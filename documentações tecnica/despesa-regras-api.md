@@ -19,6 +19,11 @@ Documentar o contrato real do `DespesaController`, com regras de negocio do serv
 - `POST /api/financeiro/despesas/{id}/aprovar`
 - `POST /api/financeiro/despesas/{id}/rejeitar`
 
+## Formato de datas
+- `dataLancamento` e `dataEfetivacao`: `DateTime` em ISO 8601 no formato `yyyy-MM-ddTHH:mm:ss` (ex.: `2026-04-11T14:30:00`).
+- `dataVencimento`, `dataInicio` e `dataFim`: `DateOnly` no formato `yyyy-MM-dd`.
+- Comparacoes de vencimento continuam por data; para `dataEfetivacao` a regra considera data e hora.
+
 ## Enums usados no contrato
 - `TipoDespesa`: `Alimentacao`, `Transporte`, `Moradia`, `Lazer`, `Saude`, `Educacao`, `Servicos`
 - `TipoPagamento`: `Pix`, `CartaoCredito`, `CartaoDebito`, `Boleto`, `Transferencia`, `Dinheiro`
@@ -39,6 +44,11 @@ Documentar o contrato real do `DespesaController`, com regras de negocio do serv
 - Em `Transferencia` ou `Pix` com `contaDestinoId`, historico gera movimentacao espelhada automaticamente.
 - Em transacao entre contas (`Transferencia` ou `Pix` com `contaDestinoId`), a API cria e vincula uma `Receita` espelhada.
 - A movimentacao espelhada permanece sincronizada com a origem em edicao, cancelamento e efetivacao.
+- Recorrencia da transferencia entre contas:
+  - `DespesaRecorrenciaOrigemId` ancora a serie de despesa na propria despesa base.
+  - `ReceitaRecorrenciaOrigemId` ancora a serie de receita na propria receita base (espelho da base da despesa).
+  - `ReceitaTransferenciaId`/`DespesaTransferenciaId` continuam apenas como vinculo cruzado entre as duas pontas da mesma ocorrencia.
+- Recuperacao de recorrencia pendente considera `dataVencimento` como criterio de proxima ocorrencia (sem exigir avance de `dataLancamento`).
 
 ## 1) Listar despesas
 ### GET `/api/financeiro/despesas`
@@ -65,7 +75,7 @@ Documentar o contrato real do `DespesaController`, com regras de negocio do serv
   {
     "id": 10,
     "descricao": "Aluguel",
-    "dataLancamento": "2026-04-01",
+    "dataLancamento": "2026-04-01T09:00:00",
     "dataVencimento": "2026-04-10",
     "dataEfetivacao": null,
     "tipoDespesa": "Moradia",
@@ -92,7 +102,7 @@ Documentar o contrato real do `DespesaController`, com regras de negocio do serv
   "id": 10,
   "descricao": "Aluguel",
   "observacao": null,
-  "dataLancamento": "2026-04-01",
+  "dataLancamento": "2026-04-01T09:00:00",
   "dataVencimento": "2026-04-10",
   "dataEfetivacao": null,
   "tipoDespesa": "Moradia",
@@ -155,7 +165,7 @@ Documentar o contrato real do `DespesaController`, com regras de negocio do serv
 {
   "descricao": "Mercado",
   "observacao": "Compra mensal",
-  "dataLancamento": "2026-04-11",
+  "dataLancamento": "2026-04-11T14:30:00",
   "dataVencimento": "2026-04-11",
   "tipoDespesa": "Alimentacao",
   "tipoPagamento": "Pix",
@@ -200,7 +210,9 @@ Documentar o contrato real do `DespesaController`, com regras de negocio do serv
 #### Regras principais
 - `descricao` obrigatoria.
 - `valorTotal > 0`.
-- `dataVencimento >= dataLancamento`.
+- Para `tipoPagamento = CartaoCredito`, `dataVencimento` e opcional.
+- A comparacao `dataVencimento >= dataLancamento` so e aplicada quando `dataVencimento` estiver preenchida em `CartaoCredito`.
+- Para os demais tipos de pagamento, `dataVencimento` segue obrigatoria e deve ser `>= dataLancamento`.
 - `competencia` opcional; quando ausente, assume a competencia atual.
 - Enums validos; caso contrario `enum_invalida`.
 - Regra de meio financeiro (`conta_bancaria_obrigatoria`, `cartao_obrigatorio`, `forma_pagamento_invalida`).
@@ -229,7 +241,7 @@ Documentar o contrato real do `DespesaController`, com regras de negocio do serv
 {
   "descricao": "Mercado atualizado",
   "observacao": "Ajuste de itens",
-  "dataLancamento": "2026-04-11",
+  "dataLancamento": "2026-04-11T14:30:00",
   "dataVencimento": "2026-04-11",
   "tipoDespesa": "Alimentacao",
   "tipoPagamento": "Pix",
@@ -276,7 +288,7 @@ Documentar o contrato real do `DespesaController`, com regras de negocio do serv
 #### Exemplo de request (payload completo - transferencia entre contas)
 ```json
 {
-  "dataEfetivacao": "2026-04-11",
+  "dataEfetivacao": "2026-04-11T16:00:00",
   "tipoPagamento": "Transferencia",
   "valorTotal": 150.00,
   "desconto": 0,

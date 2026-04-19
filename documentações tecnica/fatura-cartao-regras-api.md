@@ -8,6 +8,11 @@
 
 ## 2. Contrato de consumo
 
+### 2.0 Formato de datas dos lancamentos
+
+- `dataLancamento` e `dataEfetivacao` dos itens de `lancamentos` sao `DateTime` em ISO 8601 no formato `yyyy-MM-ddTHH:mm:ss`.
+- Datas da fatura (`dataVencimento`, `dataFechamento`, `dataEstorno`) permanecem `yyyy-MM-dd`.
+
 ### 2.1 GET /api/financeiro/faturas-cartao (Listagem basica)
 
 - Metodo HTTP: `GET`
@@ -82,8 +87,8 @@ Regra do retorno:
         "transacaoId": 981,
         "descricao": "Supermercado",
         "competencia": "2026-04",
-        "dataLancamento": "2026-04-03",
-        "dataEfetivacao": "2026-04-03",
+        "dataLancamento": "2026-04-03T09:15:00",
+        "dataEfetivacao": "2026-04-03T09:15:00",
         "valor": 350.25,
         "status": "efetivada"
       }

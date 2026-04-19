@@ -32,6 +32,11 @@ Todos os endpoints exigem autenticacao (`[Authorize]`).
 
 Quando informado com valor fora do enum, a API retorna `escopo_recorrencia_invalido` (400).
 
+## Formato de datas
+- `dataLancamento` e `dataEfetivacao`: `DateTime` em ISO 8601 (`yyyy-MM-ddTHH:mm:ss`).
+- `dataVencimento`, `dataInicio` e `dataFim`: `DateOnly` em `yyyy-MM-dd`.
+- Para preservar o horario escolhido no front, enviar `dataLancamento`/`dataEfetivacao` sem sufixo de fuso.
+
 ## Contrato de listagem
 ### Query params
 - `id` (opcional)
@@ -53,7 +58,7 @@ Quando informado com valor fora do enum, a API retorna `escopo_recorrencia_inval
   {
     "id": 24,
     "descricao": "Freelance",
-    "dataLancamento": "2026-03-12",
+    "dataLancamento": "2026-03-12T09:30:00",
     "dataVencimento": "2026-03-20",
     "dataEfetivacao": null,
     "tipoReceita": "freelance",
@@ -83,7 +88,7 @@ Quando informado com valor fora do enum, a API retorna `escopo_recorrencia_inval
 {
   "descricao": "Freelance design",
   "observacao": "Projeto pontual",
-  "dataLancamento": "2026-03-12",
+  "dataLancamento": "2026-03-12T09:30:00",
   "dataVencimento": "2026-03-20",
   "tipoReceita": "freelance",
   "tipoRecebimento": "pix",
@@ -123,7 +128,9 @@ Quando informado com valor fora do enum, a API retorna `escopo_recorrencia_inval
 ### Regras de criacao/atualizacao
 - `descricao` obrigatoria (`descricao_obrigatoria`)
 - `valorTotal > 0` (`valor_total_invalido`)
-- `dataVencimento >= dataLancamento` (`periodo_invalido`)
+- para `tipoRecebimento = cartaoCredito`, `dataVencimento` e opcional
+- em `cartaoCredito`, `periodo_invalido` so ocorre quando `dataVencimento` estiver preenchida e for menor que `dataLancamento`
+- para os demais tipos de recebimento, `dataVencimento` continua obrigatoria e deve ser `>= dataLancamento` (`periodo_invalido`)
 - `tipoReceita`, `tipoRecebimento` e `recorrencia` validos (`enum_invalida`)
 - status inicial sempre `pendente`
 - `valorLiquido` calculado no backend: `valorTotal - desconto + acrescimo + imposto + juros`
@@ -159,7 +166,7 @@ Quando informado com valor fora do enum, a API retorna `escopo_recorrencia_inval
 ### Request (`POST /api/financeiro/receitas/{id}/efetivar`)
 ```json
 {
-  "dataEfetivacao": "2026-03-20",
+  "dataEfetivacao": "2026-03-20T11:45:00",
   "tipoRecebimento": "pix",
   "contaBancariaId": 3,
   "cartaoId": null,

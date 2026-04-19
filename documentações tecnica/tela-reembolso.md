@@ -22,6 +22,11 @@ Todos os endpoints exigem autenticacao (`[Authorize]`).
 - `POST /api/financeiro/reembolsos/{id}/efetivar`
 - `POST /api/financeiro/reembolsos/{id}/estornar`
 
+## Formato de datas
+- `dataLancamento` e `dataEfetivacao`: `DateTime` em ISO 8601 (`yyyy-MM-ddTHH:mm:ss`).
+- `dataInicio`, `dataFim` e `dataEstorno`: `DateOnly` em `yyyy-MM-dd`.
+- Para preservar o horario escolhido no front, enviar `dataLancamento`/`dataEfetivacao` sem sufixo de fuso.
+
 ## Contrato de listagem
 ### Query params
 - `id` (opcional)
@@ -41,7 +46,7 @@ Todos os endpoints exigem autenticacao (`[Authorize]`).
     "id": 1,
     "descricao": "Viagem comercial",
     "solicitante": "Joao Silva",
-    "dataLancamento": "2026-03-18",
+    "dataLancamento": "2026-03-18T09:00:00",
     "dataEfetivacao": null,
     "valorTotal": 274.9,
     "status": "AGUARDANDO"
@@ -67,7 +72,7 @@ Todos os endpoints exigem autenticacao (`[Authorize]`).
 {
   "descricao": "Viagem comercial - semana 2",
   "solicitante": "Joao Silva",
-  "dataLancamento": "2026-03-18",
+  "dataLancamento": "2026-03-18T09:00:00",
   "dataEfetivacao": null,
   "despesasVinculadas": [1, { "id": 3 }],
   "valorTotal": 9999.99,
@@ -133,7 +138,7 @@ Comportamento:
 ### Request
 ```json
 {
-  "dataEfetivacao": "2026-03-20",
+  "dataEfetivacao": "2026-03-20T11:45:00",
   "documentos": [],
   "contaBancariaId": 3,
   "cartaoId": null

@@ -9,6 +9,11 @@
 - `POST /api/financeiro/reembolsos/{id}/efetivar`
 - `POST /api/financeiro/reembolsos/{id}/estornar`
 
+## Formato de datas
+- `dataLancamento` e `dataEfetivacao`: `DateTime` em ISO 8601 no formato `yyyy-MM-ddTHH:mm:ss` (ex.: `2026-03-18T09:00:00`).
+- `dataInicio`, `dataFim` e `dataEstorno`: `DateOnly` no formato `yyyy-MM-dd`.
+- Validacoes de `dataEfetivacao >= dataLancamento` consideram data e hora.
+
 ## Regras principais
 - Exige autenticacao JWT.
 - Operacoes sao restritas ao usuario autenticado.

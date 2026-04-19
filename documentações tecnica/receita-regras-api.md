@@ -19,6 +19,11 @@ Documentar o contrato real do `ReceitaController`, com regras de negocio do serv
 - `POST /api/financeiro/receitas/{id}/aprovar`
 - `POST /api/financeiro/receitas/{id}/rejeitar`
 
+## Formato de datas
+- `dataLancamento` e `dataEfetivacao`: `DateTime` em ISO 8601 no formato `yyyy-MM-ddTHH:mm:ss` (ex.: `2026-04-11T14:30:00`).
+- `dataVencimento`, `dataInicio` e `dataFim`: `DateOnly` no formato `yyyy-MM-dd`.
+- Comparacoes de vencimento continuam por data; para `dataEfetivacao` a regra considera data e hora.
+
 ## Enums usados no contrato
 - `TipoReceita`: `Salario`, `Freelance`, `Reembolso`, `Investimento`, `Bonus`, `Outros`
 - `TipoRecebimento`: `Pix`, `Transferencia`, `Dinheiro`, `Boleto`, `CartaoCredito`, `CartaoDebito`
@@ -39,6 +44,11 @@ Documentar o contrato real do `ReceitaController`, com regras de negocio do serv
 - Em `Transferencia` ou `Pix` com `contaDestinoId`, historico gera movimentacao espelhada automaticamente.
 - Em transacao entre contas (`Transferencia` ou `Pix` com `contaDestinoId`), a API cria e vincula uma `Despesa` espelhada.
 - A movimentacao espelhada permanece sincronizada com a origem em edicao, cancelamento e efetivacao.
+- Recorrencia da transferencia entre contas:
+  - `ReceitaRecorrenciaOrigemId` ancora a serie de receita na propria receita base.
+  - `DespesaRecorrenciaOrigemId` ancora a serie de despesa na propria despesa base (espelho da base da receita).
+  - `DespesaTransferenciaId`/`ReceitaTransferenciaId` continuam apenas como vinculo cruzado entre as duas pontas da mesma ocorrencia.
+- Recuperacao de recorrencia pendente considera `dataVencimento` como criterio de proxima ocorrencia (sem exigir avance de `dataLancamento`).
 
 ## 1) Listar receitas
 ### GET `/api/financeiro/receitas`
@@ -65,7 +75,7 @@ Documentar o contrato real do `ReceitaController`, com regras de negocio do serv
   {
     "id": 21,
     "descricao": "Salario",
-    "dataLancamento": "2026-04-05",
+    "dataLancamento": "2026-04-05T09:00:00",
     "dataVencimento": "2026-04-05",
     "dataEfetivacao": null,
     "tipoReceita": "Salario",
@@ -92,7 +102,7 @@ Documentar o contrato real do `ReceitaController`, com regras de negocio do serv
   "id": 21,
   "descricao": "Salario",
   "observacao": null,
-  "dataLancamento": "2026-04-05",
+  "dataLancamento": "2026-04-05T09:00:00",
   "dataVencimento": "2026-04-05",
   "dataEfetivacao": null,
   "tipoReceita": "Salario",
@@ -154,7 +164,7 @@ Documentar o contrato real do `ReceitaController`, com regras de negocio do serv
 {
   "descricao": "Freelance",
   "observacao": "Projeto abril",
-  "dataLancamento": "2026-04-11",
+  "dataLancamento": "2026-04-11T14:30:00",
   "dataVencimento": "2026-04-11",
   "tipoReceita": "Freelance",
   "tipoRecebimento": "Pix",
@@ -198,7 +208,9 @@ Documentar o contrato real do `ReceitaController`, com regras de negocio do serv
 #### Regras principais
 - `descricao` obrigatoria.
 - `valorTotal > 0`.
-- `dataVencimento >= dataLancamento`.
+- Para `tipoRecebimento = CartaoCredito`, `dataVencimento` e opcional.
+- A comparacao `dataVencimento >= dataLancamento` so e aplicada quando `dataVencimento` estiver preenchida em `CartaoCredito`.
+- Para os demais tipos de recebimento, `dataVencimento` segue obrigatoria e deve ser `>= dataLancamento`.
 - `competencia` opcional; quando ausente, assume a competencia atual.
 - Enums validos; caso contrario `enum_invalida`.
 - Regra de meio financeiro (`conta_bancaria_obrigatoria`, `cartao_obrigatorio`, `forma_pagamento_invalida`).
@@ -228,7 +240,7 @@ Documentar o contrato real do `ReceitaController`, com regras de negocio do serv
 {
   "descricao": "Freelance atualizado",
   "observacao": "Ajuste de valor",
-  "dataLancamento": "2026-04-11",
+  "dataLancamento": "2026-04-11T14:30:00",
   "dataVencimento": "2026-04-11",
   "tipoReceita": "Freelance",
   "tipoRecebimento": "Pix",
@@ -274,7 +286,7 @@ Documentar o contrato real do `ReceitaController`, com regras de negocio do serv
 #### Exemplo de request (payload completo - transferencia entre contas)
 ```json
 {
-  "dataEfetivacao": "2026-04-11",
+  "dataEfetivacao": "2026-04-11T16:00:00",
   "tipoRecebimento": "Transferencia",
   "valorTotal": 150.00,
   "desconto": 0,
