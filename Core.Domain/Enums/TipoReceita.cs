@@ -7,5 +7,9 @@ public enum TipoReceita
     Reembolso = 3,
     Investimento = 4,
     Bonus = 5,
-    Outros = 6
+    Outros = 6,
+    Vendas = 7,
+    Alugueis = 8,
+    Beneficios = 9,
+    RendasExtras = 10
 }

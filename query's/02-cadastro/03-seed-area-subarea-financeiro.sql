@@ -28,6 +28,9 @@ DECLARE @UsuarioCadastroId INT = 1;
     SELECT N'Despesa', N'Tecnologia' UNION ALL
     SELECT N'Despesa', N'Investimentos' UNION ALL
     SELECT N'Despesa', N'Despesas Bancarias' UNION ALL
+    SELECT N'Despesa', N'Cuidados Pessoais' UNION ALL
+    SELECT N'Despesa', N'Doacoes' UNION ALL
+    SELECT N'Despesa', N'Outros' UNION ALL
     SELECT N'Despesa', N'Outras Despesas' UNION ALL
     SELECT N'Receita', N'Salario' UNION ALL
     SELECT N'Receita', N'Freelance' UNION ALL
@@ -40,6 +43,9 @@ DECLARE @UsuarioCadastroId INT = 1;
     SELECT N'Receita', N'Rendas Extras' UNION ALL
     SELECT N'Receita', N'Premios' UNION ALL
     SELECT N'Receita', N'Receitas Financeiras' UNION ALL
+    SELECT N'Receita', N'Restituicoes' UNION ALL
+    SELECT N'Receita', N'Royalties' UNION ALL
+    SELECT N'Receita', N'Outros' UNION ALL
     SELECT N'Receita', N'Outras Receitas'
 )
 INSERT INTO dbo.Area (UsuarioCadastroId, Nome, Tipo)
@@ -57,6 +63,7 @@ WHERE NOT EXISTS
 (
     SELECT N'Despesa' AS Tipo, N'Alimentacao' AS AreaNome, N'Almoco' AS SubAreaNome UNION ALL
     SELECT N'Despesa', N'Alimentacao', N'Jantar' UNION ALL
+    SELECT N'Despesa', N'Alimentacao', N'Lanche' UNION ALL
     SELECT N'Despesa', N'Alimentacao', N'Supermercado' UNION ALL
     SELECT N'Despesa', N'Alimentacao', N'Cafeteria' UNION ALL
     SELECT N'Despesa', N'Alimentacao', N'Padaria' UNION ALL
@@ -119,6 +126,11 @@ WHERE NOT EXISTS
     SELECT N'Despesa', N'Investimentos', N'Taxas de Corretagem' UNION ALL
     SELECT N'Despesa', N'Despesas Bancarias', N'Tarifas' UNION ALL
     SELECT N'Despesa', N'Despesas Bancarias', N'Anuidade Cartao' UNION ALL
+    SELECT N'Despesa', N'Cuidados Pessoais', N'Higiene' UNION ALL
+    SELECT N'Despesa', N'Cuidados Pessoais', N'Beleza' UNION ALL
+    SELECT N'Despesa', N'Doacoes', N'Caridade' UNION ALL
+    SELECT N'Despesa', N'Doacoes', N'Projetos Sociais' UNION ALL
+    SELECT N'Despesa', N'Outros', N'Outros' UNION ALL
     SELECT N'Despesa', N'Outras Despesas', N'Diversos' UNION ALL
     SELECT N'Despesa', N'Outras Despesas', N'Imprevistos' UNION ALL
     SELECT N'Receita', N'Salario', N'Holerite' UNION ALL
@@ -148,6 +160,11 @@ WHERE NOT EXISTS
     SELECT N'Receita', N'Premios', N'Concurso' UNION ALL
     SELECT N'Receita', N'Receitas Financeiras', N'Juros de Conta' UNION ALL
     SELECT N'Receita', N'Receitas Financeiras', N'Resgate de Investimento' UNION ALL
+    SELECT N'Receita', N'Restituicoes', N'Restituicao IR' UNION ALL
+    SELECT N'Receita', N'Restituicoes', N'Restituicao Taxas' UNION ALL
+    SELECT N'Receita', N'Royalties', N'Direitos Autorais' UNION ALL
+    SELECT N'Receita', N'Royalties', N'Licenciamento' UNION ALL
+    SELECT N'Receita', N'Outros', N'Outros' UNION ALL
     SELECT N'Receita', N'Outras Receitas', N'Diversos' UNION ALL
     SELECT N'Receita', N'Outras Receitas', N'Imprevistos'
 )
@@ -166,5 +183,19 @@ WHERE NOT EXISTS
     FROM dbo.SubArea sa
     WHERE sa.AreaId = a.Id
       AND sa.Nome = s.SubAreaNome
+);
+
+INSERT INTO dbo.SubArea (UsuarioCadastroId, AreaId, Nome)
+SELECT
+    @UsuarioCadastroId,
+    a.Id,
+    N'Outros'
+FROM dbo.Area a
+WHERE NOT EXISTS
+(
+    SELECT 1
+    FROM dbo.SubArea sa
+    WHERE sa.AreaId = a.Id
+      AND sa.Nome = N'Outros'
 );
 GO

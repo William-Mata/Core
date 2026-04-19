@@ -44,7 +44,7 @@ BEGIN
         CONSTRAINT CK_Receita_RecorrenciaFixa CHECK (Recorrencia <> N'Unica' OR RecorrenciaFixa = 0),
         CONSTRAINT CK_Receita_QuantidadeRecorrencia CHECK (QuantidadeRecorrencia IS NULL OR QuantidadeRecorrencia > 0),
         CONSTRAINT CK_Receita_Status CHECK (Status IN (N'Pendente', N'Efetivada', N'Cancelada')),
-        CONSTRAINT CK_Receita_TipoReceita CHECK (TipoReceita IN (N'salario', N'freelance', N'reembolso', N'investimento', N'bonus', N'outros')),
+        CONSTRAINT CK_Receita_TipoReceita CHECK (TipoReceita IN (N'salario', N'freelance', N'reembolso', N'investimento', N'bonus', N'vendas', N'alugueis', N'beneficios', N'rendasExtras', N'outros')),
         CONSTRAINT CK_Receita_TipoRecebimento CHECK (TipoRecebimento IN (N'pix', N'transferencia', N'dinheiro', N'boleto', N'cartaoCredito', N'cartaoDebito')),
         CONSTRAINT CK_Receita_TipoRateioAmigos CHECK (TipoRateioAmigos IS NULL OR TipoRateioAmigos IN (N'Comum', N'Igualitario'))
     );
@@ -162,6 +162,18 @@ BEGIN
         WITH CHECK ADD CONSTRAINT CK_Receita_QuantidadeRecorrencia
         CHECK (QuantidadeRecorrencia IS NULL OR QuantidadeRecorrencia > 0);
 END;
+GO
+
+IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_Receita_TipoReceita' AND parent_object_id = OBJECT_ID(N'dbo.Receita'))
+BEGIN
+    ALTER TABLE dbo.Receita
+        DROP CONSTRAINT CK_Receita_TipoReceita;
+END;
+GO
+
+ALTER TABLE dbo.Receita
+    WITH CHECK ADD CONSTRAINT CK_Receita_TipoReceita
+    CHECK (TipoReceita IN (N'salario', N'freelance', N'reembolso', N'investimento', N'bonus', N'vendas', N'alugueis', N'beneficios', N'rendasExtras', N'outros'));
 GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_Receita_TipoRateioAmigos' AND parent_object_id = OBJECT_ID(N'dbo.Receita'))

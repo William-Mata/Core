@@ -1,6 +1,6 @@
 /*
 Ordem sugerida: 19
-Objetivo: permitir tipo de despesa "outros" na constraint CK_Despesa_TipoDespesa.
+Objetivo: atualizar constraint CK_Despesa_TipoDespesa com opcoes expandidas e "outros".
 Banco alvo: Financeiro
 */
 
@@ -28,7 +28,7 @@ BEGIN
 
     ALTER TABLE dbo.Despesa
         WITH CHECK ADD CONSTRAINT CK_Despesa_TipoDespesa
-        CHECK (TipoDespesa IN (N'alimentacao', N'transporte', N'moradia', N'lazer', N'saude', N'educacao', N'servicos', N'outros'));
+        CHECK (TipoDespesa IN (N'alimentacao', N'transporte', N'moradia', N'lazer', N'saude', N'educacao', N'servicos', N'impostos', N'seguros', N'assinaturas', N'viagens', N'vestuario', N'outros'));
 END;
 GO
 

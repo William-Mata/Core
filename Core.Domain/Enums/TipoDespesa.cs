@@ -9,5 +9,10 @@ public enum TipoDespesa
     Saude = 5,
     Educacao = 6,
     Servicos = 7,
-    Outros = 8
+    Outros = 8,
+    Impostos = 9,
+    Seguros = 10,
+    Assinaturas = 11,
+    Viagens = 12,
+    Vestuario = 13
 }

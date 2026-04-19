@@ -221,7 +221,7 @@ public sealed partial class DespesaService(
                 req.Observacao,
                 despesaCriada.DataHoraCadastro,
                 req.DataLancamento,
-                dataVencimentoInformada,
+                despesaCriada.DataVencimento,
                 req.TipoDespesa,
                 req.TipoPagamento,
                 recorrencia,

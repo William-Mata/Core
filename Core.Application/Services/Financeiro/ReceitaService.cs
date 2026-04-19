@@ -218,7 +218,7 @@ public sealed partial class ReceitaService(
                 req.Observacao,
                 receitaCriada.DataHoraCadastro,
                 req.DataLancamento,
-                dataVencimentoInformada,
+                receitaCriada.DataVencimento,
                 req.TipoReceita,
                 req.TipoRecebimento,
                 req.Recorrencia,
