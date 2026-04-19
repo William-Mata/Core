@@ -9,7 +9,7 @@ GO
 
 IF COL_LENGTH(N'dbo.Despesa', N'DataEfetivacao') IS NULL
 BEGIN
-    ALTER TABLE dbo.Despesa ADD DataEfetivacao DATE NULL;
+    ALTER TABLE dbo.Despesa ADD DataEfetivacao DATETIME2(0) NULL;
 END;
 GO
 
@@ -80,7 +80,7 @@ GO
 
 IF COL_LENGTH(N'dbo.Receita', N'DataEfetivacao') IS NULL
 BEGIN
-    ALTER TABLE dbo.Receita ADD DataEfetivacao DATE NULL;
+    ALTER TABLE dbo.Receita ADD DataEfetivacao DATETIME2(0) NULL;
 END;
 GO
 
@@ -151,6 +151,6 @@ GO
 
 IF COL_LENGTH(N'dbo.Reembolso', N'DataEfetivacao') IS NULL
 BEGIN
-    ALTER TABLE dbo.Reembolso ADD DataEfetivacao DATE NULL;
+    ALTER TABLE dbo.Reembolso ADD DataEfetivacao DATETIME2(0) NULL;
 END;
 GO

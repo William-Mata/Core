@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Core.Application.Contracts.Financeiro;
 using Core.Application.Services.Financeiro;
+using Core.Domain.Common;
 using Core.Domain.Entities.Financeiro;
 using Core.Domain.Enums;
 using Core.Infrastructure.Persistence;
@@ -166,11 +167,15 @@ private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerial
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var liquido = payload.ValorTotal - payload.Desconto + payload.Acrescimo + payload.Imposto + payload.Juros;
         var origensCriadas = new List<Despesa>();
+        var dataHoraCadastroOrigem = DataHoraBrasil.Converter(payload.DataHoraCadastroOrigem);
 
         for (var numero = 2; numero <= alvo; numero++)
         {
-            var dataLancamento = AvancarData(payload.DataLancamento, payload.Recorrencia, numero - 1);
+            var dataLancamento = payload.DataLancamento;
             var dataVencimento = AvancarData(payload.DataVencimento, payload.Recorrencia, numero - 1);
+            var competencia = new DateTime(dataVencimento.Year, dataVencimento.Month, 1).ToString("yyyy-MM");
+            var dataLancamentoInicio = dataLancamento.Date;
+            var dataLancamentoFim = dataLancamentoInicio.AddDays(1);
             var origemJaExiste = await dbContext.Despesas
                 .AsNoTracking()
                 .AnyAsync(
@@ -180,12 +185,13 @@ private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerial
                         (
                             x.DespesaRecorrenciaOrigemId == payload.DespesaRecorrenciaOrigemId ||
                             (x.DespesaRecorrenciaOrigemId == null &&
-                             x.DataHoraCadastro == payload.DataHoraCadastroOrigem &&
+                             x.DataHoraCadastro == dataHoraCadastroOrigem &&
                              x.Descricao == payload.Descricao &&
                              x.TipoDespesa == payload.TipoDespesa &&
                              x.TipoPagamento == payload.TipoPagamento)
                         ) &&
-                        x.DataLancamento == dataLancamento &&
+                        x.DataLancamento >= dataLancamentoInicio &&
+                        x.DataLancamento < dataLancamentoFim &&
                         x.DataVencimento == dataVencimento,
                     cancellationToken);
 
@@ -194,10 +200,11 @@ private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerial
 
             var origem = new Despesa
             {
-                DataHoraCadastro = payload.DataHoraCadastroOrigem,
+                DataHoraCadastro = dataHoraCadastroOrigem,
                 UsuarioCadastroId = payload.UsuarioId,
                 Descricao = payload.Descricao,
                 Observacao = payload.Observacao,
+                Competencia = competencia,
                 DataLancamento = dataLancamento,
                 DataVencimento = dataVencimento,
                 TipoDespesa = payload.TipoDespesa,
@@ -282,11 +289,12 @@ private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerial
             {
                 dbContext.Despesas.Add(new Despesa
                 {
-                    DataHoraCadastro = payload.DataHoraCadastroOrigem,
+                    DataHoraCadastro = dataHoraCadastroOrigem,
                     DespesaOrigemId = origem.Id,
                     UsuarioCadastroId = amigo.AmigoId,
                     Descricao = origem.Descricao,
                     Observacao = origem.Observacao,
+                    Competencia = origem.Competencia,
                     DataLancamento = origem.DataLancamento,
                     DataVencimento = origem.DataVencimento,
                     TipoDespesa = origem.TipoDespesa,
@@ -334,26 +342,31 @@ private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerial
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var liquido = payload.ValorTotal - payload.Desconto + payload.Acrescimo + payload.Imposto + payload.Juros;
         var origensCriadas = new List<Receita>();
+        var dataHoraCadastroOrigem = DataHoraBrasil.Converter(payload.DataHoraCadastroOrigem);
 
         for (var numero = 2; numero <= alvo; numero++)
         {
-            var dataLancamento = AvancarData(payload.DataLancamento, payload.Recorrencia, numero - 1);
+            var dataLancamento = payload.DataLancamento;
             var dataVencimento = AvancarData(payload.DataVencimento, payload.Recorrencia, numero - 1);
+            var competencia = new DateTime(dataVencimento.Year, dataVencimento.Month, 1).ToString("yyyy-MM");
+            var dataLancamentoInicio = dataLancamento.Date;
+            var dataLancamentoFim = dataLancamentoInicio.AddDays(1);
             var origemJaExiste = await dbContext.Receitas
                 .AsNoTracking()
                 .AnyAsync(
                     x =>
                         x.ReceitaOrigemId == null &&
                         x.UsuarioCadastroId == payload.UsuarioId &&
-                        x.DataHoraCadastro == payload.DataHoraCadastroOrigem &&
-                        x.Descricao == payload.Descricao &&
-                        x.TipoReceita == payload.TipoReceita &&
-                        x.TipoRecebimento == payload.TipoRecebimento &&
-                        x.Recorrencia == payload.Recorrencia &&
-                        x.RecorrenciaFixa == payload.RecorrenciaFixa &&
-                        x.ContaBancariaId == payload.ContaBancariaId &&
-                        x.CartaoId == payload.CartaoId &&
-                        x.DataLancamento == dataLancamento &&
+                        (
+                            (payload.ReceitaRecorrenciaOrigemId.HasValue && x.ReceitaRecorrenciaOrigemId == payload.ReceitaRecorrenciaOrigemId.Value) ||
+                            (x.ReceitaRecorrenciaOrigemId == null &&
+                             x.DataHoraCadastro == dataHoraCadastroOrigem &&
+                             x.Descricao == payload.Descricao &&
+                             x.TipoReceita == payload.TipoReceita &&
+                             x.TipoRecebimento == payload.TipoRecebimento)
+                        ) &&
+                        x.DataLancamento >= dataLancamentoInicio &&
+                        x.DataLancamento < dataLancamentoFim &&
                         x.DataVencimento == dataVencimento,
                     cancellationToken);
 
@@ -362,10 +375,11 @@ private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerial
 
             var origem = new Receita
             {
-                DataHoraCadastro = payload.DataHoraCadastroOrigem,
+                DataHoraCadastro = dataHoraCadastroOrigem,
                 UsuarioCadastroId = payload.UsuarioId,
                 Descricao = payload.Descricao,
                 Observacao = payload.Observacao,
+                Competencia = competencia,
                 DataLancamento = dataLancamento,
                 DataVencimento = dataVencimento,
                 TipoReceita = payload.TipoReceita,
@@ -373,6 +387,7 @@ private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerial
                 Recorrencia = payload.Recorrencia,
                 RecorrenciaFixa = payload.RecorrenciaFixa,
                 QuantidadeRecorrencia = payload.QuantidadeRecorrencia,
+                ReceitaRecorrenciaOrigemId = payload.ReceitaRecorrenciaOrigemId,
                 ValorTotal = payload.ValorTotal,
                 ValorTotalRateioAmigos = payload.ValorTotalRateioAmigos,
                 TipoRateioAmigos = payload.TipoRateioAmigos,
@@ -449,11 +464,12 @@ private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerial
             {
                 dbContext.Receitas.Add(new Receita
                 {
-                    DataHoraCadastro = payload.DataHoraCadastroOrigem,
+                    DataHoraCadastro = dataHoraCadastroOrigem,
                     ReceitaOrigemId = origem.Id,
                     UsuarioCadastroId = amigo.AmigoId,
                     Descricao = origem.Descricao,
                     Observacao = origem.Observacao,
+                    Competencia = origem.Competencia,
                     DataLancamento = origem.DataLancamento,
                     DataVencimento = origem.DataVencimento,
                     TipoReceita = origem.TipoReceita,
@@ -503,15 +519,20 @@ private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerial
         if (recorrenciasTransferencia.Length == 0)
             return;
 
-        var idsReceitas = recorrenciasTransferencia.Select(x => x.Id).ToArray();
+        var idsReferenciaReceitas = recorrenciasTransferencia
+            .SelectMany(x => new[] { x.Id, x.ReceitaRecorrenciaOrigemId ?? x.Id })
+            .Distinct()
+            .ToArray();
         var despesasExistentes = await dbContext.Despesas
             .AsNoTracking()
-            .Where(x => x.ReceitaTransferenciaId.HasValue && idsReceitas.Contains(x.ReceitaTransferenciaId.Value))
+            .Where(x => x.ReceitaTransferenciaId.HasValue && idsReferenciaReceitas.Contains(x.ReceitaTransferenciaId.Value))
             .ToDictionaryAsync(x => x.ReceitaTransferenciaId!.Value, cancellationToken);
 
         var novasDespesas = new List<(Receita receita, Despesa despesa)>();
         foreach (var receita in recorrenciasTransferencia)
         {
+            var receitaBaseId = receita.ReceitaRecorrenciaOrigemId ?? receita.Id;
+
             if (despesasExistentes.TryGetValue(receita.Id, out var despesaExistente))
             {
                 receita.DespesaTransferenciaId = despesaExistente.Id;
@@ -519,6 +540,13 @@ private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerial
             }
 
             var despesa = CriarDespesaEspelhoTransacaoEntreContas(receita, usuarioId);
+            if (despesa.Recorrencia != Recorrencia.Unica &&
+                receitaBaseId != receita.Id &&
+                despesasExistentes.TryGetValue(receitaBaseId, out var despesaBase))
+            {
+                despesa.DespesaRecorrenciaOrigemId = despesaBase.DespesaRecorrenciaOrigemId ?? despesaBase.Id;
+            }
+
             dbContext.Despesas.Add(despesa);
             novasDespesas.Add((receita, despesa));
         }
@@ -532,7 +560,29 @@ private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerial
         await dbContext.SaveChangesAsync(cancellationToken);
 
         foreach (var (receita, despesa) in novasDespesas)
+        {
             receita.DespesaTransferenciaId = despesa.Id;
+            despesasExistentes[receita.Id] = despesa;
+        }
+
+        foreach (var (receita, despesa) in novasDespesas)
+        {
+            if (despesa.Recorrencia == Recorrencia.Unica)
+            {
+                despesa.DespesaRecorrenciaOrigemId = null;
+                continue;
+            }
+
+            var receitaBaseId = receita.ReceitaRecorrenciaOrigemId ?? receita.Id;
+            if (despesasExistentes.TryGetValue(receitaBaseId, out var despesaBase))
+            {
+                despesa.DespesaRecorrenciaOrigemId = despesaBase.DespesaRecorrenciaOrigemId ?? despesaBase.Id;
+            }
+            else
+            {
+                despesa.DespesaRecorrenciaOrigemId = despesa.Id;
+            }
+        }
 
         await dbContext.SaveChangesAsync(cancellationToken);
     }
@@ -549,6 +599,7 @@ private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerial
             UsuarioCadastroId = origem.UsuarioCadastroId,
             Descricao = origem.Descricao,
             Observacao = origem.Observacao,
+            Competencia = origem.Competencia,
             DataLancamento = origem.DataLancamento,
             DataVencimento = origem.DataVencimento,
             DataEfetivacao = origem.DataEfetivacao,
@@ -593,15 +644,20 @@ private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerial
         if (recorrenciasTransferencia.Length == 0)
             return;
 
-        var idsDespesas = recorrenciasTransferencia.Select(x => x.Id).ToArray();
+        var idsReferenciaDespesas = recorrenciasTransferencia
+            .SelectMany(x => new[] { x.Id, x.DespesaRecorrenciaOrigemId ?? x.Id })
+            .Distinct()
+            .ToArray();
         var receitasExistentes = await dbContext.Receitas
             .AsNoTracking()
-            .Where(x => x.DespesaTransferenciaId.HasValue && idsDespesas.Contains(x.DespesaTransferenciaId.Value))
+            .Where(x => x.DespesaTransferenciaId.HasValue && idsReferenciaDespesas.Contains(x.DespesaTransferenciaId.Value))
             .ToDictionaryAsync(x => x.DespesaTransferenciaId!.Value, cancellationToken);
 
         var novasReceitas = new List<(Despesa despesa, Receita receita)>();
         foreach (var despesa in recorrenciasTransferencia)
         {
+            var despesaBaseId = despesa.DespesaRecorrenciaOrigemId ?? despesa.Id;
+
             if (receitasExistentes.TryGetValue(despesa.Id, out var receitaExistente))
             {
                 despesa.ReceitaTransferenciaId = receitaExistente.Id;
@@ -609,6 +665,13 @@ private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerial
             }
 
             var receita = CriarReceitaEspelhoTransacaoEntreContas(despesa, usuarioId);
+            if (receita.Recorrencia != Recorrencia.Unica &&
+                despesaBaseId != despesa.Id &&
+                receitasExistentes.TryGetValue(despesaBaseId, out var receitaBase))
+            {
+                receita.ReceitaRecorrenciaOrigemId = receitaBase.ReceitaRecorrenciaOrigemId ?? receitaBase.Id;
+            }
+
             dbContext.Receitas.Add(receita);
             novasReceitas.Add((despesa, receita));
         }
@@ -622,7 +685,29 @@ private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerial
         await dbContext.SaveChangesAsync(cancellationToken);
 
         foreach (var (despesa, receita) in novasReceitas)
+        {
             despesa.ReceitaTransferenciaId = receita.Id;
+            receitasExistentes[despesa.Id] = receita;
+        }
+
+        foreach (var (despesa, receita) in novasReceitas)
+        {
+            if (receita.Recorrencia == Recorrencia.Unica)
+            {
+                receita.ReceitaRecorrenciaOrigemId = null;
+                continue;
+            }
+
+            var despesaBaseId = despesa.DespesaRecorrenciaOrigemId ?? despesa.Id;
+            if (receitasExistentes.TryGetValue(despesaBaseId, out var receitaBase))
+            {
+                receita.ReceitaRecorrenciaOrigemId = receitaBase.ReceitaRecorrenciaOrigemId ?? receitaBase.Id;
+            }
+            else
+            {
+                receita.ReceitaRecorrenciaOrigemId = receita.Id;
+            }
+        }
 
         await dbContext.SaveChangesAsync(cancellationToken);
     }
@@ -639,6 +724,7 @@ private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerial
             UsuarioCadastroId = origem.UsuarioCadastroId,
             Descricao = origem.Descricao,
             Observacao = origem.Observacao,
+            Competencia = origem.Competencia,
             DataLancamento = origem.DataLancamento,
             DataVencimento = origem.DataVencimento,
             DataEfetivacao = origem.DataEfetivacao,

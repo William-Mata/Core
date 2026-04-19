@@ -104,7 +104,10 @@ public sealed partial class ReceitaService(
     public async Task<ReceitaDto> CriarAsync(CriarReceitaRequest req, CancellationToken cancellationToken = default)
     {
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
-        await ValidarComumAsync(req.Descricao, req.DataLancamento, req.DataVencimento, req.TipoReceita, req.TipoRecebimento, req.Recorrencia, req.RecorrenciaFixa, req.QuantidadeRecorrencia, req.ValorTotal, req.ContaBancariaId, req.CartaoId, usuarioAutenticadoId, cancellationToken);
+        var dataVencimentoInformada = req.TipoRecebimento != TipoRecebimento.CartaoCredito || req.DataVencimento != default
+            ? req.DataVencimento
+            : DateOnly.FromDateTime(req.DataLancamento);
+        await ValidarComumAsync(req.Descricao, req.DataLancamento, dataVencimentoInformada, req.TipoReceita, req.TipoRecebimento, req.Recorrencia, req.RecorrenciaFixa, req.QuantidadeRecorrencia, req.ValorTotal, req.ContaBancariaId, req.CartaoId, usuarioAutenticadoId, cancellationToken);
         await ValidarAreasRateioAsync(req.AreasSubAreasRateio, cancellationToken);
         var liquido = Liquido(req.ValorTotal, req.Desconto, req.Acrescimo, req.Imposto, req.Juros);
         var tipoRateioAmigos = ObterTipoRateioAmigos(req.AmigosRateio, req.TipoRateioAmigos);
@@ -132,7 +135,7 @@ public sealed partial class ReceitaService(
             Observacao = req.Observacao,
             Competencia = competencia,
             DataLancamento = req.DataLancamento,
-            DataVencimento = dataVencimentoFatura ?? req.DataVencimento,
+            DataVencimento = dataVencimentoFatura ?? dataVencimentoInformada,
             TipoReceita = req.TipoReceita,
             TipoRecebimento = req.TipoRecebimento,
             Recorrencia = req.Recorrencia,
@@ -191,7 +194,7 @@ public sealed partial class ReceitaService(
                 TipoTransacaoFinanceira.Receita,
                 receitaCriada.Id,
                 usuarioAutenticadoId,
-                receitaCriada.DataLancamento,
+                DateOnly.FromDateTime(receitaCriada.DataLancamento),
                 0m,
                 receitaCriada.ValorEfetivacao ?? receitaCriada.ValorLiquido,
                 receitaCriada.ValorEfetivacao ?? receitaCriada.ValorLiquido,
@@ -210,11 +213,12 @@ public sealed partial class ReceitaService(
         {
             var mensagem = new ReceitaRecorrenciaBackgroundMessage(
                 usuarioAutenticadoId,
+                receitaCriada.ReceitaRecorrenciaOrigemId ?? receitaCriada.Id,
                 req.Descricao.Trim(),
                 req.Observacao,
                 receitaCriada.DataHoraCadastro,
                 req.DataLancamento,
-                req.DataVencimento,
+                dataVencimentoInformada,
                 req.TipoReceita,
                 req.TipoRecebimento,
                 req.Recorrencia,
@@ -253,7 +257,10 @@ public sealed partial class ReceitaService(
             throw new DomainException("status_invalido");
         if (!Enum.IsDefined(escopoRecorrencia)) throw new DomainException("escopo_recorrencia_invalido");
         await ValidarFaturaParaAlteracaoAsync(receita.FaturaCartaoId, usuarioAutenticadoId, cancellationToken);
-        await ValidarComumAsync(req.Descricao, req.DataLancamento, req.DataVencimento, req.TipoReceita, req.TipoRecebimento, req.Recorrencia, req.RecorrenciaFixa, req.QuantidadeRecorrencia, req.ValorTotal, req.ContaBancariaId, req.CartaoId, usuarioAutenticadoId, cancellationToken);
+        var dataVencimentoInformada = req.TipoRecebimento != TipoRecebimento.CartaoCredito || req.DataVencimento != default
+            ? req.DataVencimento
+            : DateOnly.FromDateTime(req.DataLancamento);
+        await ValidarComumAsync(req.Descricao, req.DataLancamento, dataVencimentoInformada, req.TipoReceita, req.TipoRecebimento, req.Recorrencia, req.RecorrenciaFixa, req.QuantidadeRecorrencia, req.ValorTotal, req.ContaBancariaId, req.CartaoId, usuarioAutenticadoId, cancellationToken);
         await ValidarAreasRateioAsync(req.AreasSubAreasRateio, cancellationToken);
         var liquido = Liquido(req.ValorTotal, req.Desconto, req.Acrescimo, req.Imposto, req.Juros);
         var tipoRateioAmigos = ObterTipoRateioAmigos(req.AmigosRateio, req.TipoRateioAmigos);
@@ -289,7 +296,7 @@ public sealed partial class ReceitaService(
             alvo.Observacao = req.Observacao;
             alvo.Competencia = ResolverCompetencia(req.Competencia, dataLancamentoBase);
             alvo.DataLancamento = dataLancamentoBase;
-            var dataVencimentoAtualizada = AvancarData(req.DataVencimento, req.Recorrencia, deslocamento);
+            var dataVencimentoAtualizada = AvancarData(dataVencimentoInformada, req.Recorrencia, deslocamento);
             alvo.DataVencimento = dataVencimentoAtualizada;
             alvo.TipoReceita = req.TipoReceita;
             alvo.TipoRecebimento = req.TipoRecebimento;
@@ -401,7 +408,7 @@ public sealed partial class ReceitaService(
         await ValidarFaturaParaAlteracaoAsync(receita.FaturaCartaoId, usuarioAutenticadoId, cancellationToken);
         if (receita.Status != StatusReceita.Pendente) throw new DomainException("status_invalido");
         if (!Enum.IsDefined(req.TipoRecebimento) || req.ValorTotal <= 0) throw new DomainException("dados_invalidos");
-        if (req.DataEfetivacao < receita.DataLancamento) throw new DomainException("periodo_invalido");
+        if (DateOnly.FromDateTime(req.DataEfetivacao) < DateOnly.FromDateTime(receita.DataLancamento)) throw new DomainException("periodo_invalido");
         var vinculo = await ResolverVinculoRecebimentoAsync(req.TipoRecebimento, req.ContaBancariaId ?? receita.ContaBancariaId, req.CartaoId ?? receita.CartaoId, usuarioAutenticadoId, cancellationToken);
         var contaDestinoId = await ResolverContaDestinoTransferenciaAsync(
             req.TipoRecebimento,
@@ -437,7 +444,7 @@ public sealed partial class ReceitaService(
             TipoTransacaoFinanceira.Receita,
             receitaAtualizada.Id,
             usuarioAutenticadoId,
-            req.DataEfetivacao,
+            DateOnly.FromDateTime(req.DataEfetivacao),
             valorAntesTransacao,
             receitaAtualizada.ValorEfetivacao ?? receitaAtualizada.ValorLiquido,
             receitaAtualizada.ValorEfetivacao ?? receitaAtualizada.ValorLiquido,
@@ -565,8 +572,8 @@ public sealed partial class ReceitaService(
         await ValidarFaturaParaAlteracaoAsync(receita.FaturaCartaoId, usuarioAutenticadoId, cancellationToken);
         if (receita.Status != StatusReceita.Efetivada) throw new DomainException("status_invalido");
         if (req.DataEstorno == default) throw new DomainException("data_estorno_obrigatoria");
-        if (req.DataEstorno < receita.DataLancamento) throw new DomainException("periodo_invalido");
-        if (receita.DataEfetivacao.HasValue && req.DataEstorno < receita.DataEfetivacao.Value) throw new DomainException("periodo_invalido");
+        if (req.DataEstorno < DateOnly.FromDateTime(receita.DataLancamento)) throw new DomainException("periodo_invalido");
+        if (receita.DataEfetivacao.HasValue && req.DataEstorno < DateOnly.FromDateTime(receita.DataEfetivacao.Value)) throw new DomainException("periodo_invalido");
         var contaDestinoId = await ResolverContaDestinoTransferenciaAsync(
             receita.TipoRecebimento,
             receita.ContaBancariaId,
@@ -625,6 +632,17 @@ public sealed partial class ReceitaService(
             return [referencia];
 
         var todas = await repository.ListarPorUsuarioAsync(usuarioAutenticadoId, null, null, null, null, null, cancellationToken);
+        var chaveSerie = referencia.ReceitaRecorrenciaOrigemId ?? referencia.Id;
+        var seriePorChave = todas
+            .Where(x => x.ReceitaOrigemId is null)
+            .Where(x => x.Id == chaveSerie || x.ReceitaRecorrenciaOrigemId == chaveSerie)
+            .OrderBy(x => x.DataLancamento)
+            .ThenBy(x => x.Id)
+            .ToList();
+
+        if (seriePorChave.Any(x => x.Id == referencia.Id))
+            return seriePorChave;
+
         var serie = todas
             .Where(x => x.ReceitaOrigemId is null)
             .Where(x => x.Descricao == referencia.Descricao)
@@ -680,13 +698,14 @@ public sealed partial class ReceitaService(
             .Where(x => x.Recorrencia != Recorrencia.Unica)
             .GroupBy(x => new
             {
-                x.Descricao,
-                x.TipoReceita,
-                x.TipoRecebimento,
-                x.Recorrencia,
-                x.RecorrenciaFixa,
-                x.ContaBancariaId,
-                x.CartaoId
+                ChaveOrigem = x.ReceitaRecorrenciaOrigemId,
+                AssinaturaDescricao = x.ReceitaRecorrenciaOrigemId.HasValue ? null : x.Descricao,
+                AssinaturaTipoReceita = x.ReceitaRecorrenciaOrigemId.HasValue ? (TipoReceita?)null : x.TipoReceita,
+                AssinaturaTipoRecebimento = x.ReceitaRecorrenciaOrigemId.HasValue ? (TipoRecebimento?)null : x.TipoRecebimento,
+                AssinaturaRecorrencia = x.ReceitaRecorrenciaOrigemId.HasValue ? (Recorrencia?)null : x.Recorrencia,
+                AssinaturaRecorrenciaFixa = x.ReceitaRecorrenciaOrigemId.HasValue ? (bool?)null : x.RecorrenciaFixa,
+                AssinaturaContaBancariaId = x.ReceitaRecorrenciaOrigemId.HasValue ? null : x.ContaBancariaId,
+                AssinaturaCartaoId = x.ReceitaRecorrenciaOrigemId.HasValue ? null : x.CartaoId
             })
             .ToArray();
 
@@ -698,6 +717,7 @@ public sealed partial class ReceitaService(
                 .OrderBy(x => x.DataLancamento)
                 .ThenBy(x => x.Id)
                 .First();
+            var transacaoBaseId = origem.ReceitaRecorrenciaOrigemId ?? origem.Id;
 
             var alvoBase = origem.RecorrenciaFixa
                 ? Math.Max(100, grupo.Max(x => x.QuantidadeRecorrencia.GetValueOrDefault(1)))
@@ -706,7 +726,10 @@ public sealed partial class ReceitaService(
             if (alvoBase <= 1)
                 continue;
 
-            if (SeriePossuiLacuna(grupo, origem, alvoBase))
+            var quantidadeGerada = ContarTransacoesGeradasDaBase(grupo, transacaoBaseId);
+            var possuiLacuna = SeriePossuiLacuna(grupo, origem, alvoBase);
+
+            if (quantidadeGerada < alvoBase || possuiLacuna)
             {
                 await PublicarRecorrenciaDaOrigemAsync(usuarioAutenticadoId, origem, alvoBase, cancellationToken);
                 continue;
@@ -719,22 +742,39 @@ public sealed partial class ReceitaService(
                 continue;
 
             var dataUltima = AvancarData(origem.DataLancamento, origem.Recorrencia, alvoBase - 1);
-            if (dataUltima < periodoCompetencia.DataInicio || dataUltima > periodoCompetencia.DataFim)
+            var dataUltimaDia = DateOnly.FromDateTime(dataUltima);
+            if (dataUltimaDia < periodoCompetencia.DataInicio || dataUltimaDia > periodoCompetencia.DataFim)
                 continue;
 
             await PublicarRecorrenciaDaOrigemAsync(usuarioAutenticadoId, origem, alvoBase + 100, cancellationToken);
         }
     }
 
+    private static int ContarTransacoesGeradasDaBase(IEnumerable<Receita> grupo, long transacaoBaseId) =>
+        grupo.Any(x => x.ReceitaRecorrenciaOrigemId.HasValue)
+            ? grupo.Count(x =>
+                x.ReceitaOrigemId is null &&
+                (x.Id == transacaoBaseId || x.ReceitaRecorrenciaOrigemId == transacaoBaseId))
+            : grupo.Count(x => x.ReceitaOrigemId is null);
+
     private static bool SeriePossuiLacuna(IEnumerable<Receita> grupo, Receita origem, int alvo)
     {
+        var dataLancamentoOrigemInicio = origem.DataLancamento.Date;
+        var dataLancamentoOrigemFim = dataLancamentoOrigemInicio.AddDays(1);
+
         for (var numero = 2; numero <= alvo; numero++)
         {
             var dataLancamentoEsperada = AvancarData(origem.DataLancamento, origem.Recorrencia, numero - 1);
             var dataVencimentoEsperada = AvancarData(origem.DataVencimento, origem.Recorrencia, numero - 1);
 
+            var dataLancamentoInicio = dataLancamentoEsperada.Date;
+            var dataLancamentoFim = dataLancamentoInicio.AddDays(1);
+
             var existe = grupo.Any(x =>
-                x.DataLancamento == dataLancamentoEsperada &&
+                (
+                    (x.DataLancamento >= dataLancamentoInicio && x.DataLancamento < dataLancamentoFim) ||
+                    (x.DataLancamento >= dataLancamentoOrigemInicio && x.DataLancamento < dataLancamentoOrigemFim)
+                ) &&
                 x.DataVencimento == dataVencimentoEsperada);
 
             if (!existe)
@@ -748,6 +788,7 @@ public sealed partial class ReceitaService(
     {
         var mensagem = new ReceitaRecorrenciaBackgroundMessage(
             usuarioAutenticadoId,
+            origem.ReceitaRecorrenciaOrigemId ?? origem.Id,
             origem.Descricao,
             origem.Observacao,
             origem.DataHoraCadastro,
@@ -775,6 +816,19 @@ public sealed partial class ReceitaService(
         await recorrenciaBackgroundPublisher.PublicarReceitaAsync(mensagem, cancellationToken);
     }
 
+    private static DateTime AvancarData(DateTime data, Recorrencia recorrencia, int repeticoes) =>
+        recorrencia switch
+        {
+            Recorrencia.Diaria => data.AddDays(repeticoes),
+            Recorrencia.Semanal => data.AddDays(7 * repeticoes),
+            Recorrencia.Quinzenal => data.AddDays(15 * repeticoes),
+            Recorrencia.Mensal => data.AddMonths(repeticoes),
+            Recorrencia.Trimestral => data.AddMonths(3 * repeticoes),
+            Recorrencia.Semestral => data.AddMonths(6 * repeticoes),
+            Recorrencia.Anual => data.AddYears(repeticoes),
+            _ => data
+        };
+
     private static DateOnly AvancarData(DateOnly data, Recorrencia recorrencia, int repeticoes) =>
         recorrencia switch
         {
@@ -788,11 +842,12 @@ public sealed partial class ReceitaService(
             _ => data
         };
 
-    private async Task ValidarComumAsync(string descricao, DateOnly dataLancamento, DateOnly dataVencimento, TipoReceita tipoReceita, TipoRecebimento tipoRecebimento, Recorrencia recorrencia, bool recorrenciaFixa, int? quantidadeRecorrencia, decimal valorTotal, long? contaBancariaId, long? cartaoId, int usuarioAutenticadoId, CancellationToken cancellationToken)
+    private async Task ValidarComumAsync(string descricao, DateTime dataLancamento, DateOnly dataVencimento, TipoReceita tipoReceita, TipoRecebimento tipoRecebimento, Recorrencia recorrencia, bool recorrenciaFixa, int? quantidadeRecorrencia, decimal valorTotal, long? contaBancariaId, long? cartaoId, int usuarioAutenticadoId, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(descricao)) throw new DomainException("descricao_obrigatoria");
         if (valorTotal <= 0) throw new DomainException("valor_total_invalido");
-        if (dataVencimento < dataLancamento) throw new DomainException("periodo_invalido");
+        if ((tipoRecebimento != TipoRecebimento.CartaoCredito || dataVencimento != default) && dataVencimento < DateOnly.FromDateTime(dataLancamento))
+            throw new DomainException("periodo_invalido");
         if (!Enum.IsDefined(tipoReceita) || !Enum.IsDefined(tipoRecebimento) || !Enum.IsDefined(recorrencia)) throw new DomainException("enum_invalida");
         if (recorrenciaFixa && recorrencia == Recorrencia.Unica) throw new DomainException("recorrencia_fixa_invalida");
         if (!recorrenciaFixa && recorrencia is not Recorrencia.Unica && (!quantidadeRecorrencia.HasValue || quantidadeRecorrencia <= 0))
@@ -1276,14 +1331,26 @@ public sealed partial class ReceitaService(
 
         if (espelho is null)
         {
+            var despesaRecorrenciaOrigemId = await ResolverDespesaRecorrenciaOrigemIdParaEspelhoAsync(origem, usuarioAutenticadoId, cancellationToken);
             var novoEspelho = CriarDespesaEspelhoTransacaoEntreContas(origem, usuarioAutenticadoId);
+            novoEspelho.DespesaRecorrenciaOrigemId = despesaRecorrenciaOrigemId;
             var espelhoCriado = await despesaRepository.CriarAsync(novoEspelho, cancellationToken);
+            if (espelhoCriado.Recorrencia != Recorrencia.Unica && !espelhoCriado.DespesaRecorrenciaOrigemId.HasValue)
+            {
+                espelhoCriado.DespesaRecorrenciaOrigemId = espelhoCriado.Id;
+                espelhoCriado = await despesaRepository.AtualizarAsync(espelhoCriado, cancellationToken);
+            }
+
             origem.DespesaTransferenciaId = espelhoCriado.Id;
             origem = await repository.AtualizarAsync(origem, cancellationToken);
             return origem;
         }
 
         AplicarSnapshotNoEspelhoDespesa(origem, espelho);
+        var despesaRecorrenciaOrigemIdAtual = await ResolverDespesaRecorrenciaOrigemIdParaEspelhoAsync(origem, usuarioAutenticadoId, cancellationToken);
+        espelho.DespesaRecorrenciaOrigemId = espelho.Recorrencia == Recorrencia.Unica
+            ? null
+            : despesaRecorrenciaOrigemIdAtual ?? espelho.Id;
         if (espelho.ReceitaTransferenciaId != origem.Id)
             espelho.ReceitaTransferenciaId = origem.Id;
         await despesaRepository.AtualizarAsync(espelho, cancellationToken);
@@ -1295,6 +1362,27 @@ public sealed partial class ReceitaService(
         }
 
         return origem;
+    }
+
+    private async Task<long?> ResolverDespesaRecorrenciaOrigemIdParaEspelhoAsync(
+        Receita origem,
+        int usuarioAutenticadoId,
+        CancellationToken cancellationToken)
+    {
+        if (origem.Recorrencia == Recorrencia.Unica)
+            return null;
+
+        var receitaBaseId = origem.ReceitaRecorrenciaOrigemId ?? origem.Id;
+        if (receitaBaseId == origem.Id)
+            return origem.DespesaTransferenciaId;
+
+        var despesas = await despesaRepository.ListarPorUsuarioAsync(usuarioAutenticadoId, null, null, null, null, null, cancellationToken);
+        var despesaBase = despesas
+            .Where(x => x.DespesaOrigemId is null && x.ReceitaTransferenciaId == receitaBaseId)
+            .OrderBy(x => x.Id)
+            .FirstOrDefault();
+
+        return despesaBase?.DespesaRecorrenciaOrigemId ?? despesaBase?.Id;
     }
 
     private static bool EhTransacaoEntreContas(TipoRecebimento tipoRecebimento, long? contaBancariaOrigemId, long? contaDestinoId, long? cartaoId) =>
@@ -1309,6 +1397,7 @@ public sealed partial class ReceitaService(
             UsuarioCadastroId = origem.UsuarioCadastroId,
             Descricao = origem.Descricao,
             Observacao = origem.Observacao,
+            Competencia = origem.Competencia,
             DataLancamento = origem.DataLancamento,
             DataVencimento = origem.DataVencimento,
             DataEfetivacao = origem.DataEfetivacao,
@@ -1344,6 +1433,7 @@ public sealed partial class ReceitaService(
     {
         espelho.Descricao = origem.Descricao;
         espelho.Observacao = origem.Observacao;
+        espelho.Competencia = origem.Competencia;
         espelho.DataLancamento = origem.DataLancamento;
         espelho.DataVencimento = origem.DataVencimento;
         espelho.DataEfetivacao = origem.DataEfetivacao;
@@ -1450,9 +1540,9 @@ public sealed partial class ReceitaService(
             receita.Documentos.Select(x => new DocumentoDto(x.NomeArquivo, x.CaminhoArquivo, x.ContentType, x.TamanhoBytes)).ToArray(),
             receita.Logs.Select(x => new ReceitaLogDto(x.Id, DateOnly.FromDateTime(x.DataHoraCadastro), x.Acao, x.Descricao)).ToArray());
 
-    private static string ResolverCompetencia(string? competencia, DateOnly? referencia = null)
+    private static string ResolverCompetencia(string? competencia, DateTime? referencia = null)
     {
-        var data = referencia?.ToDateTime(TimeOnly.MinValue) ?? DataHoraBrasil.Agora();
+        var data = referencia ?? DataHoraBrasil.Agora();
 
         if (string.IsNullOrWhiteSpace(competencia))
             return new DateTime(data.Year, data.Month, 1).ToString("yyyy-MM");

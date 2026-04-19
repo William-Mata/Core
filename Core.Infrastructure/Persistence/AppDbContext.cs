@@ -184,6 +184,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         modelBuilder.Entity<DespesaLog>().ToTable("DespesaLog");
         modelBuilder.Entity<Despesa>().Property(x => x.Status).HasConversion<string>();
         modelBuilder.Entity<Despesa>().Property(x => x.Recorrencia).HasConversion<string>();
+        modelBuilder.Entity<Despesa>().Property(x => x.DataLancamento).HasColumnType("datetime2(0)");
+        modelBuilder.Entity<Despesa>().Property(x => x.DataEfetivacao).HasColumnType("datetime2(0)");
         modelBuilder.Entity<Despesa>().Property(x => x.RecorrenciaFixa).HasDefaultValue(false);
         modelBuilder.Entity<Despesa>().Property(x => x.ValorTotalRateioAmigos).HasPrecision(18, 2);
         modelBuilder.Entity<Despesa>().Property(x => x.TipoRateioAmigos).HasConversion<string>().HasMaxLength(20);
@@ -244,6 +246,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         modelBuilder.Entity<Reembolso>().ToTable("Reembolso");
         modelBuilder.Entity<Reembolso>().HasKey(x => x.Id);
         modelBuilder.Entity<Reembolso>().Property(x => x.Status).HasConversion<string>();
+        modelBuilder.Entity<Reembolso>().Property(x => x.DataLancamento).HasColumnType("datetime2(0)");
+        modelBuilder.Entity<Reembolso>().Property(x => x.DataEfetivacao).HasColumnType("datetime2(0)");
         modelBuilder.Entity<Reembolso>().HasOne<Cartao>().WithMany().HasForeignKey(x => x.CartaoId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<Reembolso>().HasOne<FaturaCartao>().WithMany().HasForeignKey(x => x.FaturaCartaoId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<Reembolso>().HasMany(x => x.Documentos).WithOne().HasForeignKey(x => x.ReembolsoId).OnDelete(DeleteBehavior.Cascade);
@@ -261,6 +265,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         modelBuilder.Entity<ReceitaLog>().ToTable("ReceitaLog");
         modelBuilder.Entity<Receita>().Property(x => x.Status).HasConversion<string>();
         modelBuilder.Entity<Receita>().Property(x => x.Recorrencia).HasConversion<string>();
+        modelBuilder.Entity<Receita>().Property(x => x.DataLancamento).HasColumnType("datetime2(0)");
+        modelBuilder.Entity<Receita>().Property(x => x.DataEfetivacao).HasColumnType("datetime2(0)");
         modelBuilder.Entity<Receita>().Property(x => x.RecorrenciaFixa).HasDefaultValue(false);
         modelBuilder.Entity<Receita>().Property(x => x.ValorTotalRateioAmigos).HasPrecision(18, 2);
         modelBuilder.Entity<Receita>().Property(x => x.TipoRateioAmigos).HasConversion<string>().HasMaxLength(20);
@@ -276,6 +282,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             .HasMaxLength(20);
         modelBuilder.Entity<ReceitaLog>().Property(x => x.Acao).HasConversion<string>();
         modelBuilder.Entity<Receita>().HasOne<Receita>().WithMany().HasForeignKey(x => x.ReceitaOrigemId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Receita>().HasOne<Receita>().WithMany().HasForeignKey(x => x.ReceitaRecorrenciaOrigemId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Receita>().HasIndex(x => x.ReceitaRecorrenciaOrigemId);
         modelBuilder.Entity<Receita>().HasOne<ContaBancaria>().WithMany().HasForeignKey(x => x.ContaBancariaId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<Receita>().HasOne<Despesa>().WithMany().HasForeignKey(x => x.DespesaTransferenciaId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<Receita>().HasOne<Cartao>().WithMany().HasForeignKey(x => x.CartaoId).OnDelete(DeleteBehavior.Restrict);

@@ -12,9 +12,9 @@ BEGIN
         Descricao NVARCHAR(200) NOT NULL,
         Solicitante NVARCHAR(150) NOT NULL,
         Competencia CHAR(7) NOT NULL CONSTRAINT DF_Reembolso_Competencia DEFAULT (CONVERT(char(7), SYSUTCDATETIME(), 120)),
-        DataLancamento DATE NOT NULL,
+        DataLancamento DATETIME2(0) NOT NULL,
         DataVencimento DATE NULL,
-        DataEfetivacao DATE NULL,
+        DataEfetivacao DATETIME2(0) NULL,
         ValorTotal DECIMAL(18,2) NOT NULL,
         Status NVARCHAR(30) NOT NULL,
         CONSTRAINT CK_Reembolso_ValorTotal CHECK (ValorTotal >= 0),
@@ -38,7 +38,7 @@ GO
 IF COL_LENGTH(N'dbo.Reembolso', N'DataEfetivacao') IS NULL
 BEGIN
     ALTER TABLE dbo.Reembolso
-        ADD DataEfetivacao DATE NULL;
+        ADD DataEfetivacao DATETIME2(0) NULL;
 END;
 GO
 
@@ -64,8 +64,8 @@ BEGIN
     ELSE
     BEGIN
         ALTER TABLE dbo.Reembolso
-            ADD DataLancamento DATE NOT NULL
-                CONSTRAINT DF_Reembolso_DataLancamento DEFAULT (CONVERT(date, SYSUTCDATETIME()));
+            ADD DataLancamento DATETIME2(0) NOT NULL
+                CONSTRAINT DF_Reembolso_DataLancamento DEFAULT (CONVERT(datetime2(0), SYSUTCDATETIME()));
     END
 END;
 GO

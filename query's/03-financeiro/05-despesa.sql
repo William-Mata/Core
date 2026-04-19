@@ -17,9 +17,9 @@ BEGIN
         Descricao NVARCHAR(200) NOT NULL,
         Observacao NVARCHAR(1000) NULL,
         Competencia CHAR(7) NOT NULL CONSTRAINT DF_Despesa_Competencia DEFAULT (CONVERT(char(7), SYSUTCDATETIME(), 120)),
-        DataLancamento DATE NOT NULL,
+        DataLancamento DATETIME2(0) NOT NULL,
         DataVencimento DATE NOT NULL,
-        DataEfetivacao DATE NULL,
+        DataEfetivacao DATETIME2(0) NULL,
         TipoDespesa NVARCHAR(50) NOT NULL,
         TipoPagamento NVARCHAR(50) NOT NULL,
         Recorrencia NVARCHAR(20) NOT NULL CONSTRAINT DF_Despesa_Recorrencia DEFAULT (N'Unica'),
@@ -89,7 +89,7 @@ GO
 
 IF COL_LENGTH('dbo.Despesa', 'DataEfetivacao') IS NULL
 BEGIN
-    ALTER TABLE dbo.Despesa ADD DataEfetivacao DATE NULL;
+    ALTER TABLE dbo.Despesa ADD DataEfetivacao DATETIME2(0) NULL;
 END;
 GO
 

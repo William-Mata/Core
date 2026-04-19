@@ -17,8 +17,8 @@ BEGIN
     ELSE
     BEGIN
         ALTER TABLE dbo.Reembolso
-            ADD DataLancamento DATE NOT NULL
-                CONSTRAINT DF_Reembolso_DataLancamento DEFAULT (CONVERT(date, SYSUTCDATETIME()));
+            ADD DataLancamento DATETIME2(0) NOT NULL
+                CONSTRAINT DF_Reembolso_DataLancamento DEFAULT (CONVERT(datetime2(0), SYSUTCDATETIME()));
     END
 END;
 GO

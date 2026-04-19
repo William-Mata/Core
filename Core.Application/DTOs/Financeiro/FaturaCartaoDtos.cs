@@ -20,8 +20,8 @@ public sealed record FaturaCartaoLancamentoDto(
     long TransacaoId,
     string Descricao,
     string Competencia,
-    DateOnly DataLancamento,
-    DateOnly? DataEfetivacao,
+    DateTime DataLancamento,
+    DateTime? DataEfetivacao,
     decimal Valor,
     string Status);
 

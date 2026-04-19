@@ -17,9 +17,9 @@ BEGIN
         Descricao NVARCHAR(200) NOT NULL,
         Observacao NVARCHAR(1000) NULL,
         Competencia CHAR(7) NOT NULL CONSTRAINT DF_Receita_Competencia DEFAULT (CONVERT(char(7), SYSUTCDATETIME(), 120)),
-        DataLancamento DATE NOT NULL,
+        DataLancamento DATETIME2(0) NOT NULL,
         DataVencimento DATE NOT NULL,
-        DataEfetivacao DATE NULL,
+        DataEfetivacao DATETIME2(0) NULL,
         TipoReceita NVARCHAR(50) NOT NULL,
         TipoRecebimento NVARCHAR(50) NOT NULL,
         Recorrencia NVARCHAR(20) NOT NULL CONSTRAINT DF_Receita_Recorrencia DEFAULT (N'Unica'),
@@ -88,7 +88,7 @@ GO
 
 IF COL_LENGTH('dbo.Receita', 'DataEfetivacao') IS NULL
 BEGIN
-    ALTER TABLE dbo.Receita ADD DataEfetivacao DATE NULL;
+    ALTER TABLE dbo.Receita ADD DataEfetivacao DATETIME2(0) NULL;
 END;
 GO
 

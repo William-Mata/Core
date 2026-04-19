@@ -15,10 +15,7 @@ public sealed class ReembolsoRepository(AppDbContext dbContext) : IReembolsoRepo
     private Task<List<Reembolso>> ListarCoreAsync(int? usuarioCadastroId, string? filtroId, string? descricao, string? competencia, DateOnly? dataInicio, DateOnly? dataFim, CancellationToken cancellationToken)
     {
         var competenciaMesAno = CompetenciaFiltroHelper.ResolverMesAno(competencia);
-        var query = dbContext.Set<Reembolso>()
-            .OrderByDescending(x => x.DataLancamento)
-            .ThenByDescending(x => x.Id)
-            .AsQueryable();
+        var query = dbContext.Set<Reembolso>().AsQueryable();
 
         if (usuarioCadastroId.HasValue)
         {
@@ -38,12 +35,14 @@ public sealed class ReembolsoRepository(AppDbContext dbContext) : IReembolsoRepo
 
         if (dataInicio.HasValue)
         {
-            query = query.Where(x => x.DataLancamento >= dataInicio.Value);
+            var dataInicioInclusiva = dataInicio.Value.ToDateTime(TimeOnly.MinValue);
+            query = query.Where(x => x.DataLancamento >= dataInicioInclusiva);
         }
 
         if (dataFim.HasValue)
         {
-            query = query.Where(x => x.DataLancamento <= dataFim.Value);
+            var dataFimExclusiva = dataFim.Value.AddDays(1).ToDateTime(TimeOnly.MinValue);
+            query = query.Where(x => x.DataLancamento < dataFimExclusiva);
         }
 
         if (competenciaMesAno.HasValue)
@@ -52,7 +51,12 @@ public sealed class ReembolsoRepository(AppDbContext dbContext) : IReembolsoRepo
             query = query.Where(x => x.Competencia == competenciaNormalizada);
         }
 
-        return query.ToListAsync(cancellationToken);
+        return query
+            .OrderByDescending(x => x.DataLancamento)
+            .ThenByDescending(x => x.DataEfetivacao.HasValue)
+            .ThenByDescending(x => x.DataEfetivacao)
+            .ThenByDescending(x => x.Id)
+            .ToListAsync(cancellationToken);
     }
 
     public Task<Reembolso?> ObterPorIdAsync(long id, CancellationToken cancellationToken = default) =>

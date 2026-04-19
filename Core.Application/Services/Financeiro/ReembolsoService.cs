@@ -90,7 +90,7 @@ public sealed class ReembolsoService(
             Solicitante = solicitante,
             Competencia = competencia,
             DataLancamento = request.DataLancamento,
-            DataVencimento = dataVencimentoFatura ?? request.DataLancamento,
+            DataVencimento = dataVencimentoFatura ?? DateOnly.FromDateTime(request.DataLancamento),
             DataEfetivacao = dataEfetivacao,
             CartaoId = request.CartaoId,
             FaturaCartaoId = faturaCartaoId,
@@ -114,7 +114,7 @@ public sealed class ReembolsoService(
                 TipoTransacaoFinanceira.Reembolso,
                 reembolsoCriado.Id,
                 usuarioAutenticadoId,
-                reembolsoCriado.DataLancamento,
+                DateOnly.FromDateTime(reembolsoCriado.DataLancamento),
                 0m,
                 reembolsoCriado.ValorTotal,
                 reembolsoCriado.ValorTotal,
@@ -151,7 +151,7 @@ public sealed class ReembolsoService(
         reembolso.Solicitante = solicitante;
         reembolso.Competencia = competencia;
         reembolso.DataLancamento = request.DataLancamento;
-        reembolso.DataVencimento = dataVencimentoFatura ?? request.DataLancamento;
+        reembolso.DataVencimento = dataVencimentoFatura ?? DateOnly.FromDateTime(request.DataLancamento);
         reembolso.DataEfetivacao = dataEfetivacao;
         reembolso.CartaoId = request.CartaoId;
         reembolso.FaturaCartaoId = faturaCartaoId;
@@ -181,7 +181,7 @@ public sealed class ReembolsoService(
                 TipoTransacaoFinanceira.Reembolso,
                 reembolsoAtualizado.Id,
                 usuarioAutenticadoId,
-                reembolsoAtualizado.DataEfetivacao ?? DataHoraBrasil.Hoje(),
+                DateOnly.FromDateTime(reembolsoAtualizado.DataEfetivacao ?? DataHoraBrasil.Agora()),
                 0m,
                 reembolsoAtualizado.ValorTotal,
                 reembolsoAtualizado.ValorTotal,
@@ -228,7 +228,7 @@ public sealed class ReembolsoService(
         var reembolso = await repository.ObterPorIdAsync(id, usuarioAutenticadoId, cancellationToken) ?? throw new NotFoundException("reembolso_nao_encontrado");
         await ValidarFaturaParaAlteracaoAsync(reembolso.FaturaCartaoId, usuarioAutenticadoId, cancellationToken);
         if (reembolso.Status == StatusReembolso.Pago) throw new DomainException("status_invalido");
-        if (request.DataEfetivacao < reembolso.DataLancamento) throw new DomainException("periodo_invalido");
+        if (DateOnly.FromDateTime(request.DataEfetivacao) < DateOnly.FromDateTime(reembolso.DataLancamento)) throw new DomainException("periodo_invalido");
 
         reembolso.Status = StatusReembolso.Pago;
         reembolso.CartaoId = request.CartaoId ?? reembolso.CartaoId;
@@ -238,7 +238,7 @@ public sealed class ReembolsoService(
             reembolso.DataEfetivacao = request.DataEfetivacao;
         reembolso.FaturaCartaoId = await ResolverFaturaCartaoIdAsync(reembolso.CartaoId, reembolso.Competencia, usuarioAutenticadoId, cancellationToken);
         var dataVencimentoFatura = await ObterDataVencimentoFaturaAsync(reembolso.FaturaCartaoId, usuarioAutenticadoId, cancellationToken);
-        reembolso.DataVencimento = dataVencimentoFatura ?? reembolso.DataLancamento;
+        reembolso.DataVencimento = dataVencimentoFatura ?? DateOnly.FromDateTime(reembolso.DataLancamento);
         if (request.Documentos is not null)
             reembolso.Documentos = await SalvarDocumentosAsync(request.Documentos, usuarioAutenticadoId, reembolsoId: reembolso.Id, cancellationToken: cancellationToken);
 
@@ -247,7 +247,7 @@ public sealed class ReembolsoService(
             TipoTransacaoFinanceira.Reembolso,
             reembolsoAtualizado.Id,
             usuarioAutenticadoId,
-            reembolsoAtualizado.DataEfetivacao ?? request.DataEfetivacao,
+            DateOnly.FromDateTime(reembolsoAtualizado.DataEfetivacao ?? request.DataEfetivacao),
             0m,
             reembolsoAtualizado.ValorTotal,
             reembolsoAtualizado.ValorTotal,
@@ -270,8 +270,8 @@ public sealed class ReembolsoService(
         await ValidarFaturaParaAlteracaoAsync(reembolso.FaturaCartaoId, usuarioAutenticadoId, cancellationToken);
         if (reembolso.Status != StatusReembolso.Pago) throw new DomainException("status_invalido");
         if (request.DataEstorno == default) throw new DomainException("data_estorno_obrigatoria");
-        if (request.DataEstorno < reembolso.DataLancamento) throw new DomainException("periodo_invalido");
-        if (reembolso.DataEfetivacao.HasValue && request.DataEstorno < reembolso.DataEfetivacao.Value) throw new DomainException("periodo_invalido");
+        if (request.DataEstorno < DateOnly.FromDateTime(reembolso.DataLancamento)) throw new DomainException("periodo_invalido");
+        if (reembolso.DataEfetivacao.HasValue && request.DataEstorno < DateOnly.FromDateTime(reembolso.DataEfetivacao.Value)) throw new DomainException("periodo_invalido");
 
         var valorAntesTransacao = reembolso.ValorTotal;
         reembolso.Status = StatusReembolso.Aguardando;
@@ -476,7 +476,7 @@ public sealed class ReembolsoService(
         }
     }
 
-    private static void ValidarPeriodoEfetivacao(DateOnly dataLancamento, DateOnly? dataEfetivacao, StatusReembolso status)
+    private static void ValidarPeriodoEfetivacao(DateTime dataLancamento, DateTime? dataEfetivacao, StatusReembolso status)
     {
         if (!dataEfetivacao.HasValue)
         {
@@ -488,15 +488,15 @@ public sealed class ReembolsoService(
             return;
         }
 
-        if (dataEfetivacao.Value < dataLancamento)
+        if (DateOnly.FromDateTime(dataEfetivacao.Value) < DateOnly.FromDateTime(dataLancamento))
         {
             throw new DomainException("periodo_invalido");
         }
     }
 
-    private static string ResolverCompetencia(string? competencia, DateOnly? referencia = null)
+    private static string ResolverCompetencia(string? competencia, DateTime? referencia = null)
     {
-        var data = referencia?.ToDateTime(TimeOnly.MinValue) ?? DataHoraBrasil.Agora();
+        var data = referencia ?? DataHoraBrasil.Agora();
 
         if (string.IsNullOrWhiteSpace(competencia))
             return new DateTime(data.Year, data.Month, 1).ToString("yyyy-MM");

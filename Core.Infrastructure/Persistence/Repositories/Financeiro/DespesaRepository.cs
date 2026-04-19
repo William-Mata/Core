@@ -45,12 +45,14 @@ public sealed class DespesaRepository(AppDbContext dbContext) : IDespesaReposito
     private Task<List<Despesa>> ListarCoreAsync(int? usuarioCadastroId, string? filtroId, string? descricao, string? competencia, DateOnly? dataInicio, DateOnly? dataFim, CancellationToken cancellationToken)
     {
         var competenciaMesAno = CompetenciaFiltroHelper.ResolverMesAno(competencia);
+        var dataInicioInclusiva = dataInicio?.ToDateTime(TimeOnly.MinValue);
+        var dataFimExclusiva = dataFim?.AddDays(1).ToDateTime(TimeOnly.MinValue);
         var query = dbContext.Despesas
             .Where(x => !usuarioCadastroId.HasValue || x.UsuarioCadastroId == usuarioCadastroId.Value)
             .Where(x => string.IsNullOrWhiteSpace(filtroId) || x.Id.ToString().Contains(filtroId.Trim()))
             .Where(x => string.IsNullOrWhiteSpace(descricao) || x.Descricao.Contains(descricao.Trim()))
-            .Where(x => !dataInicio.HasValue || x.DataLancamento >= dataInicio.Value)
-            .Where(x => !dataFim.HasValue || x.DataLancamento <= dataFim.Value);
+            .Where(x => !dataInicioInclusiva.HasValue || x.DataLancamento >= dataInicioInclusiva.Value)
+            .Where(x => !dataFimExclusiva.HasValue || x.DataLancamento < dataFimExclusiva.Value);
 
         if (competenciaMesAno.HasValue)
         {
@@ -60,6 +62,9 @@ public sealed class DespesaRepository(AppDbContext dbContext) : IDespesaReposito
 
         return query
             .OrderByDescending(x => x.DataLancamento)
+            .ThenByDescending(x => x.DataEfetivacao.HasValue)
+            .ThenByDescending(x => x.DataEfetivacao)
+            .ThenByDescending(x => x.Id)
             .ToListAsync(cancellationToken);
     }
 

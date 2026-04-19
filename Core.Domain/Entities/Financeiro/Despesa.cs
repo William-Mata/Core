@@ -12,9 +12,9 @@ public sealed class Despesa
     public string Descricao { get; set; } = string.Empty;
     public string? Observacao { get; set; }
     public string Competencia { get; set; } = string.Empty;
-    public DateOnly DataLancamento { get; set; }
+    public DateTime DataLancamento { get; set; }
     public DateOnly DataVencimento { get; set; }
-    public DateOnly? DataEfetivacao { get; set; }
+    public DateTime? DataEfetivacao { get; set; }
     public TipoDespesa TipoDespesa { get; set; } = TipoDespesa.Alimentacao;
     public TipoPagamento TipoPagamento { get; set; } = TipoPagamento.Pix;
     public Recorrencia Recorrencia { get; set; } = Recorrencia.Unica;

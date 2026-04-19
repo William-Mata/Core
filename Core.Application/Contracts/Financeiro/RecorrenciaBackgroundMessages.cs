@@ -12,7 +12,7 @@ public sealed record DespesaRecorrenciaBackgroundMessage(
     string Descricao,
     string? Observacao,
     DateTime DataHoraCadastroOrigem,
-    DateOnly DataLancamento,
+    DateTime DataLancamento,
     DateOnly DataVencimento,
     TipoDespesa TipoDespesa,
     TipoPagamento TipoPagamento,
@@ -35,10 +35,11 @@ public sealed record DespesaRecorrenciaBackgroundMessage(
 
 public sealed record ReceitaRecorrenciaBackgroundMessage(
     int UsuarioId,
+    long? ReceitaRecorrenciaOrigemId,
     string Descricao,
     string? Observacao,
     DateTime DataHoraCadastroOrigem,
-    DateOnly DataLancamento,
+    DateTime DataLancamento,
     DateOnly DataVencimento,
     TipoReceita TipoReceita,
     TipoRecebimento TipoRecebimento,

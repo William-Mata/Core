@@ -15,9 +15,9 @@ public sealed record ReembolsoListaDto(
     string Descricao,
     string Solicitante,
     string Competencia,
-    DateOnly DataLancamento,
+    DateTime DataLancamento,
     DateOnly? DataVencimento,
-    DateOnly? DataEfetivacao,
+    DateTime? DataEfetivacao,
     decimal ValorTotal,
     string Status);
 
@@ -26,9 +26,9 @@ public sealed record ReembolsoDto(
     string Descricao,
     string Solicitante,
     string Competencia,
-    DateOnly DataLancamento,
+    DateTime DataLancamento,
     DateOnly? DataVencimento,
-    DateOnly? DataEfetivacao,
+    DateTime? DataEfetivacao,
     IReadOnlyCollection<long> DespesasVinculadas,
     IReadOnlyCollection<DocumentoDto> Documentos,
     decimal ValorTotal,
@@ -38,8 +38,8 @@ public sealed record SalvarReembolsoRequest(
     string Descricao,
     string Solicitante,
     string? Competencia,
-    DateOnly DataLancamento,
-    DateOnly? DataEfetivacao,
+    DateTime DataLancamento,
+    DateTime? DataEfetivacao,
     IReadOnlyCollection<JsonElement> DespesasVinculadas,
     decimal? ValorTotal,
     string? Status,
@@ -48,7 +48,7 @@ public sealed record SalvarReembolsoRequest(
     long? CartaoId = null);
 
 public sealed record EfetivarReembolsoRequest(
-    DateOnly DataEfetivacao,
+    DateTime DataEfetivacao,
     IReadOnlyCollection<DocumentoRequest>? Documentos = null,
     long? ContaBancariaId = null,
     long? CartaoId = null,

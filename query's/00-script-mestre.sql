@@ -1,4 +1,4 @@
-﻿/*
+/*
 Script mestre para criacao completa do banco Financeiro.
 Executavel diretamente no SQL Server Management Studio.
 Nao utiliza :r nem SQLCMD mode.
@@ -909,9 +909,9 @@ BEGIN
         UsuarioCadastroId INT NOT NULL,
         Descricao NVARCHAR(200) NOT NULL,
         Observacao NVARCHAR(1000) NULL,
-        DataLancamento DATE NOT NULL,
+        DataLancamento DATETIME2(0) NOT NULL,
         DataVencimento DATE NOT NULL,
-        DataEfetivacao DATE NULL,
+        DataEfetivacao DATETIME2(0) NULL,
         TipoDespesa NVARCHAR(50) NOT NULL,
         TipoPagamento NVARCHAR(50) NOT NULL,
         Recorrencia NVARCHAR(20) NOT NULL CONSTRAINT DF_Despesa_Recorrencia DEFAULT (N'Unica'),
@@ -1082,9 +1082,9 @@ BEGIN
         UsuarioCadastroId INT NOT NULL,
         Descricao NVARCHAR(200) NOT NULL,
         Observacao NVARCHAR(1000) NULL,
-        DataLancamento DATE NOT NULL,
+        DataLancamento DATETIME2(0) NOT NULL,
         DataVencimento DATE NOT NULL,
-        DataEfetivacao DATE NULL,
+        DataEfetivacao DATETIME2(0) NULL,
         TipoReceita NVARCHAR(50) NOT NULL,
         TipoRecebimento NVARCHAR(50) NOT NULL,
         Recorrencia NVARCHAR(20) NOT NULL CONSTRAINT DF_Receita_Recorrencia DEFAULT (N'Unica'),
@@ -1590,6 +1590,27 @@ BEGIN
 END;
 GO
 
+IF COL_LENGTH(N'dbo.Receita', N'ReceitaRecorrenciaOrigemId') IS NULL
+BEGIN
+    ALTER TABLE dbo.Receita ADD ReceitaRecorrenciaOrigemId BIGINT NULL;
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_Receita_Receita_ReceitaRecorrenciaOrigemId')
+BEGIN
+    ALTER TABLE dbo.Receita
+        WITH CHECK ADD CONSTRAINT FK_Receita_Receita_ReceitaRecorrenciaOrigemId
+        FOREIGN KEY (ReceitaRecorrenciaOrigemId) REFERENCES dbo.Receita (Id);
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_Receita_ReceitaRecorrenciaOrigemId' AND object_id = OBJECT_ID(N'dbo.Receita'))
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_Receita_ReceitaRecorrenciaOrigemId
+        ON dbo.Receita (ReceitaRecorrenciaOrigemId);
+END;
+GO
+
 IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_Receita_Status' AND parent_object_id = OBJECT_ID(N'dbo.Receita'))
 BEGIN
     ALTER TABLE dbo.Receita DROP CONSTRAINT CK_Receita_Status;
@@ -1819,7 +1840,7 @@ BEGIN
         Competencia CHAR(7) NOT NULL,
         DataVencimento DATE NULL,
         DataFechamento DATE NULL,
-        DataEfetivacao DATE NULL,
+        DataEfetivacao DATETIME2(0) NULL,
         DataEstorno DATE NULL,
         ValorTotal DECIMAL(18,2) NOT NULL CONSTRAINT DF_FaturaCartao_ValorTotal DEFAULT (0),
         Status NVARCHAR(20) NOT NULL CONSTRAINT DF_FaturaCartao_Status DEFAULT (N'Aberta'),

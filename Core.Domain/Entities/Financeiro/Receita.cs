@@ -6,14 +6,15 @@ public sealed class Receita
 {
     public long Id { get; set; }
     public long? ReceitaOrigemId { get; set; }
+    public long? ReceitaRecorrenciaOrigemId { get; set; }
     public DateTime DataHoraCadastro { get; set; } = DateTime.UtcNow;
     public int UsuarioCadastroId { get; set; }
     public string Descricao { get; set; } = string.Empty;
     public string? Observacao { get; set; }
     public string Competencia { get; set; } = string.Empty;
-    public DateOnly DataLancamento { get; set; }
+    public DateTime DataLancamento { get; set; }
     public DateOnly DataVencimento { get; set; }
-    public DateOnly? DataEfetivacao { get; set; }
+    public DateTime? DataEfetivacao { get; set; }
     public TipoReceita TipoReceita { get; set; } = TipoReceita.Salario;
     public TipoRecebimento TipoRecebimento { get; set; } = TipoRecebimento.Dinheiro;
     public Recorrencia Recorrencia { get; set; } = Recorrencia.Unica;
