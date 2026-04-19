@@ -47,7 +47,7 @@ public sealed class ContaBancariaServiceTests
     {
         var service = new ContaBancariaService(new ContaBancariaRepositoryFake(), new HistoricoRepositoryFake(), new UsuarioAutenticadoProviderFake(1));
 
-        var ex = await Assert.ThrowsAsync<DomainException>(() => service.CriarAsync(new CriarContaBancariaRequest("Conta", "Banco", "0001", "123", 0m, new DateOnly(2026, 1, 1))));
+        var ex = await Assert.ThrowsAsync<DomainException>(() => service.CriarAsync(new CriarContaBancariaRequest("Conta", "Banco", "0001", "123", -1m, new DateOnly(2026, 1, 1))));
 
         Assert.Equal("saldo_inicial_invalido", ex.Message);
     }
