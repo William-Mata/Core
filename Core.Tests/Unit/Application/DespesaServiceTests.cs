@@ -84,6 +84,7 @@ public sealed class DespesaServiceTests
                 {
                     Id = 101,
                     UsuarioCadastroId = 1,
+                    DespesaRecorrenciaOrigemId = 100,
                     Descricao = "Academia",
                     DataLancamento = new DateTime(2026, 5, 10, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 5, 10),
@@ -131,6 +132,7 @@ public sealed class DespesaServiceTests
                 {
                     Id = 101,
                     UsuarioCadastroId = 1,
+                    DespesaRecorrenciaOrigemId = 100,
                     Descricao = "Academia",
                     DataLancamento = new DateTime(2026, 5, 10, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 5, 10),
@@ -227,6 +229,7 @@ public sealed class DespesaServiceTests
                 {
                     Id = 201,
                     UsuarioCadastroId = 1,
+                    DespesaRecorrenciaOrigemId = 200,
                     Descricao = "Compra cartao",
                     DataLancamento = new DateTime(2026, 5, 10, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 5, 10),
@@ -275,6 +278,7 @@ public sealed class DespesaServiceTests
                 {
                     Id = 301,
                     UsuarioCadastroId = 1,
+                    DespesaRecorrenciaOrigemId = 300,
                     Descricao = "Academia",
                     DataLancamento = new DateTime(2026, 5, 10, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 5, 10),
@@ -324,6 +328,7 @@ public sealed class DespesaServiceTests
                 {
                     Id = 501,
                     UsuarioCadastroId = 1,
+                    DespesaRecorrenciaOrigemId = 500,
                     Descricao = "Assinatura",
                     DataLancamento = new DateTime(2026, 5, 10, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 5, 10),
@@ -358,6 +363,7 @@ public sealed class DespesaServiceTests
             despesas.Add(new Despesa
             {
                 Id = 400 + i,
+                DespesaRecorrenciaOrigemId = i == 0 ? null : 400,
                 UsuarioCadastroId = 1,
                 Descricao = "Contrato fixo",
                 DataLancamento = data.ToDateTime(TimeOnly.MinValue),
@@ -450,6 +456,7 @@ public sealed class DespesaServiceTests
                 DataVencimento = new DateOnly(2026, 3, 15),
                 TipoDespesa = TipoDespesa.Alimentacao,
                 TipoPagamento = TipoPagamento.Pix,
+                ContaBancariaId = 7,
                 Recorrencia = Recorrencia.Unica,
                 ValorTotal = 100m,
                 ValorLiquido = 100m,
@@ -485,7 +492,18 @@ public sealed class DespesaServiceTests
         };
         var service = CriarService(repository, 1);
 
-        var result = await service.EfetivarAsync(1, new EfetivarDespesaRequest(new DateTime(2026, 3, 10, 0, 0, 0), TipoPagamento.Pix, 100m, 0m, 0m, 0m, 0m, null));
+        var result = await service.EfetivarAsync(
+            1,
+            new EfetivarDespesaRequest(
+                new DateTime(2026, 3, 10, 0, 0, 0),
+                TipoPagamento.Pix,
+                100m,
+                0m,
+                0m,
+                0m,
+                0m,
+                null,
+                ContaBancariaId: 7));
 
         Assert.Equal("efetivada", result.Status);
     }
@@ -804,7 +822,8 @@ public sealed class DespesaServiceTests
             amigos: [new AmigoRateioRequest(2, 60m), new AmigoRateioRequest(3, 40m)],
             areasRateio: [new DespesaAreaRateioRequest(1, 2, 100m)],
             recorrencia: Recorrencia.Mensal,
-            quantidadeRecorrencia: 2));
+            quantidadeRecorrencia: 2,
+            quantidadeParcelas: 2));
 
         Assert.Equal(99, result.CartaoId);
         Assert.Equal(99, repository.DespesasCriadas.Single(x => x.DespesaOrigemId is null).CartaoId);
@@ -1071,7 +1090,7 @@ public sealed class DespesaServiceTests
         var publisher = new RecorrenciaPublisherFake();
         var service = CriarService(repository, new AreaRepoFake(), publisher, 1);
 
-        await service.CriarAsync(CriarRequestPadrao(tipoPagamento: TipoPagamento.CartaoCredito, quantidadeRecorrencia: null, quantidadeParcelas: 3, recorrenciaFixa: true));
+        await service.CriarAsync(CriarRequestPadrao(tipoPagamento: TipoPagamento.CartaoCredito, cartaoId: 99, quantidadeRecorrencia: null, quantidadeParcelas: 3, recorrenciaFixa: true));
 
         var despesa = Assert.Single(repository.DespesasCriadas);
         Assert.Equal(Recorrencia.Mensal, despesa.Recorrencia);
@@ -1091,7 +1110,7 @@ public sealed class DespesaServiceTests
         var publisher = new RecorrenciaPublisherFake();
         var service = CriarService(repository, new AreaRepoFake(), publisher, 1);
 
-        await service.CriarAsync(CriarRequestPadrao(tipoPagamento: TipoPagamento.CartaoCredito, quantidadeRecorrencia: 23, quantidadeParcelas: 3));
+        await service.CriarAsync(CriarRequestPadrao(tipoPagamento: TipoPagamento.CartaoCredito, cartaoId: 99, quantidadeRecorrencia: 23, quantidadeParcelas: 3));
 
         var despesa = Assert.Single(repository.DespesasCriadas);
         Assert.Equal(3, despesa.QuantidadeRecorrencia);
@@ -1119,6 +1138,7 @@ public sealed class DespesaServiceTests
             Despesa = new Despesa
             {
                 Id = 2,
+                DespesaRecorrenciaOrigemId = 1,
                 UsuarioCadastroId = 1,
                 Descricao = "Academia",
                 DataLancamento = new DateTime(2026, 2, 1, 0, 0, 0),
@@ -1151,6 +1171,7 @@ public sealed class DespesaServiceTests
                 new Despesa
                 {
                     Id = 2,
+                    DespesaRecorrenciaOrigemId = 1,
                     UsuarioCadastroId = 1,
                     Descricao = "Academia",
                     DataLancamento = new DateTime(2026, 2, 1, 0, 0, 0),
@@ -1166,6 +1187,7 @@ public sealed class DespesaServiceTests
                 new Despesa
                 {
                     Id = 3,
+                    DespesaRecorrenciaOrigemId = 1,
                     UsuarioCadastroId = 1,
                     Descricao = "Academia",
                     DataLancamento = new DateTime(2026, 3, 1, 0, 0, 0),
@@ -1210,6 +1232,7 @@ public sealed class DespesaServiceTests
             Despesa = new Despesa
             {
                 Id = 2,
+                DespesaRecorrenciaOrigemId = 1,
                 UsuarioCadastroId = 1,
                 Descricao = "Mensalidade",
                 DataLancamento = new DateTime(2026, 2, 1, 0, 0, 0),
@@ -1244,6 +1267,7 @@ public sealed class DespesaServiceTests
                 new Despesa
                 {
                     Id = 2,
+                    DespesaRecorrenciaOrigemId = 1,
                     UsuarioCadastroId = 1,
                     Descricao = "Mensalidade",
                     DataLancamento = new DateTime(2026, 2, 1, 0, 0, 0),
@@ -1260,6 +1284,7 @@ public sealed class DespesaServiceTests
                 new Despesa
                 {
                     Id = 3,
+                    DespesaRecorrenciaOrigemId = 1,
                     UsuarioCadastroId = 1,
                     Descricao = "Mensalidade",
                     DataLancamento = new DateTime(2026, 3, 1, 0, 0, 0),

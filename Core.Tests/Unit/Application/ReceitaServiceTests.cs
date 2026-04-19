@@ -858,6 +858,7 @@ public sealed class ReceitaServiceTests
             Receita = new Receita
             {
                 Id = 2,
+                ReceitaRecorrenciaOrigemId = 1,
                 UsuarioCadastroId = 99,
                 Descricao = "Assinatura",
                 DataLancamento = new DateTime(2026, 2, 1, 0, 0, 0),
@@ -890,6 +891,7 @@ public sealed class ReceitaServiceTests
                 new Receita
                 {
                     Id = 2,
+                    ReceitaRecorrenciaOrigemId = 1,
                     UsuarioCadastroId = 99,
                     Descricao = "Assinatura",
                     DataLancamento = new DateTime(2026, 2, 1, 0, 0, 0),
@@ -905,6 +907,7 @@ public sealed class ReceitaServiceTests
                 new Receita
                 {
                     Id = 3,
+                    ReceitaRecorrenciaOrigemId = 1,
                     UsuarioCadastroId = 99,
                     Descricao = "Assinatura",
                     DataLancamento = new DateTime(2026, 3, 1, 0, 0, 0),
@@ -962,6 +965,7 @@ public sealed class ReceitaServiceTests
             Receita = new Receita
             {
                 Id = 2,
+                ReceitaRecorrenciaOrigemId = 1,
                 UsuarioCadastroId = 99,
                 Descricao = "Plano",
                 DataLancamento = new DateTime(2026, 2, 1, 0, 0, 0),
@@ -996,6 +1000,7 @@ public sealed class ReceitaServiceTests
                 new Receita
                 {
                     Id = 2,
+                    ReceitaRecorrenciaOrigemId = 1,
                     UsuarioCadastroId = 99,
                     Descricao = "Plano",
                     DataLancamento = new DateTime(2026, 2, 1, 0, 0, 0),
@@ -1012,6 +1017,7 @@ public sealed class ReceitaServiceTests
                 new Receita
                 {
                     Id = 3,
+                    ReceitaRecorrenciaOrigemId = 1,
                     UsuarioCadastroId = 99,
                     Descricao = "Plano",
                     DataLancamento = new DateTime(2026, 3, 1, 0, 0, 0),
