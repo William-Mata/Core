@@ -1,4 +1,4 @@
-﻿using Core.Application.DTOs.Financeiro;
+using Core.Application.DTOs.Financeiro;
 using Core.Application.Contracts.Financeiro;
 using Core.Application.Services.Financeiro;
 using Core.Domain.Common;
@@ -70,7 +70,7 @@ public sealed class DespesaServiceTests
                     Id = 100,
                     UsuarioCadastroId = 1,
                     Descricao = "Academia",
-                    DataLancamento = new DateOnly(2026, 4, 10),
+                    DataLancamento = new DateTime(2026, 4, 10, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 4, 10),
                     TipoDespesa = TipoDespesa.Saude,
                     TipoPagamento = TipoPagamento.Pix,
@@ -85,7 +85,7 @@ public sealed class DespesaServiceTests
                     Id = 101,
                     UsuarioCadastroId = 1,
                     Descricao = "Academia",
-                    DataLancamento = new DateOnly(2026, 5, 10),
+                    DataLancamento = new DateTime(2026, 5, 10, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 5, 10),
                     TipoDespesa = TipoDespesa.Saude,
                     TipoPagamento = TipoPagamento.Pix,
@@ -117,7 +117,7 @@ public sealed class DespesaServiceTests
                     Id = 100,
                     UsuarioCadastroId = 1,
                     Descricao = "Academia",
-                    DataLancamento = new DateOnly(2026, 4, 10),
+                    DataLancamento = new DateTime(2026, 4, 10, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 4, 10),
                     TipoDespesa = TipoDespesa.Saude,
                     TipoPagamento = TipoPagamento.Pix,
@@ -132,7 +132,7 @@ public sealed class DespesaServiceTests
                     Id = 101,
                     UsuarioCadastroId = 1,
                     Descricao = "Academia",
-                    DataLancamento = new DateOnly(2026, 5, 10),
+                    DataLancamento = new DateTime(2026, 5, 10, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 5, 10),
                     TipoDespesa = TipoDespesa.Saude,
                     TipoPagamento = TipoPagamento.Pix,
@@ -152,6 +152,54 @@ public sealed class DespesaServiceTests
     }
 
     [Fact]
+    public async Task NaoDevePublicarRecuperacao_QuandoSerieUsarDataLancamentoBaseEFaixaEstiverCompleta()
+    {
+        var publisher = new RecorrenciaPublisherFake();
+        var repository = new DespesaRepositoryFake
+        {
+            DespesasListadas =
+            [
+                new Despesa
+                {
+                    Id = 400,
+                    UsuarioCadastroId = 1,
+                    Descricao = "Internet",
+                    DataLancamento = new DateTime(2026, 4, 10, 0, 0, 0),
+                    DataVencimento = new DateOnly(2026, 4, 10),
+                    TipoDespesa = TipoDespesa.Servicos,
+                    TipoPagamento = TipoPagamento.Pix,
+                    Recorrencia = Recorrencia.Mensal,
+                    QuantidadeRecorrencia = 2,
+                    ValorTotal = 120m,
+                    ValorLiquido = 120m,
+                    Status = StatusDespesa.Pendente
+                },
+                new Despesa
+                {
+                    Id = 401,
+                    UsuarioCadastroId = 1,
+                    DespesaRecorrenciaOrigemId = 400,
+                    Descricao = "Internet",
+                    DataLancamento = new DateTime(2026, 4, 10, 0, 0, 0),
+                    DataVencimento = new DateOnly(2026, 5, 10),
+                    TipoDespesa = TipoDespesa.Servicos,
+                    TipoPagamento = TipoPagamento.Pix,
+                    Recorrencia = Recorrencia.Mensal,
+                    QuantidadeRecorrencia = 2,
+                    ValorTotal = 120m,
+                    ValorLiquido = 120m,
+                    Status = StatusDespesa.Pendente
+                }
+            ]
+        };
+        var service = CriarService(repository, new AreaRepoFake(), publisher, 1);
+
+        await service.ListarAsync(new ListarDespesasRequest(null, null, "05/2026", null, null, true));
+
+        Assert.Null(publisher.DespesaMessage);
+    }
+
+    [Fact]
     public async Task NaoDeveExpandirParcelasDeCartaoDezEmDez_AoListarComVerificacaoDeRecorrencia()
     {
         var publisher = new RecorrenciaPublisherFake();
@@ -164,7 +212,7 @@ public sealed class DespesaServiceTests
                     Id = 200,
                     UsuarioCadastroId = 1,
                     Descricao = "Compra cartao",
-                    DataLancamento = new DateOnly(2026, 4, 10),
+                    DataLancamento = new DateTime(2026, 4, 10, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 4, 10),
                     TipoDespesa = TipoDespesa.Saude,
                     TipoPagamento = TipoPagamento.CartaoCredito,
@@ -180,7 +228,7 @@ public sealed class DespesaServiceTests
                     Id = 201,
                     UsuarioCadastroId = 1,
                     Descricao = "Compra cartao",
-                    DataLancamento = new DateOnly(2026, 5, 10),
+                    DataLancamento = new DateTime(2026, 5, 10, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 5, 10),
                     TipoDespesa = TipoDespesa.Saude,
                     TipoPagamento = TipoPagamento.CartaoCredito,
@@ -213,7 +261,7 @@ public sealed class DespesaServiceTests
                     Id = 300,
                     UsuarioCadastroId = 1,
                     Descricao = "Academia",
-                    DataLancamento = new DateOnly(2026, 4, 10),
+                    DataLancamento = new DateTime(2026, 4, 10, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 4, 10),
                     TipoDespesa = TipoDespesa.Saude,
                     TipoPagamento = TipoPagamento.Pix,
@@ -228,7 +276,7 @@ public sealed class DespesaServiceTests
                     Id = 301,
                     UsuarioCadastroId = 1,
                     Descricao = "Academia",
-                    DataLancamento = new DateOnly(2026, 5, 10),
+                    DataLancamento = new DateTime(2026, 5, 10, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 5, 10),
                     TipoDespesa = TipoDespesa.Saude,
                     TipoPagamento = TipoPagamento.Pix,
@@ -246,7 +294,7 @@ public sealed class DespesaServiceTests
 
         Assert.NotNull(publisher.DespesaMessage);
         Assert.Equal(3, publisher.DespesaMessage!.QuantidadeRecorrencia);
-        Assert.Equal(new DateOnly(2026, 4, 10), publisher.DespesaMessage.DataLancamento);
+        Assert.Equal(new DateTime(2026, 4, 10, 0, 0, 0), publisher.DespesaMessage.DataLancamento);
     }
 
     [Fact]
@@ -262,7 +310,7 @@ public sealed class DespesaServiceTests
                     Id = 500,
                     UsuarioCadastroId = 1,
                     Descricao = "Assinatura",
-                    DataLancamento = new DateOnly(2026, 4, 10),
+                    DataLancamento = new DateTime(2026, 4, 10, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 4, 10),
                     TipoDespesa = TipoDespesa.Servicos,
                     TipoPagamento = TipoPagamento.Pix,
@@ -277,7 +325,7 @@ public sealed class DespesaServiceTests
                     Id = 501,
                     UsuarioCadastroId = 1,
                     Descricao = "Assinatura",
-                    DataLancamento = new DateOnly(2026, 5, 10),
+                    DataLancamento = new DateTime(2026, 5, 10, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 5, 10),
                     TipoDespesa = TipoDespesa.Servicos,
                     TipoPagamento = TipoPagamento.Pix,
@@ -312,7 +360,7 @@ public sealed class DespesaServiceTests
                 Id = 400 + i,
                 UsuarioCadastroId = 1,
                 Descricao = "Contrato fixo",
-                DataLancamento = data,
+                DataLancamento = data.ToDateTime(TimeOnly.MinValue),
                 DataVencimento = data,
                 TipoDespesa = TipoDespesa.Servicos,
                 TipoPagamento = TipoPagamento.Pix,
@@ -360,7 +408,7 @@ public sealed class DespesaServiceTests
     {
         var service = CriarService(new DespesaRepositoryFake(), 1);
 
-        var ex = await Assert.ThrowsAsync<DomainException>(() => service.CriarAsync(CriarRequestPadrao(dataLancamento: new DateOnly(2026, 3, 10), dataVencimento: new DateOnly(2026, 3, 1))));
+        var ex = await Assert.ThrowsAsync<DomainException>(() => service.CriarAsync(CriarRequestPadrao(dataLancamento: new DateTime(2026, 3, 10, 0, 0, 0), dataVencimento: new DateOnly(2026, 3, 1))));
 
         Assert.Equal("periodo_invalido", ex.Message);
     }
@@ -370,11 +418,11 @@ public sealed class DespesaServiceTests
     {
         var repository = new DespesaRepositoryFake
         {
-            Despesa = new Despesa { Id = 1, Descricao = "Despesa", DataLancamento = new DateOnly(2026, 3, 1), DataVencimento = new DateOnly(2026, 3, 2), TipoDespesa = TipoDespesa.Alimentacao, TipoPagamento = TipoPagamento.Pix, Recorrencia = Recorrencia.Unica, ValorTotal = 100m, ValorLiquido = 100m, Status = StatusDespesa.Pendente }
+            Despesa = new Despesa { Id = 1, Descricao = "Despesa", DataLancamento = new DateTime(2026, 3, 1, 0, 0, 0), DataVencimento = new DateOnly(2026, 3, 2), TipoDespesa = TipoDespesa.Alimentacao, TipoPagamento = TipoPagamento.Pix, Recorrencia = Recorrencia.Unica, ValorTotal = 100m, ValorLiquido = 100m, Status = StatusDespesa.Pendente }
         };
         var service = CriarService(repository, 1);
 
-        var ex = await Assert.ThrowsAsync<DomainException>(() => service.EfetivarAsync(1, new EfetivarDespesaRequest(new DateOnly(2026, 3, 5), (TipoPagamento)0, 0m, 0m, 0m, 0m, 0m, null)));
+        var ex = await Assert.ThrowsAsync<DomainException>(() => service.EfetivarAsync(1, new EfetivarDespesaRequest(new DateTime(2026, 3, 5, 0, 0, 0), (TipoPagamento)0, 0m, 0m, 0m, 0m, 0m, null)));
 
         Assert.Equal("dados_invalidos", ex.Message);
     }
@@ -398,7 +446,7 @@ public sealed class DespesaServiceTests
             {
                 Id = 1,
                 Descricao = "Despesa",
-                DataLancamento = new DateOnly(2026, 3, 10),
+                DataLancamento = new DateTime(2026, 3, 10, 0, 0, 0),
                 DataVencimento = new DateOnly(2026, 3, 15),
                 TipoDespesa = TipoDespesa.Alimentacao,
                 TipoPagamento = TipoPagamento.Pix,
@@ -411,7 +459,7 @@ public sealed class DespesaServiceTests
         var service = CriarService(repository, 1);
 
         var ex = await Assert.ThrowsAsync<DomainException>(() =>
-            service.EfetivarAsync(1, new EfetivarDespesaRequest(new DateOnly(2026, 3, 9), TipoPagamento.Pix, 100m, 0m, 0m, 0m, 0m, null)));
+            service.EfetivarAsync(1, new EfetivarDespesaRequest(new DateTime(2026, 3, 9, 0, 0, 0), TipoPagamento.Pix, 100m, 0m, 0m, 0m, 0m, null)));
 
         Assert.Equal("periodo_invalido", ex.Message);
     }
@@ -425,7 +473,7 @@ public sealed class DespesaServiceTests
             {
                 Id = 1,
                 Descricao = "Despesa",
-                DataLancamento = new DateOnly(2026, 3, 10),
+                DataLancamento = new DateTime(2026, 3, 10, 0, 0, 0),
                 DataVencimento = new DateOnly(2026, 3, 15),
                 TipoDespesa = TipoDespesa.Alimentacao,
                 TipoPagamento = TipoPagamento.Pix,
@@ -437,7 +485,7 @@ public sealed class DespesaServiceTests
         };
         var service = CriarService(repository, 1);
 
-        var result = await service.EfetivarAsync(1, new EfetivarDespesaRequest(new DateOnly(2026, 3, 10), TipoPagamento.Pix, 100m, 0m, 0m, 0m, 0m, null));
+        var result = await service.EfetivarAsync(1, new EfetivarDespesaRequest(new DateTime(2026, 3, 10, 0, 0, 0), TipoPagamento.Pix, 100m, 0m, 0m, 0m, 0m, null));
 
         Assert.Equal("efetivada", result.Status);
     }
@@ -451,7 +499,7 @@ public sealed class DespesaServiceTests
             {
                 Id = 1,
                 Descricao = "Transferencia",
-                DataLancamento = new DateOnly(2026, 3, 10),
+                DataLancamento = new DateTime(2026, 3, 10, 0, 0, 0),
                 DataVencimento = new DateOnly(2026, 3, 10),
                 TipoDespesa = TipoDespesa.Servicos,
                 TipoPagamento = TipoPagamento.Transferencia,
@@ -468,7 +516,7 @@ public sealed class DespesaServiceTests
             service.EfetivarAsync(
                 1,
                 new EfetivarDespesaRequest(
-                    new DateOnly(2026, 3, 10),
+                    new DateTime(2026, 3, 10, 0, 0, 0),
                     TipoPagamento.Transferencia,
                     100m,
                     0m,
@@ -710,6 +758,39 @@ public sealed class DespesaServiceTests
     }
 
     [Fact]
+    public async Task DeveAncorarRecorrenciaDaReceitaEspelho_NaPropriaReceitaBase()
+    {
+        var despesaRepository = new DespesaRepositoryFake();
+        var receitaRepository = new ReceitaRepositoryTransferFake();
+        var areaRepository = CriarAreaRepoValida(TipoAreaFinanceira.Despesa);
+        var service = new DespesaService(
+            despesaRepository,
+            receitaRepository,
+            new ContaBancariaRepositoryFake(),
+            new CartaoRepositoryFake(),
+            areaRepository,
+            new AmizadeRepositoryFake(),
+            new UsuarioRepositoryFake(),
+            new UsuarioAutenticadoProviderFake(1),
+            new HistoricoTransacaoFinanceiraService(new HistoricoRepositoryFake()),
+            new DocumentoStorageServiceFake(),
+            new RecorrenciaPublisherFake());
+
+        await service.CriarAsync(CriarRequestPadrao(
+            tipoPagamento: TipoPagamento.Pix,
+            contaBancariaId: 10,
+            contaDestinoId: 20,
+            recorrencia: Recorrencia.Mensal,
+            quantidadeRecorrencia: 2,
+            amigos: [],
+            areasRateio: [new DespesaAreaRateioRequest(1, 2, 100m)]));
+
+        var espelhoCriado = Assert.Single(receitaRepository.ReceitasCriadas);
+        var espelhoAtualizado = Assert.Single(receitaRepository.ReceitasAtualizadas);
+        Assert.Equal(espelhoCriado.Id, espelhoAtualizado.ReceitaRecorrenciaOrigemId);
+    }
+
+    [Fact]
     public async Task DeveIgnorarMeioFinanceiroAoCriarDespesaComRateioDeAmigos()
     {
         var repository = new DespesaRepositoryFake();
@@ -785,7 +866,7 @@ public sealed class DespesaServiceTests
                 Id = 1,
                 UsuarioCadastroId = 1,
                 Descricao = "Despesa",
-                DataLancamento = new DateOnly(2026, 3, 1),
+                DataLancamento = new DateTime(2026, 3, 1, 0, 0, 0),
                 DataVencimento = new DateOnly(2026, 3, 2),
                 TipoDespesa = TipoDespesa.Alimentacao,
                 TipoPagamento = TipoPagamento.Pix,
@@ -802,7 +883,7 @@ public sealed class DespesaServiceTests
                     DespesaOrigemId = 1,
                     UsuarioCadastroId = 2,
                     Descricao = "Espelho",
-                    DataLancamento = new DateOnly(2026, 3, 1),
+                    DataLancamento = new DateTime(2026, 3, 1, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 3, 2),
                     TipoDespesa = TipoDespesa.Alimentacao,
                     TipoPagamento = TipoPagamento.Pix,
@@ -834,7 +915,7 @@ public sealed class DespesaServiceTests
                 Id = 1,
                 UsuarioCadastroId = 1,
                 Descricao = "Despesa",
-                DataLancamento = new DateOnly(2026, 3, 1),
+                DataLancamento = new DateTime(2026, 3, 1, 0, 0, 0),
                 DataVencimento = new DateOnly(2026, 3, 2),
                 TipoDespesa = TipoDespesa.Alimentacao,
                 TipoPagamento = TipoPagamento.Pix,
@@ -851,7 +932,7 @@ public sealed class DespesaServiceTests
                     DespesaOrigemId = 1,
                     UsuarioCadastroId = 2,
                     Descricao = "Espelho",
-                    DataLancamento = new DateOnly(2026, 3, 1),
+                    DataLancamento = new DateTime(2026, 3, 1, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 3, 2),
                     TipoDespesa = TipoDespesa.Alimentacao,
                     TipoPagamento = TipoPagamento.Pix,
@@ -880,7 +961,7 @@ public sealed class DespesaServiceTests
                 Id = 1,
                 UsuarioCadastroId = 1,
                 Descricao = "Despesa",
-                DataLancamento = new DateOnly(2026, 3, 1),
+                DataLancamento = new DateTime(2026, 3, 1, 0, 0, 0),
                 DataVencimento = new DateOnly(2026, 3, 2),
                 TipoDespesa = TipoDespesa.Alimentacao,
                 TipoPagamento = TipoPagamento.Pix,
@@ -1040,7 +1121,7 @@ public sealed class DespesaServiceTests
                 Id = 2,
                 UsuarioCadastroId = 1,
                 Descricao = "Academia",
-                DataLancamento = new DateOnly(2026, 2, 1),
+                DataLancamento = new DateTime(2026, 2, 1, 0, 0, 0),
                 DataVencimento = new DateOnly(2026, 2, 2),
                 TipoDespesa = TipoDespesa.Alimentacao,
                 TipoPagamento = TipoPagamento.Pix,
@@ -1057,7 +1138,7 @@ public sealed class DespesaServiceTests
                     Id = 1,
                     UsuarioCadastroId = 1,
                     Descricao = "Academia",
-                    DataLancamento = new DateOnly(2026, 1, 1),
+                    DataLancamento = new DateTime(2026, 1, 1, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 1, 2),
                     TipoDespesa = TipoDespesa.Alimentacao,
                     TipoPagamento = TipoPagamento.Pix,
@@ -1072,7 +1153,7 @@ public sealed class DespesaServiceTests
                     Id = 2,
                     UsuarioCadastroId = 1,
                     Descricao = "Academia",
-                    DataLancamento = new DateOnly(2026, 2, 1),
+                    DataLancamento = new DateTime(2026, 2, 1, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 2, 2),
                     TipoDespesa = TipoDespesa.Alimentacao,
                     TipoPagamento = TipoPagamento.Pix,
@@ -1087,7 +1168,7 @@ public sealed class DespesaServiceTests
                     Id = 3,
                     UsuarioCadastroId = 1,
                     Descricao = "Academia",
-                    DataLancamento = new DateOnly(2026, 3, 1),
+                    DataLancamento = new DateTime(2026, 3, 1, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 3, 2),
                     TipoDespesa = TipoDespesa.Alimentacao,
                     TipoPagamento = TipoPagamento.Pix,
@@ -1104,7 +1185,7 @@ public sealed class DespesaServiceTests
         await service.AtualizarAsync(
             2,
             CriarAtualizacaoPadrao(
-                dataLancamento: new DateOnly(2026, 3, 10),
+                dataLancamento: new DateTime(2026, 3, 10, 0, 0, 0),
                 dataVencimento: new DateOnly(2026, 3, 12),
                 recorrencia: Recorrencia.Mensal,
                 quantidadeRecorrencia: 3),
@@ -1115,9 +1196,9 @@ public sealed class DespesaServiceTests
         var atualizadaBase = repository.DespesasAtualizadas.Last(x => x.Id == 2);
         var atualizadaProxima = repository.DespesasAtualizadas.Last(x => x.Id == 3);
 
-        Assert.Equal(new DateOnly(2026, 3, 10), atualizadaBase.DataLancamento);
+        Assert.Equal(new DateTime(2026, 3, 10, 0, 0, 0), atualizadaBase.DataLancamento);
         Assert.Equal(new DateOnly(2026, 3, 12), atualizadaBase.DataVencimento);
-        Assert.Equal(new DateOnly(2026, 4, 10), atualizadaProxima.DataLancamento);
+        Assert.Equal(new DateTime(2026, 4, 10, 0, 0, 0), atualizadaProxima.DataLancamento);
         Assert.Equal(new DateOnly(2026, 4, 12), atualizadaProxima.DataVencimento);
     }
 
@@ -1131,7 +1212,7 @@ public sealed class DespesaServiceTests
                 Id = 2,
                 UsuarioCadastroId = 1,
                 Descricao = "Mensalidade",
-                DataLancamento = new DateOnly(2026, 2, 1),
+                DataLancamento = new DateTime(2026, 2, 1, 0, 0, 0),
                 DataVencimento = new DateOnly(2026, 2, 1),
                 TipoDespesa = TipoDespesa.Servicos,
                 TipoPagamento = TipoPagamento.Pix,
@@ -1149,7 +1230,7 @@ public sealed class DespesaServiceTests
                     Id = 1,
                     UsuarioCadastroId = 1,
                     Descricao = "Mensalidade",
-                    DataLancamento = new DateOnly(2026, 1, 1),
+                    DataLancamento = new DateTime(2026, 1, 1, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 1, 1),
                     TipoDespesa = TipoDespesa.Servicos,
                     TipoPagamento = TipoPagamento.Pix,
@@ -1165,7 +1246,7 @@ public sealed class DespesaServiceTests
                     Id = 2,
                     UsuarioCadastroId = 1,
                     Descricao = "Mensalidade",
-                    DataLancamento = new DateOnly(2026, 2, 1),
+                    DataLancamento = new DateTime(2026, 2, 1, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 2, 1),
                     TipoDespesa = TipoDespesa.Servicos,
                     TipoPagamento = TipoPagamento.Pix,
@@ -1181,7 +1262,7 @@ public sealed class DespesaServiceTests
                     Id = 3,
                     UsuarioCadastroId = 1,
                     Descricao = "Mensalidade",
-                    DataLancamento = new DateOnly(2026, 3, 1),
+                    DataLancamento = new DateTime(2026, 3, 1, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 3, 1),
                     TipoDespesa = TipoDespesa.Servicos,
                     TipoPagamento = TipoPagamento.Pix,
@@ -1210,12 +1291,12 @@ public sealed class DespesaServiceTests
 
     private static CriarDespesaRequest CriarRequestPadrao(
         string descricao = "Despesa",
-        DateOnly? dataLancamento = null,
+        DateTime? dataLancamento = null,
         DateOnly? dataVencimento = null,
         IReadOnlyCollection<DespesaAreaRateioRequest>? areasRateio = null,
         IReadOnlyCollection<AmigoRateioRequest>? amigos = null,
         TipoDespesa tipoDespesa = TipoDespesa.Alimentacao,
-        TipoPagamento tipoPagamento = TipoPagamento.Pix,
+        TipoPagamento tipoPagamento = TipoPagamento.Dinheiro,
         long? contaBancariaId = null,
         long? contaDestinoId = null,
         long? cartaoId = null,
@@ -1234,7 +1315,7 @@ public sealed class DespesaServiceTests
             descricao,
             null,
             null,
-            dataLancamento ?? new DateOnly(2026, 3, 1),
+            dataLancamento ?? new DateTime(2026, 3, 1, 0, 0, 0),
             dataVencimento ?? new DateOnly(2026, 3, 2),
             tipoDespesa,
             tipoPagamento,
@@ -1259,11 +1340,11 @@ public sealed class DespesaServiceTests
 
     private static AtualizarDespesaRequest CriarAtualizacaoPadrao(
         string descricao = "Despesa Atualizada",
-        DateOnly? dataLancamento = null,
+        DateTime? dataLancamento = null,
         DateOnly? dataVencimento = null,
         IReadOnlyCollection<DespesaAreaRateioRequest>? areasRateio = null,
         IReadOnlyCollection<AmigoRateioRequest>? amigos = null,
-        TipoPagamento tipoPagamento = TipoPagamento.Pix,
+        TipoPagamento tipoPagamento = TipoPagamento.Dinheiro,
         Recorrencia recorrencia = Recorrencia.Unica,
         int? quantidadeRecorrencia = null,
         int? quantidadeParcelas = null,
@@ -1281,7 +1362,7 @@ public sealed class DespesaServiceTests
             descricao,
             null,
             null,
-            dataLancamento ?? new DateOnly(2026, 3, 1),
+            dataLancamento ?? new DateTime(2026, 3, 1, 0, 0, 0),
             dataVencimento ?? new DateOnly(2026, 3, 2),
             TipoDespesa.Alimentacao,
             tipoPagamento,
@@ -1382,10 +1463,10 @@ public sealed class DespesaServiceTests
                 query = query.Where(x => x.Descricao.Contains(descricao.Trim(), StringComparison.OrdinalIgnoreCase));
 
             if (dataInicio.HasValue)
-                query = query.Where(x => x.DataLancamento >= dataInicio.Value);
+                query = query.Where(x => DateOnly.FromDateTime(x.DataLancamento) >= dataInicio.Value);
 
             if (dataFim.HasValue)
-                query = query.Where(x => x.DataLancamento <= dataFim.Value);
+                query = query.Where(x => DateOnly.FromDateTime(x.DataLancamento) <= dataFim.Value);
 
             if (TryParseCompetencia(competencia, out var ano, out var mes))
                 query = query.Where(x => x.DataLancamento.Year == ano && x.DataLancamento.Month == mes);
@@ -1442,6 +1523,7 @@ public sealed class DespesaServiceTests
     {
         public List<Receita> ReceitasCriadas { get; } = [];
         public List<Receita> ReceitasAtualizadas { get; } = [];
+        public List<Receita> ReceitasListadas { get; set; } = [];
 
         public Task<List<Receita>> ListarAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(new List<Receita>());
@@ -1450,7 +1532,11 @@ public sealed class DespesaServiceTests
             Task.FromResult(new List<Receita>());
 
         public Task<List<Receita>> ListarPorUsuarioAsync(int usuarioCadastroId, string? filtroId, string? descricao, string? competencia, DateOnly? dataInicio, DateOnly? dataFim, CancellationToken cancellationToken = default) =>
-            Task.FromResult(new List<Receita>());
+            Task.FromResult(ReceitasListadas
+                .Concat(ReceitasCriadas)
+                .Concat(ReceitasAtualizadas)
+                .Where(x => x.UsuarioCadastroId == usuarioCadastroId)
+                .ToList());
 
         public Task<List<Receita>> ListarPendentesAprovacaoPorUsuarioAsync(int usuarioCadastroId, CancellationToken cancellationToken = default) =>
             Task.FromResult(new List<Receita>());

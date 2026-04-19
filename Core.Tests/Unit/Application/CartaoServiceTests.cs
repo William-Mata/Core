@@ -1,4 +1,4 @@
-using Core.Application.DTOs;
+using Core.Application.DTOs.Financeiro;
 using Core.Application.Services.Financeiro;
 using Core.Domain.Entities;
 using Core.Domain.Entities.Financeiro;
@@ -213,3 +213,4 @@ public sealed class CartaoServiceTests
         }
     }
 }
+

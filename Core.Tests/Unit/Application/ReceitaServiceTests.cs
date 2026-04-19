@@ -1,4 +1,4 @@
-﻿using Core.Application.DTOs.Financeiro;
+using Core.Application.DTOs.Financeiro;
 using Core.Application.Contracts.Financeiro;
 using Core.Application.Services.Financeiro;
 using Core.Domain.Common;
@@ -93,7 +93,7 @@ public sealed class ReceitaServiceTests
                     Id = 200,
                     UsuarioCadastroId = 99,
                     Descricao = "Freelance fixo",
-                    DataLancamento = new DateOnly(2026, 4, 5),
+                    DataLancamento = new DateTime(2026, 4, 5, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 4, 5),
                     TipoReceita = TipoReceita.Freelance,
                     TipoRecebimento = TipoRecebimento.Dinheiro,
@@ -108,7 +108,7 @@ public sealed class ReceitaServiceTests
                     Id = 201,
                     UsuarioCadastroId = 99,
                     Descricao = "Freelance fixo",
-                    DataLancamento = new DateOnly(2026, 5, 5),
+                    DataLancamento = new DateTime(2026, 5, 5, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 5, 5),
                     TipoReceita = TipoReceita.Freelance,
                     TipoRecebimento = TipoRecebimento.Dinheiro,
@@ -140,7 +140,7 @@ public sealed class ReceitaServiceTests
                     Id = 200,
                     UsuarioCadastroId = 99,
                     Descricao = "Freelance fixo",
-                    DataLancamento = new DateOnly(2026, 4, 5),
+                    DataLancamento = new DateTime(2026, 4, 5, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 4, 5),
                     TipoReceita = TipoReceita.Freelance,
                     TipoRecebimento = TipoRecebimento.Dinheiro,
@@ -155,7 +155,7 @@ public sealed class ReceitaServiceTests
                     Id = 201,
                     UsuarioCadastroId = 99,
                     Descricao = "Freelance fixo",
-                    DataLancamento = new DateOnly(2026, 5, 5),
+                    DataLancamento = new DateTime(2026, 5, 5, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 5, 5),
                     TipoReceita = TipoReceita.Freelance,
                     TipoRecebimento = TipoRecebimento.Dinheiro,
@@ -381,10 +381,18 @@ public sealed class ReceitaServiceTests
         var receitaRepository = new ReceitaRepoFake();
         var despesaRepository = new DespesaRepositoryTransferFake();
         var areaRepository = CriarAreaRepoValida(TipoAreaFinanceira.Receita);
+        var contaRepository = new ContaRepoFake
+        {
+            Contas =
+            [
+                new ContaBancaria { Id = 10, UsuarioCadastroId = 99 },
+                new ContaBancaria { Id = 20, UsuarioCadastroId = 99 }
+            ]
+        };
         var service = new ReceitaService(
             receitaRepository,
             despesaRepository,
-            new ContaRepoFake(),
+            contaRepository,
             new CartaoRepoFake(),
             areaRepository,
             new AmizadeRepositoryFake(),
@@ -405,6 +413,47 @@ public sealed class ReceitaServiceTests
         Assert.Equal(10, espelho.ContaBancariaId);
         Assert.Equal(20, espelho.ContaDestinoId);
         Assert.Equal(TipoPagamento.Pix, espelho.TipoPagamento);
+    }
+
+    [Fact]
+    public async Task DeveAncorarRecorrenciaDaDespesaEspelho_NaPropriaDespesaBase()
+    {
+        var receitaRepository = new ReceitaRepoFake();
+        var despesaRepository = new DespesaRepositoryTransferFake();
+        var areaRepository = CriarAreaRepoValida(TipoAreaFinanceira.Receita);
+        var contaRepository = new ContaRepoFake
+        {
+            Contas =
+            [
+                new ContaBancaria { Id = 10, UsuarioCadastroId = 99 },
+                new ContaBancaria { Id = 20, UsuarioCadastroId = 99 }
+            ]
+        };
+        var service = new ReceitaService(
+            receitaRepository,
+            despesaRepository,
+            contaRepository,
+            new CartaoRepoFake(),
+            areaRepository,
+            new AmizadeRepositoryFake(),
+            new UsuarioRepositoryFake(),
+            new UsuarioAutenticadoProviderFake(99),
+            new HistoricoTransacaoFinanceiraService(new HistoricoRepositoryFake()),
+            new DocumentoStorageServiceFake(),
+            new RecorrenciaPublisherFake());
+
+        await service.CriarAsync(CriarRequestPadrao(
+            tipoRecebimento: TipoRecebimento.Pix,
+            contaBancariaId: 20,
+            contaDestinoId: 10,
+            recorrencia: Recorrencia.Mensal,
+            quantidadeRecorrencia: 2,
+            amigos: [],
+            areasRateio: [new ReceitaAreaRateioRequest(1, 2, 1000m)]));
+
+        var espelhoCriado = Assert.Single(despesaRepository.DespesasCriadas);
+        var espelhoAtualizado = Assert.Single(despesaRepository.DespesasAtualizadas);
+        Assert.Equal(espelhoCriado.Id, espelhoAtualizado.DespesaRecorrenciaOrigemId);
     }
 
     [Fact]
@@ -457,7 +506,7 @@ public sealed class ReceitaServiceTests
                 Id = 1,
                 UsuarioCadastroId = 99,
                 Descricao = "Receita",
-                DataLancamento = new DateOnly(2026, 3, 1),
+                DataLancamento = new DateTime(2026, 3, 1, 0, 0, 0),
                 DataVencimento = new DateOnly(2026, 3, 2),
                 TipoReceita = TipoReceita.Freelance,
                 TipoRecebimento = TipoRecebimento.Dinheiro,
@@ -474,7 +523,7 @@ public sealed class ReceitaServiceTests
                     ReceitaOrigemId = 1,
                     UsuarioCadastroId = 2,
                     Descricao = "Espelho",
-                    DataLancamento = new DateOnly(2026, 3, 1),
+                    DataLancamento = new DateTime(2026, 3, 1, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 3, 2),
                     TipoReceita = TipoReceita.Freelance,
                     TipoRecebimento = TipoRecebimento.Dinheiro,
@@ -506,7 +555,7 @@ public sealed class ReceitaServiceTests
                 Id = 1,
                 UsuarioCadastroId = 99,
                 Descricao = "Receita",
-                DataLancamento = new DateOnly(2026, 3, 1),
+                DataLancamento = new DateTime(2026, 3, 1, 0, 0, 0),
                 DataVencimento = new DateOnly(2026, 3, 2),
                 TipoReceita = TipoReceita.Freelance,
                 TipoRecebimento = TipoRecebimento.Dinheiro,
@@ -523,7 +572,7 @@ public sealed class ReceitaServiceTests
                     ReceitaOrigemId = 1,
                     UsuarioCadastroId = 2,
                     Descricao = "Espelho",
-                    DataLancamento = new DateOnly(2026, 3, 1),
+                    DataLancamento = new DateTime(2026, 3, 1, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 3, 2),
                     TipoReceita = TipoReceita.Freelance,
                     TipoRecebimento = TipoRecebimento.Dinheiro,
@@ -552,7 +601,7 @@ public sealed class ReceitaServiceTests
                 Id = 1,
                 UsuarioCadastroId = 99,
                 Descricao = "Receita",
-                DataLancamento = new DateOnly(2026, 3, 1),
+                DataLancamento = new DateTime(2026, 3, 1, 0, 0, 0),
                 DataVencimento = new DateOnly(2026, 3, 2),
                 TipoReceita = TipoReceita.Freelance,
                 TipoRecebimento = TipoRecebimento.Dinheiro,
@@ -637,7 +686,7 @@ public sealed class ReceitaServiceTests
     {
         var service = CriarService(new ReceitaRepoFake(), new ContaRepoFake(), new AreaRepoFake(), 99);
 
-        var ex = await Assert.ThrowsAsync<NotFoundException>(() => service.EfetivarAsync(10, new EfetivarReceitaRequest(new DateOnly(2026, 3, 5), TipoRecebimento.Dinheiro, 100m, 0m, 0m, 0m, 0m, null)));
+        var ex = await Assert.ThrowsAsync<NotFoundException>(() => service.EfetivarAsync(10, new EfetivarReceitaRequest(new DateTime(2026, 3, 5, 0, 0, 0), TipoRecebimento.Dinheiro, 100m, 0m, 0m, 0m, 0m, null)));
 
         Assert.Equal("receita_nao_encontrada", ex.Message);
     }
@@ -652,7 +701,7 @@ public sealed class ReceitaServiceTests
                 {
                     Id = 1,
                     Descricao = "Receita",
-                    DataLancamento = new DateOnly(2026, 3, 10),
+                    DataLancamento = new DateTime(2026, 3, 10, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 3, 15),
                     TipoReceita = TipoReceita.Freelance,
                     TipoRecebimento = TipoRecebimento.Dinheiro,
@@ -667,7 +716,7 @@ public sealed class ReceitaServiceTests
             99);
 
         var ex = await Assert.ThrowsAsync<DomainException>(() =>
-            service.EfetivarAsync(1, new EfetivarReceitaRequest(new DateOnly(2026, 3, 9), TipoRecebimento.Dinheiro, 100m, 0m, 0m, 0m, 0m, null)));
+            service.EfetivarAsync(1, new EfetivarReceitaRequest(new DateTime(2026, 3, 9, 0, 0, 0), TipoRecebimento.Dinheiro, 100m, 0m, 0m, 0m, 0m, null)));
 
         Assert.Equal("periodo_invalido", ex.Message);
     }
@@ -682,7 +731,7 @@ public sealed class ReceitaServiceTests
                 {
                     Id = 1,
                     Descricao = "Receita",
-                    DataLancamento = new DateOnly(2026, 3, 10),
+                    DataLancamento = new DateTime(2026, 3, 10, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 3, 15),
                     TipoReceita = TipoReceita.Freelance,
                     TipoRecebimento = TipoRecebimento.Dinheiro,
@@ -696,7 +745,7 @@ public sealed class ReceitaServiceTests
             new AreaRepoFake(),
             99);
 
-        var result = await service.EfetivarAsync(1, new EfetivarReceitaRequest(new DateOnly(2026, 3, 10), TipoRecebimento.Dinheiro, 100m, 0m, 0m, 0m, 0m, null));
+        var result = await service.EfetivarAsync(1, new EfetivarReceitaRequest(new DateTime(2026, 3, 10, 0, 0, 0), TipoRecebimento.Dinheiro, 100m, 0m, 0m, 0m, 0m, null));
 
         Assert.Equal("efetivada", result.Status);
     }
@@ -712,7 +761,7 @@ public sealed class ReceitaServiceTests
                     Id = 1,
                     UsuarioCadastroId = 99,
                     Descricao = "Receita transferencia",
-                    DataLancamento = new DateOnly(2026, 3, 10),
+                    DataLancamento = new DateTime(2026, 3, 10, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 3, 10),
                     TipoReceita = TipoReceita.Outros,
                     TipoRecebimento = TipoRecebimento.Transferencia,
@@ -734,7 +783,7 @@ public sealed class ReceitaServiceTests
             service.EfetivarAsync(
                 1,
                 new EfetivarReceitaRequest(
-                    new DateOnly(2026, 3, 10),
+                    new DateTime(2026, 3, 10, 0, 0, 0),
                     TipoRecebimento.Transferencia,
                     100m,
                     0m,
@@ -811,7 +860,7 @@ public sealed class ReceitaServiceTests
                 Id = 2,
                 UsuarioCadastroId = 99,
                 Descricao = "Assinatura",
-                DataLancamento = new DateOnly(2026, 2, 1),
+                DataLancamento = new DateTime(2026, 2, 1, 0, 0, 0),
                 DataVencimento = new DateOnly(2026, 2, 2),
                 TipoReceita = TipoReceita.Freelance,
                 TipoRecebimento = TipoRecebimento.Dinheiro,
@@ -828,7 +877,7 @@ public sealed class ReceitaServiceTests
                     Id = 1,
                     UsuarioCadastroId = 99,
                     Descricao = "Assinatura",
-                    DataLancamento = new DateOnly(2026, 1, 1),
+                    DataLancamento = new DateTime(2026, 1, 1, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 1, 2),
                     TipoReceita = TipoReceita.Freelance,
                     TipoRecebimento = TipoRecebimento.Dinheiro,
@@ -843,7 +892,7 @@ public sealed class ReceitaServiceTests
                     Id = 2,
                     UsuarioCadastroId = 99,
                     Descricao = "Assinatura",
-                    DataLancamento = new DateOnly(2026, 2, 1),
+                    DataLancamento = new DateTime(2026, 2, 1, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 2, 2),
                     TipoReceita = TipoReceita.Freelance,
                     TipoRecebimento = TipoRecebimento.Dinheiro,
@@ -858,7 +907,7 @@ public sealed class ReceitaServiceTests
                     Id = 3,
                     UsuarioCadastroId = 99,
                     Descricao = "Assinatura",
-                    DataLancamento = new DateOnly(2026, 3, 1),
+                    DataLancamento = new DateTime(2026, 3, 1, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 3, 2),
                     TipoReceita = TipoReceita.Freelance,
                     TipoRecebimento = TipoRecebimento.Dinheiro,
@@ -876,7 +925,7 @@ public sealed class ReceitaServiceTests
             "Receita Atualizada",
             null,
             null,
-            new DateOnly(2026, 3, 10),
+            new DateTime(2026, 3, 10, 0, 0, 0),
             new DateOnly(2026, 3, 12),
             TipoReceita.Freelance,
             TipoRecebimento.Dinheiro,
@@ -899,9 +948,9 @@ public sealed class ReceitaServiceTests
         var atualizadaBase = repository.ReceitasAtualizadas.Last(x => x.Id == 2);
         var atualizadaProxima = repository.ReceitasAtualizadas.Last(x => x.Id == 3);
 
-        Assert.Equal(new DateOnly(2026, 3, 10), atualizadaBase.DataLancamento);
+        Assert.Equal(new DateTime(2026, 3, 10, 0, 0, 0), atualizadaBase.DataLancamento);
         Assert.Equal(new DateOnly(2026, 3, 12), atualizadaBase.DataVencimento);
-        Assert.Equal(new DateOnly(2026, 4, 10), atualizadaProxima.DataLancamento);
+        Assert.Equal(new DateTime(2026, 4, 10, 0, 0, 0), atualizadaProxima.DataLancamento);
         Assert.Equal(new DateOnly(2026, 4, 12), atualizadaProxima.DataVencimento);
     }
 
@@ -915,7 +964,7 @@ public sealed class ReceitaServiceTests
                 Id = 2,
                 UsuarioCadastroId = 99,
                 Descricao = "Plano",
-                DataLancamento = new DateOnly(2026, 2, 1),
+                DataLancamento = new DateTime(2026, 2, 1, 0, 0, 0),
                 DataVencimento = new DateOnly(2026, 2, 1),
                 TipoReceita = TipoReceita.Freelance,
                 TipoRecebimento = TipoRecebimento.Dinheiro,
@@ -933,7 +982,7 @@ public sealed class ReceitaServiceTests
                     Id = 1,
                     UsuarioCadastroId = 99,
                     Descricao = "Plano",
-                    DataLancamento = new DateOnly(2026, 1, 1),
+                    DataLancamento = new DateTime(2026, 1, 1, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 1, 1),
                     TipoReceita = TipoReceita.Freelance,
                     TipoRecebimento = TipoRecebimento.Dinheiro,
@@ -949,7 +998,7 @@ public sealed class ReceitaServiceTests
                     Id = 2,
                     UsuarioCadastroId = 99,
                     Descricao = "Plano",
-                    DataLancamento = new DateOnly(2026, 2, 1),
+                    DataLancamento = new DateTime(2026, 2, 1, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 2, 1),
                     TipoReceita = TipoReceita.Freelance,
                     TipoRecebimento = TipoRecebimento.Dinheiro,
@@ -965,7 +1014,7 @@ public sealed class ReceitaServiceTests
                     Id = 3,
                     UsuarioCadastroId = 99,
                     Descricao = "Plano",
-                    DataLancamento = new DateOnly(2026, 3, 1),
+                    DataLancamento = new DateTime(2026, 3, 1, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 3, 1),
                     TipoReceita = TipoReceita.Freelance,
                     TipoRecebimento = TipoRecebimento.Dinheiro,
@@ -1006,7 +1055,7 @@ public sealed class ReceitaServiceTests
                 Id = 2,
                 UsuarioCadastroId = 99,
                 Descricao = "Plano",
-                DataLancamento = new DateOnly(2026, 2, 1),
+                DataLancamento = new DateTime(2026, 2, 1, 0, 0, 0),
                 DataVencimento = new DateOnly(2026, 2, 1),
                 TipoReceita = TipoReceita.Freelance,
                 TipoRecebimento = TipoRecebimento.Dinheiro,
@@ -1024,7 +1073,7 @@ public sealed class ReceitaServiceTests
                     Id = 1,
                     UsuarioCadastroId = 99,
                     Descricao = "Plano",
-                    DataLancamento = new DateOnly(2026, 1, 1),
+                    DataLancamento = new DateTime(2026, 1, 1, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 1, 1),
                     TipoReceita = TipoReceita.Freelance,
                     TipoRecebimento = TipoRecebimento.Dinheiro,
@@ -1040,7 +1089,7 @@ public sealed class ReceitaServiceTests
                     Id = 2,
                     UsuarioCadastroId = 99,
                     Descricao = "Plano",
-                    DataLancamento = new DateOnly(2026, 2, 1),
+                    DataLancamento = new DateTime(2026, 2, 1, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 2, 1),
                     TipoReceita = TipoReceita.Freelance,
                     TipoRecebimento = TipoRecebimento.Dinheiro,
@@ -1056,7 +1105,7 @@ public sealed class ReceitaServiceTests
                     Id = 3,
                     UsuarioCadastroId = 99,
                     Descricao = "Plano",
-                    DataLancamento = new DateOnly(2026, 3, 1),
+                    DataLancamento = new DateTime(2026, 3, 1, 0, 0, 0),
                     DataVencimento = new DateOnly(2026, 3, 1),
                     TipoReceita = TipoReceita.Freelance,
                     TipoRecebimento = TipoRecebimento.Dinheiro,
@@ -1100,7 +1149,7 @@ public sealed class ReceitaServiceTests
             "Freelance",
             null,
             null,
-            new DateOnly(2026, 3, 1),
+            new DateTime(2026, 3, 1, 0, 0, 0),
             new DateOnly(2026, 3, 2),
             TipoReceita.Freelance,
             tipoRecebimento,
@@ -1142,7 +1191,7 @@ public sealed class ReceitaServiceTests
             "Receita Atualizada",
             null,
             null,
-            new DateOnly(2026, 3, 1),
+            new DateTime(2026, 3, 1, 0, 0, 0),
             new DateOnly(2026, 3, 2),
             TipoReceita.Freelance,
             tipoRecebimento,
@@ -1185,6 +1234,7 @@ public sealed class ReceitaServiceTests
     {
         public List<Despesa> DespesasCriadas { get; } = [];
         public List<Despesa> DespesasAtualizadas { get; } = [];
+        public List<Despesa> DespesasListadas { get; set; } = [];
 
         public Task<List<Despesa>> ListarAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(new List<Despesa>());
@@ -1193,7 +1243,11 @@ public sealed class ReceitaServiceTests
             Task.FromResult(new List<Despesa>());
 
         public Task<List<Despesa>> ListarPorUsuarioAsync(int usuarioCadastroId, string? filtroId, string? descricao, string? competencia, DateOnly? dataInicio, DateOnly? dataFim, CancellationToken cancellationToken = default) =>
-            Task.FromResult(new List<Despesa>());
+            Task.FromResult(DespesasListadas
+                .Concat(DespesasCriadas)
+                .Concat(DespesasAtualizadas)
+                .Where(x => x.UsuarioCadastroId == usuarioCadastroId)
+                .ToList());
 
         public Task<List<Despesa>> ListarPendentesAprovacaoPorUsuarioAsync(int usuarioCadastroId, CancellationToken cancellationToken = default) =>
             Task.FromResult(new List<Despesa>());
@@ -1319,10 +1373,10 @@ public sealed class ReceitaServiceTests
                 query = query.Where(x => x.Descricao.Contains(descricao.Trim(), StringComparison.OrdinalIgnoreCase));
 
             if (dataInicio.HasValue)
-                query = query.Where(x => x.DataLancamento >= dataInicio.Value);
+                query = query.Where(x => DateOnly.FromDateTime(x.DataLancamento) >= dataInicio.Value);
 
             if (dataFim.HasValue)
-                query = query.Where(x => x.DataLancamento <= dataFim.Value);
+                query = query.Where(x => DateOnly.FromDateTime(x.DataLancamento) <= dataFim.Value);
 
             if (TryParseCompetencia(competencia, out var ano, out var mes))
                 query = query.Where(x => x.DataLancamento.Year == ano && x.DataLancamento.Month == mes);

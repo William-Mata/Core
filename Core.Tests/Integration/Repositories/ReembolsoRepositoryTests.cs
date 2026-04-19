@@ -22,7 +22,7 @@ public sealed class ReembolsoRepositoryTests
             Id = 1,
             UsuarioCadastroId = 1,
             Descricao = "Combustivel",
-            DataLancamento = new DateOnly(2026, 3, 15),
+            DataLancamento = new DateTime(2026, 3, 15, 0, 0, 0),
             DataVencimento = new DateOnly(2026, 3, 15),
             TipoDespesa = TipoDespesa.Transporte,
             TipoPagamento = TipoPagamento.Pix,
@@ -38,7 +38,7 @@ public sealed class ReembolsoRepositoryTests
             UsuarioCadastroId = 1,
             Descricao = "Viagem comercial",
             Solicitante = "Joao Silva",
-            DataLancamento = new DateOnly(2026, 3, 18),
+            DataLancamento = new DateTime(2026, 3, 18, 0, 0, 0),
             ValorTotal = 100m,
             Status = StatusReembolso.Aguardando,
             Despesas =

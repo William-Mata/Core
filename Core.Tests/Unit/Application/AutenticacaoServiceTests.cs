@@ -1,5 +1,5 @@
-﻿using Core.Application.DTOs;
-using Core.Application.Services;
+using Core.Application.DTOs.Administracao;
+using Core.Application.Services.Administracao;
 using Core.Domain.Entities;
 using Core.Domain.Entities.Administracao;
 using Core.Domain.Exceptions;
@@ -312,3 +312,4 @@ public sealed class AutenticacaoServiceTests
         public string GerarAccessToken(Usuario usuario, DateTime expiracaoUtc) => "jwt-token-valido";
     }
 }
+

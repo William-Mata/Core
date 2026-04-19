@@ -11,7 +11,7 @@ public sealed class ErrorHandlingMiddlewareTests
     public async Task DeveRetornarProblemDetails_ParaDomainException()
     {
         var context = CriarHttpContext("/api/usuarios");
-        var middleware = new ErrorHandlingMiddleware(_ => throw new DomainException("usuario_nao_autenticado"));
+        var middleware = new ErrorHandlingMiddleware(_ => throw new DomainException("usuario_nao_autenticado"), Microsoft.Extensions.Logging.Abstractions.NullLogger<ErrorHandlingMiddleware>.Instance);
 
         await middleware.InvokeAsync(context);
         var payload = await LerPayloadAsync(context);
@@ -27,7 +27,7 @@ public sealed class ErrorHandlingMiddlewareTests
     public async Task DeveRetornarProblemDetails_ParaNotFoundException()
     {
         var context = CriarHttpContext("/api/usuarios/99");
-        var middleware = new ErrorHandlingMiddleware(_ => throw new NotFoundException("usuario_nao_encontrado"));
+        var middleware = new ErrorHandlingMiddleware(_ => throw new NotFoundException("usuario_nao_encontrado"), Microsoft.Extensions.Logging.Abstractions.NullLogger<ErrorHandlingMiddleware>.Instance);
 
         await middleware.InvokeAsync(context);
         var payload = await LerPayloadAsync(context);
@@ -43,7 +43,7 @@ public sealed class ErrorHandlingMiddlewareTests
     public async Task DeveRetornarProblemDetails_ParaErroInterno()
     {
         var context = CriarHttpContext("/api/financeiro/cartoes");
-        var middleware = new ErrorHandlingMiddleware(_ => throw new InvalidOperationException("falha"));
+        var middleware = new ErrorHandlingMiddleware(_ => throw new InvalidOperationException("falha"), Microsoft.Extensions.Logging.Abstractions.NullLogger<ErrorHandlingMiddleware>.Instance);
 
         await middleware.InvokeAsync(context);
         var payload = await LerPayloadAsync(context);
@@ -70,3 +70,4 @@ public sealed class ErrorHandlingMiddlewareTests
         return document.RootElement.Clone();
     }
 }
+

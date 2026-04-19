@@ -1,6 +1,6 @@
-using Core.Domain.Entities;
+using Core.Domain.Entities.Administracao;
 using Core.Infrastructure.Persistence;
-using Core.Infrastructure.Persistence.Repositories;
+using Core.Infrastructure.Persistence.Repositories.Administracao;
 using Microsoft.EntityFrameworkCore;
 
 namespace Core.Tests.Integration.Repositories;
@@ -108,3 +108,4 @@ public sealed class UsuarioRepositoryTests
         Assert.Equal(1, await context.UsuariosFuncionalidades.CountAsync(x => x.UsuarioId == 2 && x.FuncionalidadeId == 1 && x.Status));
     }
 }
+

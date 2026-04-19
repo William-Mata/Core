@@ -49,7 +49,7 @@ public sealed class RabbitMqRecorrenciaBackgroundPublisherTests
             Descricao: "Teste",
             Observacao: null,
             DataHoraCadastroOrigem: DateTime.UtcNow,
-            DataLancamento: DateOnly.FromDateTime(DateTime.UtcNow),
+            DataLancamento: DateTime.UtcNow,
             DataVencimento: DateOnly.FromDateTime(DateTime.UtcNow),
             TipoDespesa: TipoDespesa.Servicos,
             TipoPagamento: TipoPagamento.Transferencia,
@@ -62,6 +62,7 @@ public sealed class RabbitMqRecorrenciaBackgroundPublisherTests
             Imposto: 0m,
             Juros: 0m,
             ContaBancariaId: null,
+            ContaDestinoId: null,
             CartaoId: null,
             ValorTotalRateioAmigos: null,
             TipoRateioAmigos: null,
@@ -72,10 +73,11 @@ public sealed class RabbitMqRecorrenciaBackgroundPublisherTests
     private static ReceitaRecorrenciaBackgroundMessage CriarMensagemReceita() =>
         new(
             UsuarioId: 1,
+            ReceitaRecorrenciaOrigemId: 1,
             Descricao: "Teste",
             Observacao: null,
             DataHoraCadastroOrigem: DateTime.UtcNow,
-            DataLancamento: DateOnly.FromDateTime(DateTime.UtcNow),
+            DataLancamento: DateTime.UtcNow,
             DataVencimento: DateOnly.FromDateTime(DateTime.UtcNow),
             TipoReceita: TipoReceita.Salario,
             TipoRecebimento: TipoRecebimento.Transferencia,
@@ -88,6 +90,7 @@ public sealed class RabbitMqRecorrenciaBackgroundPublisherTests
             Imposto: 0m,
             Juros: 0m,
             ContaBancariaId: null,
+            ContaDestinoId: null,
             CartaoId: null,
             ValorTotalRateioAmigos: null,
             TipoRateioAmigos: null,
@@ -95,3 +98,4 @@ public sealed class RabbitMqRecorrenciaBackgroundPublisherTests
             AmigosRateio: [],
             AreasSubAreasRateio: []);
 }
+

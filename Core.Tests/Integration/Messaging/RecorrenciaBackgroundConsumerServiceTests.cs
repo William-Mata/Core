@@ -1,5 +1,6 @@
 using System.Reflection;
 using Core.Application.Contracts.Financeiro;
+using Core.Domain.Common;
 using Core.Domain.Entities.Financeiro;
 using Core.Domain.Enums;
 using Core.Infrastructure.Messaging;
@@ -22,7 +23,7 @@ public sealed class RecorrenciaBackgroundConsumerServiceTests
         var service = CriarConsumerService(scope.ServiceProvider);
 
         var dataCadastroOrigem = new DateTime(2026, 1, 10, 8, 30, 0, DateTimeKind.Utc);
-        var dataLancamentoOrigem = new DateOnly(2026, 1, 10);
+        var dataLancamentoOrigem = new DateTime(2026, 1, 10, 0, 0, 0);
 
         context.Despesas.Add(new Despesa
         {
@@ -30,7 +31,7 @@ public sealed class RecorrenciaBackgroundConsumerServiceTests
             Descricao = "Plano anual",
             DataHoraCadastro = dataCadastroOrigem,
             DataLancamento = dataLancamentoOrigem,
-            DataVencimento = dataLancamentoOrigem,
+            DataVencimento = DateOnly.FromDateTime(dataLancamentoOrigem),
             TipoDespesa = TipoDespesa.Servicos,
             TipoPagamento = TipoPagamento.Pix,
             Recorrencia = Recorrencia.Mensal,
@@ -49,7 +50,7 @@ public sealed class RecorrenciaBackgroundConsumerServiceTests
             null,
             dataCadastroOrigem,
             dataLancamentoOrigem,
-            dataLancamentoOrigem,
+            DateOnly.FromDateTime(dataLancamentoOrigem),
             TipoDespesa.Servicos,
             TipoPagamento.Pix,
             Recorrencia.Mensal,
@@ -82,7 +83,9 @@ public sealed class RecorrenciaBackgroundConsumerServiceTests
             .ToListAsync();
 
         Assert.Equal(200, despesas.Count);
-        Assert.All(despesas, x => Assert.Equal(dataCadastroOrigem, x.DataHoraCadastro));
+        var dataCadastroEsperada = DataHoraBrasil.Converter(dataCadastroOrigem);
+        Assert.All(despesas, x => Assert.Equal(dataCadastroEsperada, x.DataHoraCadastro));
+        Assert.All(despesas, x => Assert.Equal(dataLancamentoOrigem, x.DataLancamento));
     }
 
     [Fact]
@@ -94,7 +97,7 @@ public sealed class RecorrenciaBackgroundConsumerServiceTests
         var service = CriarConsumerService(scope.ServiceProvider);
 
         var dataCadastroOrigem = new DateTime(2026, 1, 5, 9, 0, 0, DateTimeKind.Utc);
-        var dataLancamentoOrigem = new DateOnly(2026, 1, 5);
+        var dataLancamentoOrigem = new DateTime(2026, 1, 5, 0, 0, 0);
 
         context.Receitas.Add(new Receita
         {
@@ -102,7 +105,7 @@ public sealed class RecorrenciaBackgroundConsumerServiceTests
             Descricao = "Contrato fixo",
             DataHoraCadastro = dataCadastroOrigem,
             DataLancamento = dataLancamentoOrigem,
-            DataVencimento = dataLancamentoOrigem,
+            DataVencimento = DateOnly.FromDateTime(dataLancamentoOrigem),
             TipoReceita = TipoReceita.Freelance,
             TipoRecebimento = TipoRecebimento.Dinheiro,
             Recorrencia = Recorrencia.Mensal,
@@ -116,11 +119,12 @@ public sealed class RecorrenciaBackgroundConsumerServiceTests
 
         var mensagem100 = new ReceitaRecorrenciaBackgroundMessage(
             77,
+            1,
             "Contrato fixo",
             null,
             dataCadastroOrigem,
             dataLancamentoOrigem,
-            dataLancamentoOrigem,
+            DateOnly.FromDateTime(dataLancamentoOrigem),
             TipoReceita.Freelance,
             TipoRecebimento.Dinheiro,
             Recorrencia.Mensal,
@@ -153,7 +157,9 @@ public sealed class RecorrenciaBackgroundConsumerServiceTests
             .ToListAsync();
 
         Assert.Equal(200, receitas.Count);
-        Assert.All(receitas, x => Assert.Equal(dataCadastroOrigem, x.DataHoraCadastro));
+        var dataCadastroEsperada = DataHoraBrasil.Converter(dataCadastroOrigem);
+        Assert.All(receitas, x => Assert.Equal(dataCadastroEsperada, x.DataHoraCadastro));
+        Assert.All(receitas, x => Assert.Equal(dataLancamentoOrigem, x.DataLancamento));
     }
 
     [Fact]
@@ -165,7 +171,7 @@ public sealed class RecorrenciaBackgroundConsumerServiceTests
         var service = CriarConsumerService(scope.ServiceProvider);
 
         var dataCadastroOrigem = new DateTime(2026, 1, 10, 8, 30, 0, DateTimeKind.Utc);
-        var dataLancamentoOrigem = new DateOnly(2026, 1, 10);
+        var dataLancamentoOrigem = new DateTime(2026, 1, 10, 0, 0, 0);
 
         var despesaBase = new Despesa
         {
@@ -174,7 +180,7 @@ public sealed class RecorrenciaBackgroundConsumerServiceTests
             Descricao = "Transferencia recorrente",
             DataHoraCadastro = dataCadastroOrigem,
             DataLancamento = dataLancamentoOrigem,
-            DataVencimento = dataLancamentoOrigem,
+            DataVencimento = DateOnly.FromDateTime(dataLancamentoOrigem),
             TipoDespesa = TipoDespesa.Outros,
             TipoPagamento = TipoPagamento.Pix,
             Recorrencia = Recorrencia.Mensal,
@@ -193,7 +199,7 @@ public sealed class RecorrenciaBackgroundConsumerServiceTests
             Descricao = despesaBase.Descricao,
             DataHoraCadastro = dataCadastroOrigem,
             DataLancamento = dataLancamentoOrigem,
-            DataVencimento = dataLancamentoOrigem,
+            DataVencimento = DateOnly.FromDateTime(dataLancamentoOrigem),
             TipoReceita = TipoReceita.Outros,
             TipoRecebimento = TipoRecebimento.Pix,
             Recorrencia = Recorrencia.Mensal,
@@ -214,7 +220,7 @@ public sealed class RecorrenciaBackgroundConsumerServiceTests
             null,
             dataCadastroOrigem,
             dataLancamentoOrigem,
-            dataLancamentoOrigem,
+            DateOnly.FromDateTime(dataLancamentoOrigem),
             TipoDespesa.Outros,
             TipoPagamento.Pix,
             Recorrencia.Mensal,
@@ -248,6 +254,11 @@ public sealed class RecorrenciaBackgroundConsumerServiceTests
         Assert.Equal(3, despesasSerie.Count);
         Assert.Equal(3, receitasSerie.Count);
         Assert.Equal(2, despesasSerie.Count(x => x.ReceitaTransferenciaId.HasValue));
+        var receitaBaseEspelhoId = receitasSerie.Single(x => x.DespesaTransferenciaId == 1).Id;
+        var receitasGeradasEspelho = receitasSerie.Where(x => x.DespesaTransferenciaId.HasValue && x.DespesaTransferenciaId != 1).ToArray();
+        Assert.All(receitasGeradasEspelho, x => Assert.Equal(receitaBaseEspelhoId, x.ReceitaRecorrenciaOrigemId));
+        Assert.All(despesasSerie, x => Assert.Equal(dataLancamentoOrigem, x.DataLancamento));
+        Assert.All(receitasSerie, x => Assert.Equal(dataLancamentoOrigem, x.DataLancamento));
         Assert.All(receitasSerie, x => Assert.Equal(TipoRecebimento.Pix, x.TipoRecebimento));
         Assert.All(receitasSerie, x => Assert.Equal(20, x.ContaBancariaId));
         Assert.All(receitasSerie, x => Assert.Equal(10, x.ContaDestinoId));
@@ -262,7 +273,7 @@ public sealed class RecorrenciaBackgroundConsumerServiceTests
         var service = CriarConsumerService(scope.ServiceProvider);
 
         var dataCadastroOrigem = new DateTime(2026, 1, 15, 10, 0, 0, DateTimeKind.Utc);
-        var dataLancamentoOrigem = new DateOnly(2026, 1, 15);
+        var dataLancamentoOrigem = new DateTime(2026, 1, 15, 0, 0, 0);
 
         var receitaBase = new Receita
         {
@@ -271,7 +282,7 @@ public sealed class RecorrenciaBackgroundConsumerServiceTests
             Descricao = "Entrada recorrente",
             DataHoraCadastro = dataCadastroOrigem,
             DataLancamento = dataLancamentoOrigem,
-            DataVencimento = dataLancamentoOrigem,
+            DataVencimento = DateOnly.FromDateTime(dataLancamentoOrigem),
             TipoReceita = TipoReceita.Outros,
             TipoRecebimento = TipoRecebimento.Pix,
             Recorrencia = Recorrencia.Mensal,
@@ -290,7 +301,7 @@ public sealed class RecorrenciaBackgroundConsumerServiceTests
             Descricao = receitaBase.Descricao,
             DataHoraCadastro = dataCadastroOrigem,
             DataLancamento = dataLancamentoOrigem,
-            DataVencimento = dataLancamentoOrigem,
+            DataVencimento = DateOnly.FromDateTime(dataLancamentoOrigem),
             TipoDespesa = TipoDespesa.Outros,
             TipoPagamento = TipoPagamento.Pix,
             Recorrencia = Recorrencia.Mensal,
@@ -306,11 +317,12 @@ public sealed class RecorrenciaBackgroundConsumerServiceTests
 
         var mensagem = new ReceitaRecorrenciaBackgroundMessage(
             99,
+            1,
             "Entrada recorrente",
             null,
             dataCadastroOrigem,
             dataLancamentoOrigem,
-            dataLancamentoOrigem,
+            DateOnly.FromDateTime(dataLancamentoOrigem),
             TipoReceita.Outros,
             TipoRecebimento.Pix,
             Recorrencia.Mensal,
@@ -344,6 +356,11 @@ public sealed class RecorrenciaBackgroundConsumerServiceTests
         Assert.Equal(3, receitasSerie.Count);
         Assert.Equal(3, despesasSerie.Count);
         Assert.Equal(2, receitasSerie.Count(x => x.DespesaTransferenciaId.HasValue));
+        var despesaBaseEspelhoId = despesasSerie.Single(x => x.ReceitaTransferenciaId == 1).Id;
+        var despesasGeradasEspelho = despesasSerie.Where(x => x.ReceitaTransferenciaId.HasValue && x.ReceitaTransferenciaId != 1).ToArray();
+        Assert.All(despesasGeradasEspelho, x => Assert.Equal(despesaBaseEspelhoId, x.DespesaRecorrenciaOrigemId));
+        Assert.All(receitasSerie, x => Assert.Equal(dataLancamentoOrigem, x.DataLancamento));
+        Assert.All(despesasSerie, x => Assert.Equal(dataLancamentoOrigem, x.DataLancamento));
         Assert.All(despesasSerie, x => Assert.Equal(TipoPagamento.Pix, x.TipoPagamento));
         Assert.All(despesasSerie, x => Assert.Equal(10, x.ContaBancariaId));
         Assert.All(despesasSerie, x => Assert.Equal(20, x.ContaDestinoId));

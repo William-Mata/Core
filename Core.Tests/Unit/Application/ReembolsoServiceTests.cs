@@ -110,7 +110,7 @@ public sealed class ReembolsoServiceTests
             },
             1);
 
-        var response = await service.CriarAsync(CriarRequestPadrao());
+        var response = await service.CriarAsync(CriarRequestPadrao(despesasVinculadas: [CriarJsonNumero(1), CriarJsonNumero(3)]));
 
         Assert.Equal(174.9m, response.ValorTotal);
         Assert.Equal("AGUARDANDO", response.Status);
@@ -133,7 +133,7 @@ public sealed class ReembolsoServiceTests
             },
             1);
 
-        var ex = await Assert.ThrowsAsync<DomainException>(() => service.CriarAsync(CriarRequestPadrao(status: "PAGO", dataEfetivacao: new DateOnly(2026, 3, 17))));
+        var ex = await Assert.ThrowsAsync<DomainException>(() => service.CriarAsync(CriarRequestPadrao(status: "PAGO", dataEfetivacao: new DateTime(2026, 3, 17, 0, 0, 0))));
 
         Assert.Equal("periodo_invalido", ex.Message);
     }
@@ -152,10 +152,10 @@ public sealed class ReembolsoServiceTests
             },
             1);
 
-        var response = await service.CriarAsync(CriarRequestPadrao(status: "PAGO", dataEfetivacao: new DateOnly(2026, 3, 18)));
+        var response = await service.CriarAsync(CriarRequestPadrao(status: "PAGO", dataEfetivacao: new DateTime(2026, 3, 18, 0, 0, 0)));
 
         Assert.Equal("PAGO", response.Status);
-        Assert.Equal(new DateOnly(2026, 3, 18), response.DataEfetivacao);
+        Assert.Equal(new DateTime(2026, 3, 18, 0, 0, 0), response.DataEfetivacao);
     }
 
     [Fact]
@@ -170,7 +170,7 @@ public sealed class ReembolsoServiceTests
                 Descricao = "Reembolso",
                 Solicitante = "Joao",
                 Competencia = "2026-03",
-                DataLancamento = new DateOnly(2026, 3, 18),
+                DataLancamento = new DateTime(2026, 3, 18, 0, 0, 0),
                 ValorTotal = 100m,
                 Status = StatusReembolso.Aguardando
             }
@@ -192,7 +192,7 @@ public sealed class ReembolsoServiceTests
                 "Viagem comercial - semana 2",
                 "Joao Silva",
                 null,
-                new DateOnly(2026, 3, 18),
+                new DateTime(2026, 3, 18, 0, 0, 0),
                 null,
                 [CriarJsonNumero(1)],
                 null,
@@ -215,17 +215,17 @@ public sealed class ReembolsoServiceTests
                 Id = 10,
                 Descricao = "Reembolso",
                 Solicitante = "Joao",
-                DataLancamento = new DateOnly(2026, 3, 18),
+                DataLancamento = new DateTime(2026, 3, 18, 0, 0, 0),
                 ValorTotal = 150m,
                 Status = StatusReembolso.Aprovado
             }
         };
         var service = CriarService(repository, new DespesaRepositoryFake(), 1);
 
-        var response = await service.EfetivarAsync(10, new EfetivarReembolsoRequest(new DateOnly(2026, 3, 18), ContaBancariaId: 1));
+        var response = await service.EfetivarAsync(10, new EfetivarReembolsoRequest(new DateTime(2026, 3, 18, 0, 0, 0), ContaBancariaId: 1));
 
         Assert.Equal("PAGO", response.Status);
-        Assert.Equal(new DateOnly(2026, 3, 18), response.DataEfetivacao);
+        Assert.Equal(new DateTime(2026, 3, 18, 0, 0, 0), response.DataEfetivacao);
     }
 
     [Fact]
@@ -238,14 +238,14 @@ public sealed class ReembolsoServiceTests
                 Id = 10,
                 Descricao = "Reembolso",
                 Solicitante = "Joao",
-                DataLancamento = new DateOnly(2026, 3, 18),
+                DataLancamento = new DateTime(2026, 3, 18, 0, 0, 0),
                 ValorTotal = 150m,
                 Status = StatusReembolso.Aprovado
             }
         };
         var service = CriarService(repository, new DespesaRepositoryFake(), 1);
 
-        var ex = await Assert.ThrowsAsync<DomainException>(() => service.EfetivarAsync(10, new EfetivarReembolsoRequest(new DateOnly(2026, 3, 17), ContaBancariaId: 1)));
+        var ex = await Assert.ThrowsAsync<DomainException>(() => service.EfetivarAsync(10, new EfetivarReembolsoRequest(new DateTime(2026, 3, 17, 0, 0, 0), ContaBancariaId: 1)));
 
         Assert.Equal("periodo_invalido", ex.Message);
     }
@@ -260,8 +260,8 @@ public sealed class ReembolsoServiceTests
                 Id = 10,
                 Descricao = "Reembolso",
                 Solicitante = "Joao",
-                DataLancamento = new DateOnly(2026, 3, 18),
-                DataEfetivacao = new DateOnly(2026, 3, 20),
+                DataLancamento = new DateTime(2026, 3, 18, 0, 0, 0),
+                DataEfetivacao = new DateTime(2026, 3, 20, 0, 0, 0),
                 ValorTotal = 150m,
                 Status = StatusReembolso.Pago
             }
@@ -277,14 +277,14 @@ public sealed class ReembolsoServiceTests
     private static SalvarReembolsoRequest CriarRequestPadrao(
         IReadOnlyCollection<JsonElement>? despesasVinculadas = null,
         string? status = "AGUARDANDO",
-        DateOnly? dataEfetivacao = null) =>
+        DateTime? dataEfetivacao = null) =>
         new(
             "Viagem comercial - semana 2",
             "Joao Silva",
             null,
-            new DateOnly(2026, 3, 18),
+            new DateTime(2026, 3, 18, 0, 0, 0),
             dataEfetivacao,
-            despesasVinculadas ?? [CriarJsonNumero(1), CriarJsonNumero(3)],
+            despesasVinculadas ?? [CriarJsonNumero(1)],
             999m,
             status,
             null);

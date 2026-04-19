@@ -89,7 +89,7 @@ public sealed class AmigoFinanceiroServiceTests
         var service = CriarService(amizadeRepository, usuarioRepository, 1);
 
         var ex = await Assert.ThrowsAsync<DomainException>(() =>
-            service.EnviarConviteAsync(new EnviarConviteAmizadeRequest(2)));
+            service.EnviarConviteAsync(new EnviarConviteAmizadeRequest("alex@email.com", null)));
 
         Assert.Equal("amizade_ja_existente", ex.Message);
     }
@@ -227,3 +227,4 @@ public sealed class AmigoFinanceiroServiceTests
             Task.CompletedTask;
     }
 }
+

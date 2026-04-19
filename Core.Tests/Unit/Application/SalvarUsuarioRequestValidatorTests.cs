@@ -1,4 +1,4 @@
-using Core.Application.DTOs;
+using Core.Application.DTOs.Administracao;
 using Core.Application.Validators.Administracao;
 using Core.Domain.Common;
 
@@ -137,3 +137,4 @@ public sealed class SalvarUsuarioRequestValidatorTests
         Assert.Contains(result.Errors, x => x.ErrorMessage == "A data de nascimento informada e invalida.");
     }
 }
+
