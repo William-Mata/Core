@@ -25,7 +25,7 @@ Documentar o contrato real do `DespesaController`, com regras de negocio do serv
 - Comparacoes de vencimento continuam por data; para `dataEfetivacao` a regra considera data e hora.
 
 ## Enums usados no contrato
-- `TipoDespesa`: `Alimentacao`, `Transporte`, `Moradia`, `Lazer`, `Saude`, `Educacao`, `Servicos`
+- `TipoDespesa`: `Alimentacao`, `Transporte`, `Moradia`, `Lazer`, `Saude`, `Educacao`, `Servicos`, `Impostos`, `Seguros`, `Assinaturas`, `Viagens`, `Vestuario`, `Outros`
 - `TipoPagamento`: `Pix`, `CartaoCredito`, `CartaoDebito`, `Boleto`, `Transferencia`, `Dinheiro`
 - `Recorrencia`: `Unica`, `Diaria`, `Semanal`, `Quinzenal`, `Mensal`, `Trimestral`, `Semestral`, `Anual`
 - `EscopoRecorrencia`: `ApenasEssa`, `EssaEAsProximas`, `TodasPendentes`

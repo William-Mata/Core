@@ -248,6 +248,10 @@ Regras:
 - `reembolso`
 - `investimento`
 - `bonus`
+- `vendas`
+- `alugueis`
+- `beneficios`
+- `rendasExtras`
 - `outros`
 
 ### `tipoRecebimento`

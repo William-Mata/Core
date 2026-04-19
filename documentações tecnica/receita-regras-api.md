@@ -25,7 +25,7 @@ Documentar o contrato real do `ReceitaController`, com regras de negocio do serv
 - Comparacoes de vencimento continuam por data; para `dataEfetivacao` a regra considera data e hora.
 
 ## Enums usados no contrato
-- `TipoReceita`: `Salario`, `Freelance`, `Reembolso`, `Investimento`, `Bonus`, `Outros`
+- `TipoReceita`: `Salario`, `Freelance`, `Reembolso`, `Investimento`, `Bonus`, `Vendas`, `Alugueis`, `Beneficios`, `RendasExtras`, `Outros`
 - `TipoRecebimento`: `Pix`, `Transferencia`, `Dinheiro`, `Boleto`, `CartaoCredito`, `CartaoDebito`
 - `Recorrencia`: `Unica`, `Diaria`, `Semanal`, `Quinzenal`, `Mensal`, `Trimestral`, `Semestral`, `Anual`
 - `EscopoRecorrencia`: `ApenasEssa`, `EssaEAsProximas`, `TodasPendentes`

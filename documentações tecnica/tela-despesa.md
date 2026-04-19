@@ -258,6 +258,12 @@ Regras:
 - `saude`
 - `educacao`
 - `servicos`
+- `impostos`
+- `seguros`
+- `assinaturas`
+- `viagens`
+- `vestuario`
+- `outros`
 
 ### `tipoPagamento`
 - `pix`
