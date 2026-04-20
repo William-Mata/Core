@@ -13,6 +13,7 @@ public sealed class FaturaCartao
     public DateOnly? DataFechamento { get; set; }
     public DateOnly? DataEfetivacao { get; set; }
     public DateOnly? DataEstorno { get; set; }
+    public long? DespesaPagamentoId { get; set; }
     public decimal ValorTotal { get; set; }
     public StatusFaturaCartao Status { get; set; } = StatusFaturaCartao.Aberta;
 }

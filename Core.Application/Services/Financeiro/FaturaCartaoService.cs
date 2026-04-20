@@ -12,10 +12,12 @@ namespace Core.Application.Services.Financeiro;
 public sealed class FaturaCartaoService(
     IFaturaCartaoRepository repository,
     ICartaoRepository cartaoRepository,
+    IContaBancariaRepository contaBancariaRepository,
     IDespesaRepository despesaRepository,
     IReceitaRepository receitaRepository,
     IReembolsoRepository reembolsoRepository,
     IUsuarioAutenticadoProvider usuarioAutenticadoProvider,
+    HistoricoTransacaoFinanceiraService historicoTransacaoFinanceiraService,
     IFaturaCartaoBackgroundPublisher? faturaCartaoBackgroundPublisher = null)
 {
     private const int DiasAntesVencimentoParaFechamento = 7;
@@ -67,32 +69,153 @@ public sealed class FaturaCartaoService(
         await GarantirFaturasESanearTransacoesCartaoAsync(usuarioAutenticadoId, competenciaNormalizada, cancellationToken);
     }
 
-    public async Task<FaturaCartaoListaDto> EfetivarAsync(long id, CancellationToken cancellationToken = default)
+    public async Task<FaturaCartaoListaDto> EfetivarAsync(long id, EfetivarFaturaCartaoRequest request, CancellationToken cancellationToken = default)
     {
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
         var fatura = await repository.ObterPorIdAsync(id, usuarioAutenticadoId, cancellationToken) ?? throw new NotFoundException("fatura_nao_encontrada");
-        if (fatura.Status == StatusFaturaCartao.Estornada) throw new DomainException("status_invalido");
+        ValidarStatusEfetivacao(fatura.Status);
 
         await AplicarFechamentoAutomaticoAsync(fatura, usuarioAutenticadoId, cancellationToken);
         await RecalcularTotalInternoAsync(fatura, usuarioAutenticadoId, cancellationToken);
+        await ValidarTransacoesDaFaturaEfetivadasAsync(fatura.Id, usuarioAutenticadoId, cancellationToken);
+
+        if (fatura.ValorTotal <= 0m)
+        {
+            var dataEfetivacaoSemDespesa = request.DataEfetivacao == default ? DataHoraBrasil.Agora() : request.DataEfetivacao;
+            fatura.Status = StatusFaturaCartao.Efetivada;
+            fatura.DataEfetivacao = DateOnly.FromDateTime(dataEfetivacaoSemDespesa);
+            fatura.DataEstorno = null;
+            fatura = await repository.AtualizarAsync(fatura, cancellationToken);
+            return MapLista(fatura);
+        }
+
+        ValidarRequestEfetivacao(request, fatura.ValorTotal);
+
+        var conta = await contaBancariaRepository.ObterPorIdAsync(request.ContaBancariaId, usuarioAutenticadoId, cancellationToken);
+        if (conta is null)
+            throw new DomainException("conta_bancaria_invalida");
+
+        var despesaPagamento = await ObterOuCriarDespesaPagamentoAsync(fatura, request, usuarioAutenticadoId, cancellationToken);
+        var valorEfetivado = request.ValorEfetivacao;
+        var dataEfetivacao = DateOnly.FromDateTime(request.DataEfetivacao);
+
+        await historicoTransacaoFinanceiraService.RegistrarEfetivacaoAsync(
+            TipoTransacaoFinanceira.Despesa,
+            despesaPagamento.Id,
+            usuarioAutenticadoId,
+            dataEfetivacao,
+            0m,
+            valorEfetivado,
+            valorEfetivado,
+            "Efetivacao de despesa",
+            tipoPagamento: TipoPagamento.Transferencia,
+            contaBancariaId: request.ContaBancariaId,
+            cancellationToken: cancellationToken,
+            observacao: NormalizarObservacao(request.ObservacaoHistorico));
+
+        await historicoTransacaoFinanceiraService.RegistrarEfetivacaoAsync(
+            TipoTransacaoFinanceira.Receita,
+            fatura.Id,
+            usuarioAutenticadoId,
+            dataEfetivacao,
+            0m,
+            valorEfetivado,
+            valorEfetivado,
+            "Efetivacao de pagamento de fatura",
+            cartaoId: fatura.CartaoId,
+            cancellationToken: cancellationToken,
+            observacao: NormalizarObservacao(request.ObservacaoHistorico));
 
         fatura.Status = StatusFaturaCartao.Efetivada;
-        fatura.DataEfetivacao = DataHoraBrasil.Hoje();
+        fatura.DataEfetivacao = dataEfetivacao;
         fatura.DataEstorno = null;
+        fatura.DespesaPagamentoId = despesaPagamento.Id;
         fatura = await repository.AtualizarAsync(fatura, cancellationToken);
         return MapLista(fatura);
     }
 
-    public async Task<FaturaCartaoListaDto> EstornarAsync(long id, CancellationToken cancellationToken = default)
+    public async Task<FaturaCartaoListaDto> EstornarAsync(long id, EstornarFaturaCartaoRequest request, CancellationToken cancellationToken = default)
     {
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
         var fatura = await repository.ObterPorIdAsync(id, usuarioAutenticadoId, cancellationToken) ?? throw new NotFoundException("fatura_nao_encontrada");
-        if (fatura.Status != StatusFaturaCartao.Efetivada) throw new DomainException("status_invalido");
+        if (fatura.Status != StatusFaturaCartao.Efetivada)
+            throw new DomainException("status_invalido");
+        if (request.DataEstorno == default)
+            throw new DomainException("data_estorno_obrigatoria");
+        if (fatura.DataEfetivacao.HasValue && request.DataEstorno < fatura.DataEfetivacao.Value)
+            throw new DomainException("periodo_invalido");
+
+        if (!fatura.DespesaPagamentoId.HasValue)
+            throw new DomainException("despesa_pagamento_fatura_nao_encontrada");
+
+        var despesaPagamento = await despesaRepository.ObterPorIdAsync(fatura.DespesaPagamentoId.Value, usuarioAutenticadoId, cancellationToken);
+        if (despesaPagamento is null)
+            throw new DomainException("despesa_pagamento_fatura_nao_encontrada");
+
+        var valorEfetivado = despesaPagamento.ValorEfetivacao ?? despesaPagamento.ValorLiquido;
+        despesaPagamento.Status = StatusDespesa.Pendente;
+        despesaPagamento.DataEfetivacao = null;
+        despesaPagamento.ValorEfetivacao = null;
+        await despesaRepository.AtualizarAsync(despesaPagamento, cancellationToken);
+
+        await historicoTransacaoFinanceiraService.RegistrarEstornoAsync(
+            TipoTransacaoFinanceira.Despesa,
+            despesaPagamento.Id,
+            usuarioAutenticadoId,
+            request.DataEstorno,
+            valorEfetivado,
+            valorEfetivado,
+            0m,
+            "Estorno de despesa",
+            tipoPagamento: TipoPagamento.Transferencia,
+            contaBancariaId: despesaPagamento.ContaBancariaId,
+            cancellationToken: cancellationToken,
+            observacao: NormalizarObservacao(request.ObservacaoHistorico),
+            ocultarDoHistorico: request.OcultarDoHistorico);
+
+        await historicoTransacaoFinanceiraService.RegistrarEstornoAsync(
+            TipoTransacaoFinanceira.Receita,
+            fatura.Id,
+            usuarioAutenticadoId,
+            request.DataEstorno,
+            valorEfetivado,
+            valorEfetivado,
+            0m,
+            "Estorno de pagamento de fatura",
+            cartaoId: fatura.CartaoId,
+            cancellationToken: cancellationToken,
+            observacao: NormalizarObservacao(request.ObservacaoHistorico),
+            ocultarDoHistorico: request.OcultarDoHistorico);
 
         fatura.Status = StatusFaturaCartao.Estornada;
-        fatura.DataEstorno = DataHoraBrasil.Hoje();
+        fatura.DataEfetivacao = null;
+        fatura.DataEstorno = request.DataEstorno;
         fatura = await repository.AtualizarAsync(fatura, cancellationToken);
         return MapLista(fatura);
+    }
+
+    public async Task GarantirFaturaEstornadaParaEstornoTransacaoAsync(
+        long? faturaCartaoId,
+        DateOnly dataEstorno,
+        bool ocultarDoHistorico,
+        string? observacaoHistorico,
+        CancellationToken cancellationToken = default)
+    {
+        if (!faturaCartaoId.HasValue)
+            return;
+
+        var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
+        var fatura = await repository.ObterPorIdAsync(faturaCartaoId.Value, usuarioAutenticadoId, cancellationToken);
+        if (fatura is null)
+            return;
+
+        if (fatura.Status == StatusFaturaCartao.Efetivada)
+        {
+            await EstornarAsync(
+                fatura.Id,
+                new EstornarFaturaCartaoRequest(dataEstorno, observacaoHistorico, ocultarDoHistorico),
+                cancellationToken);
+        }
     }
 
     public async Task<long?> ResolverFaturaIdParaTransacaoCartaoAsync(long? cartaoId, string competencia, int usuarioAutenticadoId, CancellationToken cancellationToken = default)
@@ -151,6 +274,127 @@ public sealed class FaturaCartaoService(
             return;
 
         await RecalcularTotalInternoAsync(fatura, usuarioAutenticadoId, cancellationToken);
+    }
+
+    private async Task<Despesa> ObterOuCriarDespesaPagamentoAsync(FaturaCartao fatura, EfetivarFaturaCartaoRequest request, int usuarioAutenticadoId, CancellationToken cancellationToken)
+    {
+        if (fatura.DespesaPagamentoId.HasValue)
+        {
+            var despesaExistente = await despesaRepository.ObterPorIdAsync(fatura.DespesaPagamentoId.Value, usuarioAutenticadoId, cancellationToken);
+            if (despesaExistente is not null)
+            {
+                var valorEfetivado = request.ValorEfetivacao;
+                despesaExistente.Descricao = $"Pagamento de fatura cartao {fatura.Competencia}";
+                despesaExistente.Observacao = $"Pagamento de fatura do cartao {fatura.CartaoId}.";
+                despesaExistente.DataLancamento = request.DataEfetivacao;
+                despesaExistente.DataVencimento = fatura.DataVencimento ?? DateOnly.FromDateTime(request.DataEfetivacao);
+                despesaExistente.TipoDespesa = TipoDespesa.Servicos;
+                despesaExistente.TipoPagamento = TipoPagamento.Transferencia;
+                despesaExistente.Recorrencia = Recorrencia.Unica;
+                despesaExistente.RecorrenciaFixa = false;
+                despesaExistente.QuantidadeRecorrencia = null;
+                despesaExistente.ValorTotal = valorEfetivado;
+                despesaExistente.ValorLiquido = valorEfetivado;
+                despesaExistente.Desconto = 0m;
+                despesaExistente.Acrescimo = 0m;
+                despesaExistente.Imposto = 0m;
+                despesaExistente.Juros = 0m;
+                despesaExistente.ValorEfetivacao = valorEfetivado;
+                despesaExistente.Status = StatusDespesa.Efetivada;
+                despesaExistente.ContaBancariaId = request.ContaBancariaId;
+                despesaExistente.ContaDestinoId = null;
+                despesaExistente.CartaoId = null;
+                despesaExistente.FaturaCartaoId = null;
+                despesaExistente.UsuarioCadastroId = usuarioAutenticadoId;
+                despesaExistente = await despesaRepository.AtualizarAsync(despesaExistente, cancellationToken);
+                return despesaExistente;
+            }
+        }
+
+        var valor = request.ValorEfetivacao;
+        return await despesaRepository.CriarAsync(new Despesa
+        {
+            UsuarioCadastroId = usuarioAutenticadoId,
+            Descricao = $"Pagamento de fatura cartao {fatura.Competencia}",
+            Observacao = $"Pagamento de fatura do cartao {fatura.CartaoId}.",
+            Competencia = fatura.Competencia,
+            DataLancamento = request.DataEfetivacao,
+            DataVencimento = fatura.DataVencimento ?? DateOnly.FromDateTime(request.DataEfetivacao),
+            DataEfetivacao = request.DataEfetivacao,
+            TipoDespesa = TipoDespesa.Servicos,
+            TipoPagamento = TipoPagamento.Transferencia,
+            Recorrencia = Recorrencia.Unica,
+            RecorrenciaFixa = false,
+            QuantidadeRecorrencia = null,
+            ValorTotal = valor,
+            ValorLiquido = valor,
+            Desconto = 0m,
+            Acrescimo = 0m,
+            Imposto = 0m,
+            Juros = 0m,
+            ValorEfetivacao = valor,
+            Status = StatusDespesa.Efetivada,
+            ContaBancariaId = request.ContaBancariaId,
+            ContaDestinoId = null,
+            CartaoId = null,
+            FaturaCartaoId = null
+        }, cancellationToken);
+    }
+
+    private static void ValidarStatusEfetivacao(StatusFaturaCartao status)
+    {
+        if (status is StatusFaturaCartao.Aberta or StatusFaturaCartao.Fechada or StatusFaturaCartao.Estornada or StatusFaturaCartao.Vencida)
+            return;
+
+        throw new DomainException("status_invalido");
+    }
+
+    private static void ValidarRequestEfetivacao(EfetivarFaturaCartaoRequest request, decimal valorTotalFatura)
+    {
+        if (request.DataEfetivacao == default)
+            throw new DomainException("data_efetivacao_obrigatoria");
+        if (request.ContaBancariaId <= 0)
+            throw new DomainException("conta_bancaria_obrigatoria");
+        if (request.ValorTotal <= 0 || request.ValorTotal != valorTotalFatura)
+            throw new DomainException("valor_total_invalido");
+        if (request.ValorEfetivacao < 0 || request.ValorEfetivacao > request.ValorTotal)
+            throw new DomainException("valor_efetivacao_invalido");
+    }
+
+    private async Task ValidarTransacoesDaFaturaEfetivadasAsync(long faturaId, int usuarioAutenticadoId, CancellationToken cancellationToken)
+    {
+        var despesas = await despesaRepository.ListarPorUsuarioAsync(usuarioAutenticadoId, null, null, null, null, null, cancellationToken);
+        if (despesas.Any(x =>
+                x.FaturaCartaoId == faturaId &&
+                x.Status != StatusDespesa.Cancelada &&
+                x.Status != StatusDespesa.Efetivada))
+        {
+            throw new DomainException("fatura_transacoes_pendentes");
+        }
+
+        var receitas = await receitaRepository.ListarPorUsuarioAsync(usuarioAutenticadoId, null, null, null, null, null, cancellationToken);
+        if (receitas.Any(x =>
+                x.FaturaCartaoId == faturaId &&
+                x.Status != StatusReceita.Cancelada &&
+                x.Status != StatusReceita.Efetivada))
+        {
+            throw new DomainException("fatura_transacoes_pendentes");
+        }
+
+        var reembolsos = await reembolsoRepository.ListarAsync(usuarioAutenticadoId, null, null, null, null, null, cancellationToken);
+        if (reembolsos.Any(x =>
+                x.FaturaCartaoId == faturaId &&
+                x.Status != StatusReembolso.Cancelado &&
+                x.Status != StatusReembolso.Pago))
+        {
+            throw new DomainException("fatura_transacoes_pendentes");
+        }
+    }
+
+    private static string? NormalizarObservacao(string? observacao)
+    {
+        var observacaoNormalizada = observacao?.Trim();
+        return string.IsNullOrWhiteSpace(observacaoNormalizada) ? null : observacaoNormalizada;
     }
 
     private int ObterUsuarioAutenticadoId() =>
@@ -333,7 +577,7 @@ public sealed class FaturaCartaoService(
 
     private async Task AplicarFechamentoAutomaticoAsync(FaturaCartao fatura, int usuarioAutenticadoId, CancellationToken cancellationToken)
     {
-        if (fatura.Status != StatusFaturaCartao.Aberta)
+        if (fatura.Status is not StatusFaturaCartao.Aberta and not StatusFaturaCartao.Fechada and not StatusFaturaCartao.Vencida)
             return;
 
         var dataVencimento = fatura.DataVencimento ??
@@ -348,6 +592,14 @@ public sealed class FaturaCartaoService(
         var dataFechamentoBase = dataVencimento.Value.AddDays(-DiasAntesVencimentoParaFechamento);
         var dataFechamento = AjustarParaDiaUtilAnteriorOuIgual(dataFechamentoBase);
         var hoje = DataHoraBrasil.Hoje();
+
+        if (hoje > dataVencimento.Value)
+        {
+            fatura.Status = StatusFaturaCartao.Vencida;
+            fatura.DataFechamento = dataFechamento;
+            await repository.AtualizarAsync(fatura, cancellationToken);
+            return;
+        }
 
         if (hoje < dataFechamento)
         {

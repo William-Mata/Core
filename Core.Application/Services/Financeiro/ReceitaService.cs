@@ -569,7 +569,7 @@ public sealed partial class ReceitaService(
     {
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
         var receita = await repository.ObterPorIdAsync(id, usuarioAutenticadoId, cancellationToken) ?? throw new NotFoundException("receita_nao_encontrada");
-        await ValidarFaturaParaAlteracaoAsync(receita.FaturaCartaoId, usuarioAutenticadoId, cancellationToken);
+        await GarantirFaturaEstornadaParaEstornoAsync(receita.FaturaCartaoId, req.DataEstorno, req.OcultarDoHistorico, req.ObservacaoHistorico, cancellationToken);
         if (receita.Status != StatusReceita.Efetivada) throw new DomainException("status_invalido");
         if (req.DataEstorno == default) throw new DomainException("data_estorno_obrigatoria");
         if (req.DataEstorno < DateOnly.FromDateTime(receita.DataLancamento)) throw new DomainException("periodo_invalido");
@@ -625,6 +625,19 @@ public sealed partial class ReceitaService(
 
     private Task ValidarFaturaParaAlteracaoAsync(long? faturaCartaoId, int usuarioAutenticadoId, CancellationToken cancellationToken) =>
         faturaCartaoService?.ValidarFaturaPermiteAlteracaoAsync(faturaCartaoId, usuarioAutenticadoId, cancellationToken) ?? Task.CompletedTask;
+
+    private Task GarantirFaturaEstornadaParaEstornoAsync(
+        long? faturaCartaoId,
+        DateOnly dataEstorno,
+        bool ocultarDoHistorico,
+        string? observacaoHistorico,
+        CancellationToken cancellationToken) =>
+        faturaCartaoService?.GarantirFaturaEstornadaParaEstornoTransacaoAsync(
+            faturaCartaoId,
+            dataEstorno,
+            ocultarDoHistorico,
+            observacaoHistorico,
+            cancellationToken) ?? Task.CompletedTask;
 
     private async Task<List<Receita>> ListarSerieRecorrenteAsync(Receita referencia, int usuarioAutenticadoId, CancellationToken cancellationToken)
     {

@@ -4,6 +4,18 @@ public sealed record ListarFaturasCartaoRequest(long? CartaoId, string Competenc
 
 public sealed record ListarFaturasCartaoDetalheRequest(string Competencia, string? TipoTransacao);
 
+public sealed record EfetivarFaturaCartaoRequest(
+    DateTime DataEfetivacao,
+    long ContaBancariaId,
+    decimal ValorTotal,
+    decimal ValorEfetivacao,
+    string? ObservacaoHistorico = null);
+
+public sealed record EstornarFaturaCartaoRequest(
+    DateTime DataEstorno,
+    string? ObservacaoHistorico = null,
+    bool OcultarDoHistorico = true);
+
 public sealed record FaturaCartaoListaDto(
     long Id,
     long CartaoId,

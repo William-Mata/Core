@@ -267,7 +267,7 @@ public sealed class ReembolsoService(
     {
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
         var reembolso = await repository.ObterPorIdAsync(id, usuarioAutenticadoId, cancellationToken) ?? throw new NotFoundException("reembolso_nao_encontrado");
-        await ValidarFaturaParaAlteracaoAsync(reembolso.FaturaCartaoId, usuarioAutenticadoId, cancellationToken);
+        await GarantirFaturaEstornadaParaEstornoAsync(reembolso.FaturaCartaoId, request.DataEstorno, request.OcultarDoHistorico, request.ObservacaoHistorico, cancellationToken);
         if (reembolso.Status != StatusReembolso.Pago) throw new DomainException("status_invalido");
         if (request.DataEstorno == default) throw new DomainException("data_estorno_obrigatoria");
         if (request.DataEstorno < DateOnly.FromDateTime(reembolso.DataLancamento)) throw new DomainException("periodo_invalido");
@@ -339,6 +339,19 @@ public sealed class ReembolsoService(
 
     private Task ValidarFaturaParaAlteracaoAsync(long? faturaCartaoId, int usuarioAutenticadoId, CancellationToken cancellationToken) =>
         faturaCartaoService?.ValidarFaturaPermiteAlteracaoAsync(faturaCartaoId, usuarioAutenticadoId, cancellationToken) ?? Task.CompletedTask;
+
+    private Task GarantirFaturaEstornadaParaEstornoAsync(
+        long? faturaCartaoId,
+        DateOnly dataEstorno,
+        bool ocultarDoHistorico,
+        string? observacaoHistorico,
+        CancellationToken cancellationToken) =>
+        faturaCartaoService?.GarantirFaturaEstornadaParaEstornoTransacaoAsync(
+            faturaCartaoId,
+            dataEstorno,
+            ocultarDoHistorico,
+            observacaoHistorico,
+            cancellationToken) ?? Task.CompletedTask;
 
     private static IReadOnlyCollection<long> ExtrairDespesasIds(IReadOnlyCollection<JsonElement>? despesasVinculadas)
     {

@@ -561,11 +561,11 @@ public sealed partial class DespesaService(
     {
         var usuarioAutenticadoId = ObterUsuarioAutenticadoId();
         var despesa = await repository.ObterPorIdAsync(id, usuarioAutenticadoId, cancellationToken) ?? throw new NotFoundException("despesa_nao_encontrada");
-        await ValidarFaturaParaAlteracaoAsync(despesa.FaturaCartaoId, usuarioAutenticadoId, cancellationToken);
+        await GarantirFaturaEstornadaParaEstornoAsync(despesa.FaturaCartaoId, req.DataEstorno, req.OcultarDoHistorico, req.ObservacaoHistorico, cancellationToken);
         if (despesa.Status != StatusDespesa.Efetivada) throw new DomainException("status_invalido");
         if (req.DataEstorno == default) throw new DomainException("data_estorno_obrigatoria");
-        if (req.DataEstorno < DateOnly.FromDateTime(despesa.DataLancamento)) throw new DomainException("periodo_invalido");
-        if (despesa.DataEfetivacao.HasValue && req.DataEstorno < DateOnly.FromDateTime(despesa.DataEfetivacao.Value)) throw new DomainException("periodo_invalido");
+        if (req.DataEstorno < despesa.DataLancamento) throw new DomainException("periodo_invalido");
+        if (despesa.DataEfetivacao.HasValue && req.DataEstorno < despesa.DataEfetivacao.Value) throw new DomainException("periodo_invalido");
         var contaDestinoId = await ResolverContaDestinoTransferenciaAsync(
             despesa.TipoPagamento,
             despesa.ContaBancariaId,
@@ -583,7 +583,7 @@ public sealed partial class DespesaService(
             TipoTransacaoFinanceira.Despesa,
             despesaAtualizada.Id,
             usuarioAutenticadoId,
-            req.DataEstorno,
+            DateOnly.FromDateTime(req.DataEstorno),
             valorAntesTransacao,
             valorAntesTransacao,
             0m,
@@ -613,6 +613,19 @@ public sealed partial class DespesaService(
 
     private Task ValidarFaturaParaAlteracaoAsync(long? faturaCartaoId, int usuarioAutenticadoId, CancellationToken cancellationToken) =>
         faturaCartaoService?.ValidarFaturaPermiteAlteracaoAsync(faturaCartaoId, usuarioAutenticadoId, cancellationToken) ?? Task.CompletedTask;
+
+    private Task GarantirFaturaEstornadaParaEstornoAsync(
+        long? faturaCartaoId,
+        DateTime dataEstorno,
+        bool ocultarDoHistorico,
+        string? observacaoHistorico,
+        CancellationToken cancellationToken) =>
+        faturaCartaoService?.GarantirFaturaEstornadaParaEstornoTransacaoAsync(
+            faturaCartaoId,
+            dataEstorno,
+            ocultarDoHistorico,
+            observacaoHistorico,
+            cancellationToken) ?? Task.CompletedTask;
 
     private int ObterUsuarioAutenticadoId() =>
         usuarioAutenticadoProvider.ObterUsuarioId() ?? throw new DomainException("usuario_nao_autenticado");

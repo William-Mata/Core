@@ -48,9 +48,9 @@ public sealed class FaturaCartaoController(FaturaCartaoService service) : Contro
     [HttpPost("{id:long}/efetivar")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> Efetivar(long id, CancellationToken cancellationToken)
+    public async Task<IActionResult> Efetivar(long id, [FromBody] EfetivarFaturaCartaoRequest request, CancellationToken cancellationToken)
     {
-        return Ok(await service.EfetivarAsync(id, cancellationToken));
+        return Ok(await service.EfetivarAsync(id, request, cancellationToken));
     }
 
     /// <summary>
@@ -59,8 +59,8 @@ public sealed class FaturaCartaoController(FaturaCartaoService service) : Contro
     [HttpPost("{id:long}/estornar")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> Estornar(long id, CancellationToken cancellationToken)
+    public async Task<IActionResult> Estornar(long id, [FromBody] EstornarFaturaCartaoRequest request, CancellationToken cancellationToken)
     {
-        return Ok(await service.EstornarAsync(id, cancellationToken));
+        return Ok(await service.EstornarAsync(id, request, cancellationToken));
     }
 }
