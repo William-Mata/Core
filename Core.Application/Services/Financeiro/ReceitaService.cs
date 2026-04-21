@@ -572,8 +572,8 @@ public sealed partial class ReceitaService(
         await GarantirFaturaEstornadaParaEstornoAsync(receita.FaturaCartaoId, req.DataEstorno, req.OcultarDoHistorico, req.ObservacaoHistorico, cancellationToken);
         if (receita.Status != StatusReceita.Efetivada) throw new DomainException("status_invalido");
         if (req.DataEstorno == default) throw new DomainException("data_estorno_obrigatoria");
-        if (req.DataEstorno < DateOnly.FromDateTime(receita.DataLancamento)) throw new DomainException("periodo_invalido");
-        if (receita.DataEfetivacao.HasValue && req.DataEstorno < DateOnly.FromDateTime(receita.DataEfetivacao.Value)) throw new DomainException("periodo_invalido");
+        if (req.DataEstorno < receita.DataLancamento) throw new DomainException("periodo_invalido");
+        if (receita.DataEfetivacao.HasValue && req.DataEstorno < receita.DataEfetivacao.Value) throw new DomainException("periodo_invalido");
         var contaDestinoId = await ResolverContaDestinoTransferenciaAsync(
             receita.TipoRecebimento,
             receita.ContaBancariaId,
@@ -591,7 +591,7 @@ public sealed partial class ReceitaService(
             TipoTransacaoFinanceira.Receita,
             receitaAtualizada.Id,
             usuarioAutenticadoId,
-            req.DataEstorno,
+            DateOnly.FromDateTime(req.DataEstorno),
             valorAntesTransacao,
             valorAntesTransacao,
             0m,
@@ -628,7 +628,7 @@ public sealed partial class ReceitaService(
 
     private Task GarantirFaturaEstornadaParaEstornoAsync(
         long? faturaCartaoId,
-        DateOnly dataEstorno,
+        DateTime dataEstorno,
         bool ocultarDoHistorico,
         string? observacaoHistorico,
         CancellationToken cancellationToken) =>

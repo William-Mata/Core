@@ -55,6 +55,6 @@ public sealed record EfetivarReembolsoRequest(
     string? ObservacaoHistorico = null);
 
 public sealed record EstornarReembolsoRequest(
-    DateOnly DataEstorno,
+    DateTime DataEstorno,
     string? ObservacaoHistorico = null,
     bool OcultarDoHistorico = true);

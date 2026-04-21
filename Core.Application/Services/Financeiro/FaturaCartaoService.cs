@@ -142,7 +142,8 @@ public sealed class FaturaCartaoService(
             throw new DomainException("status_invalido");
         if (request.DataEstorno == default)
             throw new DomainException("data_estorno_obrigatoria");
-        if (fatura.DataEfetivacao.HasValue && request.DataEstorno < fatura.DataEfetivacao.Value)
+        var dataEstorno = DateOnly.FromDateTime(request.DataEstorno);
+        if (fatura.DataEfetivacao.HasValue && dataEstorno < fatura.DataEfetivacao.Value)
             throw new DomainException("periodo_invalido");
 
         if (!fatura.DespesaPagamentoId.HasValue)
@@ -162,7 +163,7 @@ public sealed class FaturaCartaoService(
             TipoTransacaoFinanceira.Despesa,
             despesaPagamento.Id,
             usuarioAutenticadoId,
-            request.DataEstorno,
+            dataEstorno,
             valorEfetivado,
             valorEfetivado,
             0m,
@@ -177,7 +178,7 @@ public sealed class FaturaCartaoService(
             TipoTransacaoFinanceira.Receita,
             fatura.Id,
             usuarioAutenticadoId,
-            request.DataEstorno,
+            dataEstorno,
             valorEfetivado,
             valorEfetivado,
             0m,
@@ -189,14 +190,14 @@ public sealed class FaturaCartaoService(
 
         fatura.Status = StatusFaturaCartao.Estornada;
         fatura.DataEfetivacao = null;
-        fatura.DataEstorno = request.DataEstorno;
+        fatura.DataEstorno = dataEstorno;
         fatura = await repository.AtualizarAsync(fatura, cancellationToken);
         return MapLista(fatura);
     }
 
     public async Task GarantirFaturaEstornadaParaEstornoTransacaoAsync(
         long? faturaCartaoId,
-        DateOnly dataEstorno,
+        DateTime dataEstorno,
         bool ocultarDoHistorico,
         string? observacaoHistorico,
         CancellationToken cancellationToken = default)
@@ -260,7 +261,7 @@ public sealed class FaturaCartaoService(
         if (fatura is null)
             return;
 
-        if (fatura.Status is StatusFaturaCartao.Efetivada or StatusFaturaCartao.Estornada)
+        if (fatura.Status is StatusFaturaCartao.Efetivada )
             throw new DomainException("status_invalido");
     }
 

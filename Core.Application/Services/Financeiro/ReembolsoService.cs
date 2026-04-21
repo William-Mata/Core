@@ -270,8 +270,8 @@ public sealed class ReembolsoService(
         await GarantirFaturaEstornadaParaEstornoAsync(reembolso.FaturaCartaoId, request.DataEstorno, request.OcultarDoHistorico, request.ObservacaoHistorico, cancellationToken);
         if (reembolso.Status != StatusReembolso.Pago) throw new DomainException("status_invalido");
         if (request.DataEstorno == default) throw new DomainException("data_estorno_obrigatoria");
-        if (request.DataEstorno < DateOnly.FromDateTime(reembolso.DataLancamento)) throw new DomainException("periodo_invalido");
-        if (reembolso.DataEfetivacao.HasValue && request.DataEstorno < DateOnly.FromDateTime(reembolso.DataEfetivacao.Value)) throw new DomainException("periodo_invalido");
+        if (request.DataEstorno < reembolso.DataLancamento) throw new DomainException("periodo_invalido");
+        if (reembolso.DataEfetivacao.HasValue && request.DataEstorno < reembolso.DataEfetivacao.Value) throw new DomainException("periodo_invalido");
 
         var valorAntesTransacao = reembolso.ValorTotal;
         reembolso.Status = StatusReembolso.Aguardando;
@@ -282,7 +282,7 @@ public sealed class ReembolsoService(
             TipoTransacaoFinanceira.Reembolso,
             reembolsoAtualizado.Id,
             usuarioAutenticadoId,
-            request.DataEstorno,
+            DateOnly.FromDateTime(request.DataEstorno),
             valorAntesTransacao,
             valorAntesTransacao,
             0m,
@@ -342,7 +342,7 @@ public sealed class ReembolsoService(
 
     private Task GarantirFaturaEstornadaParaEstornoAsync(
         long? faturaCartaoId,
-        DateOnly dataEstorno,
+        DateTime dataEstorno,
         bool ocultarDoHistorico,
         string? observacaoHistorico,
         CancellationToken cancellationToken) =>
