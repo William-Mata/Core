@@ -38,7 +38,7 @@
   - Body: mesmo contrato anterior + `observacaoHistorico` (string opcional).
 - `POST /api/financeiro/reembolsos/{id}/estornar`
   - Body:
-    - `dataEstorno` (date, obrigatorio)
+    - `dataEstorno` (datetime ISO 8601, obrigatorio)
     - `observacaoHistorico` (string, opcional)
     - `ocultarDoHistorico` (bool, opcional, default `true`)
 
@@ -48,9 +48,9 @@
   - `dataEfetivacao` nao pode ser menor que `dataLancamento`.
 - Estorno:
   - exige reembolso em status `Pago`.
-  - `dataEstorno` obrigatoria.
-  - `dataEstorno` nao pode ser menor que `dataLancamento`.
-  - quando houver `dataEfetivacao`, `dataEstorno` nao pode ser menor que `dataEfetivacao`.
+  - `dataEstorno` obrigatoria com data/hora.
+  - `dataEstorno` nao pode ser menor que `dataLancamento` (comparacao com data/hora).
+  - quando houver `dataEfetivacao`, `dataEstorno` nao pode ser menor que `dataEfetivacao` (comparacao com data/hora).
 
 ## Rastreabilidade
 - Controller: `Core.Api/Controllers/Financeiro/ReembolsoController.cs`

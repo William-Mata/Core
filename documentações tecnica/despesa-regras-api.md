@@ -337,7 +337,7 @@ Documentar o contrato real do `DespesaController`, com regras de negocio do serv
 #### Exemplo de request (payload completo)
 ```json
 {
-  "dataEstorno": "2026-04-12",
+  "dataEstorno": "2026-04-12T14:30:00",
   "observacaoHistorico": "Estorno transferencia",
   "ocultarDoHistorico": true,
   "contaDestinoId": 20
@@ -346,9 +346,9 @@ Documentar o contrato real do `DespesaController`, com regras de negocio do serv
 
 #### Regras
 - Exige status `Efetivada`.
-- `dataEstorno` obrigatoria.
-- `dataEstorno >= dataLancamento`.
-- Se houver `dataEfetivacao`, `dataEstorno >= dataEfetivacao`.
+- `dataEstorno` obrigatoria e deve ser informada com data/hora (ISO 8601).
+- `dataEstorno >= dataLancamento` (comparacao com data/hora).
+- Se houver `dataEfetivacao`, `dataEstorno >= dataEfetivacao` (comparacao com data/hora).
 - Em `Transferencia` ou `Pix`, se `contaDestinoId` nao for enviada, tenta reaproveitar do ultimo historico.
 
 #### Efeito colateral

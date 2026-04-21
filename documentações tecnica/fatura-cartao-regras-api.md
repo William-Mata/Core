@@ -144,7 +144,7 @@ Observacao sobre valores:
 
 ```json
 {
-  "dataEstorno": "2026-04-20",
+  "dataEstorno": "2026-04-20T10:45:00",
   "observacaoHistorico": "Ajuste do pagamento",
   "ocultarDoHistorico": true
 }
@@ -152,7 +152,7 @@ Observacao sobre valores:
 
 #### Regras de payload
 
-- `dataEstorno` obrigatoria.
+- `dataEstorno` obrigatoria com data/hora (ISO 8601).
 - `ocultarDoHistorico` opcional (default `true`) para ocultar os historicos anteriores da transacao.
 
 #### Response de sucesso
@@ -173,7 +173,7 @@ Fatos confirmados:
   - `valorTotal` deve casar com `ValorTotal` atual da fatura;
   - `valorEfetivacao` deve ser `> 0` e `<= valorTotal`.
 - no estorno de fatura:
-  - `dataEstorno` e obrigatoria;
+  - `dataEstorno` e obrigatoria com data/hora;
   - `dataEstorno` nao pode ser menor que `dataEfetivacao` da fatura.
 - a efetivacao da fatura so e permitida quando todas as transacoes vinculadas estiverem efetivadas:
   - despesa: `Efetivada` (ou `Cancelada` para itens desconsiderados);
@@ -310,4 +310,5 @@ curl -X POST "https://api.exemplo.com/api/financeiro/faturas-cartao/10/estornar"
 
 - `query's/03-financeiro/20-fatura-cartao.sql`
 - `query's/03-financeiro/23-fix-fatura-cartao-efetivacao-estorno.sql`
+- `query's/03-financeiro/24-fix-estorno-datetime2.sql`
 - `query's/00-script-mestre.sql` (sessao Ordem 20 - Fatura de cartao)
