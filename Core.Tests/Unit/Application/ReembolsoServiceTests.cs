@@ -268,7 +268,7 @@ public sealed class ReembolsoServiceTests
         };
         var service = CriarService(repository, new DespesaRepositoryFake(), 1);
 
-        var response = await service.EstornarAsync(10, new EstornarReembolsoRequest(new DateOnly(2026, 3, 21)));
+        var response = await service.EstornarAsync(10, new EstornarReembolsoRequest(new DateTime(2026, 3, 21, 10, 30, 0)));
 
         Assert.Equal("AGUARDANDO", response.Status);
         Assert.Null(response.DataEfetivacao);

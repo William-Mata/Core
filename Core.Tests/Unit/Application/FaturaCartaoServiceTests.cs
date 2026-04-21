@@ -307,15 +307,16 @@ public sealed class FaturaCartaoServiceTests
             ValorTotal: 900m,
             ValorEfetivacao: 700m));
 
+        var dataEstorno = DataHoraBrasil.Agora();
         var retornoEstorno = await service.EstornarAsync(2, new EstornarFaturaCartaoRequest(
-            DataEstorno: DataHoraBrasil.Hoje(),
+            DataEstorno: dataEstorno,
             OcultarDoHistorico: true));
 
         Assert.Equal("estornada", retornoEstorno.Status);
         var faturaPersistida = Assert.Single(faturas.Faturas);
         Assert.Equal(StatusFaturaCartao.Estornada, faturaPersistida.Status);
         Assert.Null(faturaPersistida.DataEfetivacao);
-        Assert.Equal(DataHoraBrasil.Hoje(), faturaPersistida.DataEstorno);
+        Assert.Equal(DateOnly.FromDateTime(dataEstorno), faturaPersistida.DataEstorno);
 
         var despesaPagamento = Assert.Single(despesas.Despesas.Where(x => !x.CartaoId.HasValue && x.ContaBancariaId == 11));
         Assert.Equal(StatusDespesa.Pendente, despesaPagamento.Status);
@@ -568,7 +569,7 @@ public sealed class FaturaCartaoServiceTests
         var historicos = new HistoricoTransacaoFinanceiraRepositoryFake(contas, cartoes);
         var service = CriarService(faturas, cartoes, 5, contas, despesas, historicos);
 
-        await service.GarantirFaturaEstornadaParaEstornoTransacaoAsync(8, DataHoraBrasil.Hoje(), true, "estorno de transacao");
+        await service.GarantirFaturaEstornadaParaEstornoTransacaoAsync(8, DataHoraBrasil.Agora(), true, "estorno de transacao");
 
         var fatura = Assert.Single(faturas.Faturas);
         Assert.Equal(StatusFaturaCartao.Estornada, fatura.Status);
