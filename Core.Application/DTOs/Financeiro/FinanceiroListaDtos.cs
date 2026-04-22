@@ -1,4 +1,4 @@
-using Core.Domain.Enums;
+using Core.Domain.Enums.Financeiro;
 
 namespace Core.Application.DTOs.Financeiro;
 
@@ -10,7 +10,7 @@ public sealed record AmigoListaDto(int Id, string Nome, string Email);
 public sealed record LancamentoVinculadoDto(
     long Id,
     long TransacaoId,
-    DateOnly DataTransacao,
+    DateTime DataTransacao,
     string TipoTransacao,
     string TipoOperacao,
     string Descricao,

@@ -1,5 +1,5 @@
 using Core.Domain.Entities.Financeiro;
-using Core.Domain.Enums;
+using Core.Domain.Enums.Financeiro;
 using Core.Domain.Interfaces.Financeiro;
 
 namespace Core.Application.Services.Financeiro;
@@ -10,7 +10,7 @@ public sealed class HistoricoTransacaoFinanceiraService(IHistoricoTransacaoFinan
         TipoTransacaoFinanceira tipoTransacao,
         long transacaoId,
         int usuarioOperacaoId,
-        DateOnly dataTransacao,
+        DateTime dataTransacao,
         decimal valorAntesTransacao,
         decimal valorTransacao,
         decimal valorDepoisTransacao,
@@ -48,7 +48,7 @@ public sealed class HistoricoTransacaoFinanceiraService(IHistoricoTransacaoFinan
         TipoTransacaoFinanceira tipoTransacao,
         long transacaoId,
         int usuarioOperacaoId,
-        DateOnly dataTransacao,
+        DateTime dataTransacao,
         decimal valorAntesTransacao,
         decimal valorTransacao,
         decimal valorDepoisTransacao,
@@ -109,7 +109,7 @@ public sealed class HistoricoTransacaoFinanceiraService(IHistoricoTransacaoFinan
         TipoTransacaoFinanceira tipoTransacao,
         long transacaoId,
         int usuarioOperacaoId,
-        DateOnly dataTransacao,
+        DateTime dataTransacao,
         decimal valorAntesTransacao,
         decimal valorTransacao,
         decimal valorDepoisTransacao,
@@ -265,7 +265,7 @@ public sealed class HistoricoTransacaoFinanceiraService(IHistoricoTransacaoFinan
         long? contaBancariaId,
         long? contaDestinoId,
         long? cartaoId,
-        DateOnly dataTransacao,
+        DateTime dataTransacao,
         string descricao,
         string? observacao,
         bool ocultarDoHistorico,

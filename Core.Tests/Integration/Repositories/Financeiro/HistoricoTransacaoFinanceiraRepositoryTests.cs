@@ -1,10 +1,10 @@
 using Core.Domain.Entities.Financeiro;
-using Core.Domain.Enums;
+using Core.Domain.Enums.Financeiro;
 using Core.Infrastructure.Persistence;
 using Core.Infrastructure.Persistence.Repositories.Financeiro;
 using Microsoft.EntityFrameworkCore;
 
-namespace Core.Tests.Integration.Repositories;
+namespace Core.Tests.Integration.Repositories.Financeiro;
 
 public sealed class HistoricoTransacaoFinanceiraRepositoryTests
 {
@@ -40,7 +40,7 @@ public sealed class HistoricoTransacaoFinanceiraRepositoryTests
             TipoOperacao = TipoOperacaoTransacaoFinanceira.Efetivacao,
             TransacaoId = 10,
             ContaBancariaId = 1,
-            DataTransacao = new DateOnly(2026, 3, 20),
+            DataTransacao = new DateTime(2026, 3, 20, 0, 0, 0),
             Descricao = "Efetivacao de despesa",
             ValorAntesTransacao = 0m,
             ValorTransacao = 30m,
@@ -86,7 +86,7 @@ public sealed class HistoricoTransacaoFinanceiraRepositoryTests
             TipoOperacao = TipoOperacaoTransacaoFinanceira.Estorno,
             TransacaoId = 11,
             ContaBancariaId = 2,
-            DataTransacao = new DateOnly(2026, 3, 21),
+            DataTransacao = new DateTime(2026, 3, 21, 0, 0, 0),
             Descricao = "Estorno de despesa",
             ValorAntesTransacao = 0m,
             ValorTransacao = 30m,
@@ -132,7 +132,7 @@ public sealed class HistoricoTransacaoFinanceiraRepositoryTests
             TipoOperacao = TipoOperacaoTransacaoFinanceira.Estorno,
             TransacaoId = 12,
             CartaoId = 3,
-            DataTransacao = new DateOnly(2026, 3, 22),
+            DataTransacao = new DateTime(2026, 3, 22, 0, 0, 0),
             Descricao = "Estorno de reembolso",
             ValorAntesTransacao = 0m,
             ValorTransacao = 20m,
@@ -161,7 +161,7 @@ public sealed class HistoricoTransacaoFinanceiraRepositoryTests
                 TipoTransacao = TipoTransacaoFinanceira.Despesa,
                 TipoOperacao = TipoOperacaoTransacaoFinanceira.Efetivacao,
                 TransacaoId = 100,
-                DataTransacao = new DateOnly(2026, 3, 20),
+                DataTransacao = new DateTime(2026, 3, 20, 0, 0, 0),
                 Descricao = "Historico 1",
                 ValorTransacao = -10m
             },
@@ -171,7 +171,7 @@ public sealed class HistoricoTransacaoFinanceiraRepositoryTests
                 TipoTransacao = TipoTransacaoFinanceira.Receita,
                 TipoOperacao = TipoOperacaoTransacaoFinanceira.Efetivacao,
                 TransacaoId = 101,
-                DataTransacao = new DateOnly(2026, 3, 22),
+                DataTransacao = new DateTime(2026, 3, 22, 0, 0, 0),
                 Descricao = "Historico 2",
                 ValorTransacao = 15m
             },
@@ -181,7 +181,7 @@ public sealed class HistoricoTransacaoFinanceiraRepositoryTests
                 TipoTransacao = TipoTransacaoFinanceira.Reembolso,
                 TipoOperacao = TipoOperacaoTransacaoFinanceira.Efetivacao,
                 TransacaoId = 102,
-                DataTransacao = new DateOnly(2026, 3, 24),
+                DataTransacao = new DateTime(2026, 3, 24, 0, 0, 0),
                 Descricao = "Historico 3",
                 ValorTransacao = 20m
             },
@@ -191,7 +191,7 @@ public sealed class HistoricoTransacaoFinanceiraRepositoryTests
                 TipoTransacao = TipoTransacaoFinanceira.Despesa,
                 TipoOperacao = TipoOperacaoTransacaoFinanceira.Efetivacao,
                 TransacaoId = 103,
-                DataTransacao = new DateOnly(2026, 3, 26),
+                DataTransacao = new DateTime(2026, 3, 26, 0, 0, 0),
                 Descricao = "Historico outro usuario",
                 ValorTransacao = -5m
             });
@@ -225,7 +225,7 @@ public sealed class HistoricoTransacaoFinanceiraRepositoryTests
                 TipoTransacao = TipoTransacaoFinanceira.Despesa,
                 TipoOperacao = TipoOperacaoTransacaoFinanceira.Efetivacao,
                 TransacaoId = 200,
-                DataTransacao = new DateOnly(2026, 1, 10),
+                DataTransacao = new DateTime(2026, 1, 10, 0, 0, 0),
                 Descricao = "Historico 1",
                 ValorTransacao = -10m
             },
@@ -235,7 +235,7 @@ public sealed class HistoricoTransacaoFinanceiraRepositoryTests
                 TipoTransacao = TipoTransacaoFinanceira.Receita,
                 TipoOperacao = TipoOperacaoTransacaoFinanceira.Efetivacao,
                 TransacaoId = 201,
-                DataTransacao = new DateOnly(2026, 1, 11),
+                DataTransacao = new DateTime(2026, 1, 11, 0, 0, 0),
                 Descricao = "Historico 2",
                 ValorTransacao = 10m
             },
@@ -245,7 +245,7 @@ public sealed class HistoricoTransacaoFinanceiraRepositoryTests
                 TipoTransacao = TipoTransacaoFinanceira.Reembolso,
                 TipoOperacao = TipoOperacaoTransacaoFinanceira.Efetivacao,
                 TransacaoId = 202,
-                DataTransacao = new DateOnly(2026, 1, 12),
+                DataTransacao = new DateTime(2026, 1, 12, 0, 0, 0),
                 Descricao = "Historico 3",
                 ValorTransacao = 30m
             });

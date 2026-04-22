@@ -4,6 +4,7 @@ using Core.Domain.Common;
 using Core.Domain.Entities;
 using Core.Domain.Entities.Financeiro;
 using Core.Domain.Enums;
+using Core.Domain.Enums.Financeiro;
 using Core.Domain.Exceptions;
 using Core.Domain.Interfaces;
 using Core.Domain.Interfaces.Administracao;
@@ -194,7 +195,7 @@ public sealed partial class ReceitaService(
                 TipoTransacaoFinanceira.Receita,
                 receitaCriada.Id,
                 usuarioAutenticadoId,
-                DateOnly.FromDateTime(receitaCriada.DataLancamento),
+                receitaCriada.DataLancamento,
                 0m,
                 receitaCriada.ValorEfetivacao ?? receitaCriada.ValorLiquido,
                 receitaCriada.ValorEfetivacao ?? receitaCriada.ValorLiquido,
@@ -444,7 +445,7 @@ public sealed partial class ReceitaService(
             TipoTransacaoFinanceira.Receita,
             receitaAtualizada.Id,
             usuarioAutenticadoId,
-            DateOnly.FromDateTime(req.DataEfetivacao),
+            req.DataEfetivacao,
             valorAntesTransacao,
             receitaAtualizada.ValorEfetivacao ?? receitaAtualizada.ValorLiquido,
             receitaAtualizada.ValorEfetivacao ?? receitaAtualizada.ValorLiquido,
@@ -477,7 +478,7 @@ public sealed partial class ReceitaService(
                 throw new DomainException("status_invalido");
 
             var valorAntesTransacao = receita.ValorEfetivacao ?? receita.ValorLiquido;
-            var dataEstorno = DataHoraBrasil.Hoje();
+            var dataEstorno = DataHoraBrasil.Agora();
             receita.Status = StatusReceita.Cancelada;
             receita.DataEfetivacao = null;
             receita.ValorEfetivacao = null;
@@ -591,7 +592,7 @@ public sealed partial class ReceitaService(
             TipoTransacaoFinanceira.Receita,
             receitaAtualizada.Id,
             usuarioAutenticadoId,
-            DateOnly.FromDateTime(req.DataEstorno),
+            req.DataEstorno,
             valorAntesTransacao,
             valorAntesTransacao,
             0m,

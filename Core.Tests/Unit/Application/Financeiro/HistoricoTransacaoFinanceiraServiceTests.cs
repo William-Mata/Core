@@ -1,9 +1,9 @@
 using Core.Application.Services.Financeiro;
 using Core.Domain.Entities.Financeiro;
-using Core.Domain.Enums;
+using Core.Domain.Enums.Financeiro;
 using Core.Domain.Interfaces.Financeiro;
 
-namespace Core.Tests.Unit.Application;
+namespace Core.Tests.Unit.Application.Financeiro;
 
 public sealed class HistoricoTransacaoFinanceiraServiceTests
 {
@@ -17,7 +17,7 @@ public sealed class HistoricoTransacaoFinanceiraServiceTests
             TipoTransacaoFinanceira.Despesa,
             10,
             99,
-            new DateOnly(2026, 3, 28),
+            new DateTime(2026, 3, 28, 0, 0, 0),
             100m,
             40m,
             60m,
@@ -42,7 +42,7 @@ public sealed class HistoricoTransacaoFinanceiraServiceTests
             TipoTransacaoFinanceira.Despesa,
             20,
             99,
-            new DateOnly(2026, 3, 28),
+            new DateTime(2026, 3, 28, 0, 0, 0),
             100m,
             100m,
             0m,
@@ -73,7 +73,7 @@ public sealed class HistoricoTransacaoFinanceiraServiceTests
             TipoTransacaoFinanceira.Receita,
             30,
             77,
-            new DateOnly(2026, 3, 28),
+            new DateTime(2026, 3, 28, 0, 0, 0),
             400m,
             200m,
             200m,
@@ -105,7 +105,7 @@ public sealed class HistoricoTransacaoFinanceiraServiceTests
             TipoTransacaoFinanceira.Despesa,
             50,
             99,
-            new DateOnly(2026, 3, 29),
+            new DateTime(2026, 3, 29, 0, 0, 0),
             0m,
             120m,
             120m,
@@ -140,7 +140,7 @@ public sealed class HistoricoTransacaoFinanceiraServiceTests
             TipoTransacaoFinanceira.Receita,
             51,
             99,
-            new DateOnly(2026, 3, 30),
+            new DateTime(2026, 3, 30, 0, 0, 0),
             0m,
             80m,
             80m,
@@ -176,7 +176,7 @@ public sealed class HistoricoTransacaoFinanceiraServiceTests
             TipoTransacaoFinanceira.Despesa,
             70,
             99,
-            new DateOnly(2026, 4, 1),
+            new DateTime(2026, 4, 1, 0, 0, 0),
             300m,
             300m,
             0m,
@@ -201,7 +201,7 @@ public sealed class HistoricoTransacaoFinanceiraServiceTests
             TipoTransacaoFinanceira.Reembolso,
             40,
             88,
-            new DateOnly(2026, 3, 28),
+            new DateTime(2026, 3, 28, 0, 0, 0),
             100m,
             100m,
             0m,

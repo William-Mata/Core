@@ -4,6 +4,7 @@ using Core.Domain.Common;
 using Core.Domain.Entities;
 using Core.Domain.Entities.Financeiro;
 using Core.Domain.Enums;
+using Core.Domain.Enums.Financeiro;
 using Core.Domain.Exceptions;
 using Core.Domain.Interfaces;
 using Core.Domain.Interfaces.Administracao;
@@ -198,7 +199,7 @@ public sealed partial class DespesaService(
                 TipoTransacaoFinanceira.Despesa,
                 despesaCriada.Id,
                 usuarioAutenticadoId,
-                DateOnly.FromDateTime(despesaCriada.DataLancamento),
+                despesaCriada.DataLancamento,
                 0m,
                 despesaCriada.ValorEfetivacao ?? despesaCriada.ValorLiquido,
                 despesaCriada.ValorEfetivacao ?? despesaCriada.ValorLiquido,
@@ -459,7 +460,7 @@ public sealed partial class DespesaService(
             TipoTransacaoFinanceira.Despesa,
             despesaAtualizada.Id,
             usuarioAutenticadoId,
-            DateOnly.FromDateTime(req.DataEfetivacao),
+            req.DataEfetivacao,
             valorAntesTransacao,
             despesaAtualizada.ValorEfetivacao ?? despesaAtualizada.ValorLiquido,
             despesaAtualizada.ValorEfetivacao ?? despesaAtualizada.ValorLiquido,
@@ -491,7 +492,7 @@ public sealed partial class DespesaService(
                 throw new DomainException("status_invalido");
 
             var valorAntesTransacao = despesa.ValorEfetivacao ?? despesa.ValorLiquido;
-            var dataEstorno = DataHoraBrasil.Hoje();
+            var dataEstorno = DataHoraBrasil.Agora();
             despesa.Status = StatusDespesa.Cancelada;
             despesa.DataEfetivacao = null;
             despesa.ValorEfetivacao = null;
@@ -583,7 +584,7 @@ public sealed partial class DespesaService(
             TipoTransacaoFinanceira.Despesa,
             despesaAtualizada.Id,
             usuarioAutenticadoId,
-            DateOnly.FromDateTime(req.DataEstorno),
+            req.DataEstorno,
             valorAntesTransacao,
             valorAntesTransacao,
             0m,

@@ -1,4 +1,4 @@
-using Core.Domain.Enums;
+using Core.Domain.Enums.Financeiro;
 
 namespace Core.Application.DTOs.Financeiro;
 
@@ -11,7 +11,7 @@ public sealed record HistoricoTransacaoFinanceiraListaDto(
     string TipoTransacao,
     decimal Valor,
     string Descricao,
-    DateOnly DataEfetivacao,
+    DateTime DataEfetivacao,
     string? TipoPagamento,
     string? ContaBancaria,
     string? Cartao,

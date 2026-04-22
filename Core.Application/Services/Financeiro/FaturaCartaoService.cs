@@ -2,10 +2,10 @@ using Core.Application.DTOs.Financeiro;
 using Core.Application.Contracts.Financeiro;
 using Core.Domain.Common;
 using Core.Domain.Entities.Financeiro;
-using Core.Domain.Enums;
 using Core.Domain.Exceptions;
 using Core.Domain.Interfaces;
 using Core.Domain.Interfaces.Financeiro;
+using Core.Domain.Enums.Financeiro;
 
 namespace Core.Application.Services.Financeiro;
 
@@ -83,7 +83,7 @@ public sealed class FaturaCartaoService(
         {
             var dataEfetivacaoSemDespesa = request.DataEfetivacao == default ? DataHoraBrasil.Agora() : request.DataEfetivacao;
             fatura.Status = StatusFaturaCartao.Efetivada;
-            fatura.DataEfetivacao = DateOnly.FromDateTime(dataEfetivacaoSemDespesa);
+            fatura.DataEfetivacao = dataEfetivacaoSemDespesa;
             fatura.DataEstorno = null;
             fatura = await repository.AtualizarAsync(fatura, cancellationToken);
             return MapLista(fatura);
@@ -97,13 +97,13 @@ public sealed class FaturaCartaoService(
 
         var despesaPagamento = await ObterOuCriarDespesaPagamentoAsync(fatura, request, usuarioAutenticadoId, cancellationToken);
         var valorEfetivado = request.ValorEfetivacao;
-        var dataEfetivacao = DateOnly.FromDateTime(request.DataEfetivacao);
+        var dataEfetivacao = request.DataEfetivacao;
 
         await historicoTransacaoFinanceiraService.RegistrarEfetivacaoAsync(
             TipoTransacaoFinanceira.Despesa,
             despesaPagamento.Id,
             usuarioAutenticadoId,
-            dataEfetivacao,
+            request.DataEfetivacao,
             0m,
             valorEfetivado,
             valorEfetivado,
@@ -117,7 +117,7 @@ public sealed class FaturaCartaoService(
             TipoTransacaoFinanceira.Receita,
             fatura.Id,
             usuarioAutenticadoId,
-            dataEfetivacao,
+            request.DataEfetivacao,
             0m,
             valorEfetivado,
             valorEfetivado,
@@ -142,7 +142,7 @@ public sealed class FaturaCartaoService(
             throw new DomainException("status_invalido");
         if (request.DataEstorno == default)
             throw new DomainException("data_estorno_obrigatoria");
-        var dataEstorno = DateOnly.FromDateTime(request.DataEstorno);
+        var dataEstorno = request.DataEstorno;
         if (fatura.DataEfetivacao.HasValue && dataEstorno < fatura.DataEfetivacao.Value)
             throw new DomainException("periodo_invalido");
 
@@ -163,7 +163,7 @@ public sealed class FaturaCartaoService(
             TipoTransacaoFinanceira.Despesa,
             despesaPagamento.Id,
             usuarioAutenticadoId,
-            dataEstorno,
+            request.DataEstorno,
             valorEfetivado,
             valorEfetivado,
             0m,
@@ -178,7 +178,7 @@ public sealed class FaturaCartaoService(
             TipoTransacaoFinanceira.Receita,
             fatura.Id,
             usuarioAutenticadoId,
-            dataEstorno,
+            request.DataEstorno,
             valorEfetivado,
             valorEfetivado,
             0m,

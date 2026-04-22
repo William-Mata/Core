@@ -24,8 +24,8 @@ public sealed record FaturaCartaoListaDto(
     decimal ValorTotal,
     string Status,
     DateOnly? DataFechamento,
-    DateOnly? DataEfetivacao,
-    DateOnly? DataEstorno);
+    DateTime? DataEfetivacao,
+    DateTime? DataEstorno);
 
 public sealed record FaturaCartaoLancamentoDto(
     string TipoTransacao,
@@ -46,6 +46,6 @@ public sealed record FaturaCartaoDetalheDto(
     decimal ValorTotalTransacoes,
     string Status,
     DateOnly? DataFechamento,
-    DateOnly? DataEfetivacao,
-    DateOnly? DataEstorno,
+    DateTime? DataEfetivacao,
+    DateTime? DataEstorno,
     IReadOnlyCollection<FaturaCartaoLancamentoDto> Lancamentos);

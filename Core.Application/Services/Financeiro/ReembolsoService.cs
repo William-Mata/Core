@@ -4,10 +4,10 @@ using Core.Application.Contracts.Financeiro;
 using Core.Domain.Common;
 using Core.Domain.Entities;
 using Core.Domain.Entities.Financeiro;
-using Core.Domain.Enums;
 using Core.Domain.Exceptions;
 using Core.Domain.Interfaces;
 using Core.Domain.Interfaces.Financeiro;
+using Core.Domain.Enums.Financeiro;
 
 namespace Core.Application.Services.Financeiro;
 
@@ -114,7 +114,7 @@ public sealed class ReembolsoService(
                 TipoTransacaoFinanceira.Reembolso,
                 reembolsoCriado.Id,
                 usuarioAutenticadoId,
-                DateOnly.FromDateTime(reembolsoCriado.DataLancamento),
+                reembolsoCriado.DataLancamento,
                 0m,
                 reembolsoCriado.ValorTotal,
                 reembolsoCriado.ValorTotal,
@@ -181,7 +181,7 @@ public sealed class ReembolsoService(
                 TipoTransacaoFinanceira.Reembolso,
                 reembolsoAtualizado.Id,
                 usuarioAutenticadoId,
-                DateOnly.FromDateTime(reembolsoAtualizado.DataEfetivacao ?? DataHoraBrasil.Agora()),
+                reembolsoAtualizado.DataEfetivacao ?? DataHoraBrasil.Agora(),
                 0m,
                 reembolsoAtualizado.ValorTotal,
                 reembolsoAtualizado.ValorTotal,
@@ -197,7 +197,7 @@ public sealed class ReembolsoService(
                 TipoTransacaoFinanceira.Reembolso,
                 reembolsoAtualizado.Id,
                 usuarioAutenticadoId,
-                DataHoraBrasil.Hoje(),
+                DataHoraBrasil.Agora(),
                 reembolsoAtualizado.ValorTotal,
                 reembolsoAtualizado.ValorTotal,
                 0m,
@@ -247,7 +247,7 @@ public sealed class ReembolsoService(
             TipoTransacaoFinanceira.Reembolso,
             reembolsoAtualizado.Id,
             usuarioAutenticadoId,
-            DateOnly.FromDateTime(reembolsoAtualizado.DataEfetivacao ?? request.DataEfetivacao),
+            reembolsoAtualizado.DataEfetivacao ?? request.DataEfetivacao,
             0m,
             reembolsoAtualizado.ValorTotal,
             reembolsoAtualizado.ValorTotal,
@@ -282,7 +282,7 @@ public sealed class ReembolsoService(
             TipoTransacaoFinanceira.Reembolso,
             reembolsoAtualizado.Id,
             usuarioAutenticadoId,
-            DateOnly.FromDateTime(request.DataEstorno),
+            request.DataEstorno,
             valorAntesTransacao,
             valorAntesTransacao,
             0m,

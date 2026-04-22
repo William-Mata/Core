@@ -1,4 +1,4 @@
-using Core.Domain.Enums;
+using Core.Domain.Enums.Financeiro;
 
 namespace Core.Domain.Entities.Financeiro;
 
@@ -14,7 +14,7 @@ public sealed class HistoricoTransacaoFinanceira
     public long? ContaBancariaId { get; set; }
     public long? ContaDestinoId { get; set; }
     public long? CartaoId { get; set; }
-    public DateOnly DataTransacao { get; set; }
+    public DateTime DataTransacao { get; set; }
     public string Descricao { get; set; } = string.Empty;
     public string? Observacao { get; set; }
     public bool OcultarDoHistorico { get; set; }
