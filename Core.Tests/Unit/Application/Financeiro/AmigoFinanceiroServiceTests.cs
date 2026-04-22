@@ -8,7 +8,7 @@ using Core.Domain.Interfaces;
 using Core.Domain.Interfaces.Administracao;
 using Core.Domain.Interfaces.Financeiro;
 
-namespace Core.Tests.Unit.Application;
+namespace Core.Tests.Unit.Application.Financeiro;
 
 public sealed class AmigoFinanceiroServiceTests
 {

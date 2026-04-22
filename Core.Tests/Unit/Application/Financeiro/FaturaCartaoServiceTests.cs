@@ -2,12 +2,12 @@ using Core.Application.DTOs.Financeiro;
 using Core.Application.Services.Financeiro;
 using Core.Domain.Common;
 using Core.Domain.Entities.Financeiro;
-using Core.Domain.Enums;
+using Core.Domain.Enums.Financeiro;
 using Core.Domain.Exceptions;
 using Core.Domain.Interfaces;
 using Core.Domain.Interfaces.Financeiro;
 
-namespace Core.Tests.Unit.Application;
+namespace Core.Tests.Unit.Application.Financeiro;
 
 public sealed class FaturaCartaoServiceTests
 {
@@ -217,7 +217,7 @@ public sealed class FaturaCartaoServiceTests
         var resultado = await service.EfetivarAsync(1, request);
 
         Assert.Equal("efetivada", resultado.Status);
-        Assert.Equal(DateOnly.FromDateTime(request.DataEfetivacao), resultado.DataEfetivacao);
+        Assert.Equal(request.DataEfetivacao, resultado.DataEfetivacao);
         var faturaPersistida = Assert.Single(faturas.Faturas);
         Assert.Equal(StatusFaturaCartao.Efetivada, faturaPersistida.Status);
         Assert.True(faturaPersistida.DespesaPagamentoId.HasValue);
@@ -316,7 +316,7 @@ public sealed class FaturaCartaoServiceTests
         var faturaPersistida = Assert.Single(faturas.Faturas);
         Assert.Equal(StatusFaturaCartao.Estornada, faturaPersistida.Status);
         Assert.Null(faturaPersistida.DataEfetivacao);
-        Assert.Equal(DateOnly.FromDateTime(dataEstorno), faturaPersistida.DataEstorno);
+        Assert.Equal(dataEstorno, faturaPersistida.DataEstorno);
 
         var despesaPagamento = Assert.Single(despesas.Despesas.Where(x => !x.CartaoId.HasValue && x.ContaBancariaId == 11));
         Assert.Equal(StatusDespesa.Pendente, despesaPagamento.Status);
@@ -517,7 +517,7 @@ public sealed class FaturaCartaoServiceTests
                     Status = StatusFaturaCartao.Efetivada,
                     ValorTotal = 500m,
                     UsuarioCadastroId = 5,
-                    DataEfetivacao = DataHoraBrasil.Hoje(),
+                    DataEfetivacao = DataHoraBrasil.Agora(),
                     DespesaPagamentoId = 300
                 }
             ]

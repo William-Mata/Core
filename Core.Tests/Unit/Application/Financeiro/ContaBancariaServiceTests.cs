@@ -2,12 +2,12 @@ using Core.Application.DTOs.Financeiro;
 using Core.Application.Services.Financeiro;
 using Core.Domain.Entities;
 using Core.Domain.Entities.Financeiro;
-using Core.Domain.Enums;
+using Core.Domain.Enums.Financeiro;
 using Core.Domain.Exceptions;
 using Core.Domain.Interfaces;
 using Core.Domain.Interfaces.Financeiro;
 
-namespace Core.Tests.Unit.Application;
+namespace Core.Tests.Unit.Application.Financeiro;
 
 public sealed class ContaBancariaServiceTests
 {
@@ -85,7 +85,7 @@ public sealed class ContaBancariaServiceTests
         };
         var historicoRepository = new HistoricoRepositoryFake
         {
-            Historicos = [new HistoricoTransacaoFinanceira { Id = 10, TransacaoId = 99, DataTransacao = new DateOnly(2026, 4, 12), Descricao = "Efetivacao", TipoTransacao = TipoTransacaoFinanceira.Despesa, TipoOperacao = TipoOperacaoTransacaoFinanceira.Efetivacao, ValorAntesTransacao = 100m, ValorTransacao = 50m, ValorDepoisTransacao = 50m }]
+            Historicos = [new HistoricoTransacaoFinanceira { Id = 10, TransacaoId = 99, DataTransacao = new DateTime(2026, 4, 12, 0, 0, 0), Descricao = "Efetivacao", TipoTransacao = TipoTransacaoFinanceira.Despesa, TipoOperacao = TipoOperacaoTransacaoFinanceira.Efetivacao, ValorAntesTransacao = 100m, ValorTransacao = 50m, ValorDepoisTransacao = 50m }]
         };
         var service = new ContaBancariaService(repository, historicoRepository, new UsuarioAutenticadoProviderFake(7));
 

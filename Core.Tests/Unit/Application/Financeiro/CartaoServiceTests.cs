@@ -3,11 +3,12 @@ using Core.Application.Services.Financeiro;
 using Core.Domain.Entities;
 using Core.Domain.Entities.Financeiro;
 using Core.Domain.Enums;
+using Core.Domain.Enums.Financeiro;
 using Core.Domain.Exceptions;
 using Core.Domain.Interfaces;
 using Core.Domain.Interfaces.Financeiro;
 
-namespace Core.Tests.Unit.Application;
+namespace Core.Tests.Unit.Application.Financeiro;
 
 public sealed class CartaoServiceTests
 {
@@ -117,7 +118,7 @@ public sealed class CartaoServiceTests
         };
         var historicoRepository = new HistoricoRepositoryFake
         {
-            Historicos = [new HistoricoTransacaoFinanceira { Id = 33, TransacaoId = 120, DataTransacao = new DateOnly(2026, 4, 20), Descricao = "Efetivacao no cartao", TipoTransacao = TipoTransacaoFinanceira.Receita, TipoOperacao = TipoOperacaoTransacaoFinanceira.Efetivacao, ValorAntesTransacao = 10m, ValorTransacao = 15m, ValorDepoisTransacao = 25m }]
+            Historicos = [new HistoricoTransacaoFinanceira { Id = 33, TransacaoId = 120, DataTransacao = new DateTime(2026, 4, 20, 0, 0, 0), Descricao = "Efetivacao no cartao", TipoTransacao = TipoTransacaoFinanceira.Receita, TipoOperacao = TipoOperacaoTransacaoFinanceira.Efetivacao, ValorAntesTransacao = 10m, ValorTransacao = 15m, ValorDepoisTransacao = 25m }]
         };
         var service = new CartaoService(repository, historicoRepository, new UsuarioAutenticadoProviderFake(5));
 

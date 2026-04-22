@@ -1,10 +1,10 @@
 using Core.Domain.Entities.Financeiro;
-using Core.Domain.Enums;
+using Core.Domain.Enums.Financeiro;
 using Core.Infrastructure.Persistence;
 using Core.Infrastructure.Persistence.Repositories.Financeiro;
 using Microsoft.EntityFrameworkCore;
 
-namespace Core.Tests.Integration.Repositories;
+namespace Core.Tests.Integration.Repositories.Financeiro;
 
 public sealed class ReembolsoRepositoryTests
 {
