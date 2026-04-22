@@ -17,4 +17,10 @@
     <ProjectReference Include="..\Core.Infrastructure\Core.Infrastructure.csproj" />
     <ProjectReference Include="..\Core.Api\Core.Api.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Integration\Repositories\Administracao\" />
+    <Folder Include="Integration\Repositories\Compras\" />
+    <Folder Include="Unit\Application\Compras\" />
+    <Folder Include="Unit\Application\Administracao\" />
+  </ItemGroup>
 </Project>

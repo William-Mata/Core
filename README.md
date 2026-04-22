@@ -1,33 +1,38 @@
-# Core
+﻿# Core
 
-API backend em **.NET 10** organizada em camadas, seguindo uma abordagem inspirada em **Clean Architecture**, com separação entre **API**, **Application**, **Domain**, **Infrastructure** e **Tests**.
+API backend em **.NET 10** organizada em camadas, seguindo uma abordagem inspirada em **Clean Architecture**, com separaÃ§Ã£o entre **API**, **Application**, **Domain**, **Infrastructure** e **Tests**.
 
-O projeto concentra regras de **autenticação**, **administração de usuários** e módulos do domínio **financeiro**, com suporte a **SQL Server**, **JWT**, **FluentValidation**, **Entity Framework Core** e processamento assíncrono com **RabbitMQ**.
+O projeto concentra regras de **autenticaÃ§Ã£o**, **administraÃ§Ã£o de usuÃ¡rios** e mÃ³dulos do domÃ­nio **financeiro**, com suporte a **SQL Server**, **JWT**, **FluentValidation**, **Entity Framework Core** e processamento assÃ­ncrono com **RabbitMQ**.
 
-## Visão geral
+Tambem inclui o modulo **Compras** com listas compartilhadas, desejos de compra, historico de precos e rastreabilidade via logs.
 
-O repositório está estruturado para manter responsabilidades bem separadas:
+## VisÃ£o geral
 
-- **Core.Api**: camada de entrada HTTP, autenticação, controllers, middlewares e composição da aplicação.
-- **Core.Application**: serviços, contratos, DTOs e validações.
-- **Core.Domain**: entidades, enums, exceções e interfaces de domínio.
-- **Core.Infrastructure**: persistência, segurança, mensageria, storage e injeção de dependência.
-- **Core.Tests**: testes unitários e de integração.
+O repositÃ³rio estÃ¡ estruturado para manter responsabilidades bem separadas:
+
+- **Core.Api**: camada de entrada HTTP, autenticaÃ§Ã£o, controllers, middlewares e composiÃ§Ã£o da aplicaÃ§Ã£o.
+- **Core.Application**: serviÃ§os, contratos, DTOs e validaÃ§Ãµes.
+- **Core.Domain**: entidades, enums, exceÃ§Ãµes e interfaces de domÃ­nio.
+- **Core.Infrastructure**: persistÃªncia, seguranÃ§a, mensageria, storage e injeÃ§Ã£o de dependÃªncia.
+- **Core.Tests**: testes unitÃ¡rios e de integraÃ§Ã£o.
 
 ## Funcionalidades observadas no projeto
 
-Pelos controllers, serviços e documentação técnica versionada, o projeto cobre principalmente:
+Pelos controllers, serviÃ§os e documentaÃ§Ã£o tÃ©cnica versionada, o projeto cobre principalmente:
 
-- autenticação de usuários
-- administração de usuários
-- contas bancárias
-- cartões
+- autenticaÃ§Ã£o de usuÃ¡rios
+- administraÃ§Ã£o de usuÃ¡rios
+- contas bancÃ¡rias
+- cartÃµes
 - despesas
 - receitas
 - reembolsos
-- aprovação de despesas e receitas
+- aprovaÃ§Ã£o de despesas e receitas
 - relacionamento com amigo financeiro
-- áreas e subáreas do módulo financeiro
+- Ã¡reas e subÃ¡reas do mÃ³dulo financeiro
+- listas de compras compartilhadas
+- desejos de compra
+- historico de produtos/precos para apoio de compra
 
 ## Stack utilizada
 
@@ -44,71 +49,71 @@ Pelos controllers, serviços e documentação técnica versionada, o projeto cob
 
 ```text
 Core
-├── Core.Api
-│   ├── Controllers
-│   │   ├── Administracao
-│   │   └── Financeiro
-│   ├── Extensions
-│   ├── Middlewares
-│   ├── Security
-│   ├── Program.cs
-│   └── appsettings.json
-├── Core.Application
-│   ├── Contracts
-│   ├── DTOs
-│   ├── Services
-│   └── Validators
-├── Core.Domain
-│   ├── Entities
-│   ├── Enums
-│   ├── Exceptions
-│   └── Interfaces
-├── Core.Infrastructure
-│   ├── Messaging
-│   ├── Persistence
-│   ├── Security
-│   ├── Storage
-│   └── DependencyInjection.cs
-├── Core.Tests
-│   ├── Integration
-│   └── Unit
-├── documentações tecnica
-├── query's
-├── skills
-├── .codex
-├── Core.sln
-└── Core.slnx
+â”œâ”€â”€ Core.Api
+â”‚   â”œâ”€â”€ Controllers
+â”‚   â”‚   â”œâ”€â”€ Administracao
+â”‚   â”‚   â””â”€â”€ Financeiro
+â”‚   â”œâ”€â”€ Extensions
+â”‚   â”œâ”€â”€ Middlewares
+â”‚   â”œâ”€â”€ Security
+â”‚   â”œâ”€â”€ Program.cs
+â”‚   â””â”€â”€ appsettings.json
+â”œâ”€â”€ Core.Application
+â”‚   â”œâ”€â”€ Contracts
+â”‚   â”œâ”€â”€ DTOs
+â”‚   â”œâ”€â”€ Services
+â”‚   â””â”€â”€ Validators
+â”œâ”€â”€ Core.Domain
+â”‚   â”œâ”€â”€ Entities
+â”‚   â”œâ”€â”€ Enums
+â”‚   â”œâ”€â”€ Exceptions
+â”‚   â””â”€â”€ Interfaces
+â”œâ”€â”€ Core.Infrastructure
+â”‚   â”œâ”€â”€ Messaging
+â”‚   â”œâ”€â”€ Persistence
+â”‚   â”œâ”€â”€ Security
+â”‚   â”œâ”€â”€ Storage
+â”‚   â””â”€â”€ DependencyInjection.cs
+â”œâ”€â”€ Core.Tests
+â”‚   â”œâ”€â”€ Integration
+â”‚   â””â”€â”€ Unit
+â”œâ”€â”€ documentaÃ§Ãµes tecnica
+â”œâ”€â”€ query's
+â”œâ”€â”€ skills
+â”œâ”€â”€ .codex
+â”œâ”€â”€ Core.sln
+â””â”€â”€ Core.slnx
 ```
 
-## Principais componentes técnicos
+## Principais componentes tÃ©cnicos
 
 ### API
-A API registra controllers, autenticação JWT, autorização, validação automática com FluentValidation, tratamento global de erros via middleware e OpenAPI em ambiente de desenvolvimento.
+A API registra controllers, autenticaÃ§Ã£o JWT, autorizaÃ§Ã£o, validaÃ§Ã£o automÃ¡tica com FluentValidation, tratamento global de erros via middleware e OpenAPI em ambiente de desenvolvimento.
 
-### Autenticação e segurança
-A aplicação utiliza **JWT** com configurações de `Issuer`, `Audience` e `Secret` vindas da configuração da aplicação.
+### AutenticaÃ§Ã£o e seguranÃ§a
+A aplicaÃ§Ã£o utiliza **JWT** com configuraÃ§Ãµes de `Issuer`, `Audience` e `Secret` vindas da configuraÃ§Ã£o da aplicaÃ§Ã£o.
 
-### Persistência
+### PersistÃªncia
 A infraestrutura registra um `AppDbContext` com **SQL Server** via `ConnectionStrings:DefaultConnection`.
 
-### Processamento assíncrono
-Existe configuração de **RabbitMQ** e serviços para publicação e consumo em background relacionados a recorrência financeira.
+### Processamento assÃ­ncrono
+Existe configuraÃ§Ã£o de **RabbitMQ** e serviÃ§os para publicaÃ§Ã£o e consumo em background relacionados a recorrÃªncia financeira.
 
 ### Testes
-O projeto possui suíte de testes separada em **Unit** e **Integration**, usando **xUnit** e `Microsoft.NET.Test.Sdk`.
+O projeto possui suÃ­te de testes separada em **Unit** e **Integration**, usando **xUnit** e `Microsoft.NET.Test.Sdk`.
 
-## Pré-requisitos
+## PrÃ©-requisitos
 
 Antes de rodar o projeto localmente, tenha instalado:
 
 - **.NET SDK 10**
-- **SQL Server** acessível no ambiente local
+- **SQL Server** acessÃ­vel no ambiente local
 - **RabbitMQ** local ou remoto configurado
-- Uma IDE como **Visual Studio 2022+** ou **VS Code** com extensão C#
+- Uma IDE como **Visual Studio 2022+** ou **VS Code** com extensÃ£o C#
 
-## Configuração local
+## ConfiguraÃ§Ã£o local
 
-Atualmente a API depende de configurações para:
+Atualmente a API depende de configuraÃ§Ãµes para:
 
 - `ConnectionStrings:DefaultConnection`
 - `Jwt:Issuer`
@@ -116,16 +121,16 @@ Atualmente a API depende de configurações para:
 - `Jwt:Secret`
 - `RabbitMq:*`
 
-### Recomendação
+### RecomendaÃ§Ã£o
 
-Para evitar expor dados sensíveis no repositório:
+Para evitar expor dados sensÃ­veis no repositÃ³rio:
 
-1. mantenha no repositório apenas um arquivo de exemplo, como `appsettings.Example.json`
+1. mantenha no repositÃ³rio apenas um arquivo de exemplo, como `appsettings.Example.json`
 2. use `appsettings.Development.json` localmente
-3. prefira variáveis de ambiente ou User Secrets para segredos
+3. prefira variÃ¡veis de ambiente ou User Secrets para segredos
 4. nunca versione secrets reais, tokens, senhas ou connection strings de ambientes reais
 
-### Exemplo de configuração local
+### Exemplo de configuraÃ§Ã£o local
 
 ```json
 {
@@ -149,13 +154,13 @@ Para evitar expor dados sensíveis no repositório:
 
 ## Como executar o projeto
 
-### Restaurar dependências
+### Restaurar dependÃªncias
 
 ```bash
 dotnet restore .\Core.sln
 ```
 
-### Compilar a solução
+### Compilar a soluÃ§Ã£o
 
 ```bash
 dotnet build .\Core.sln
@@ -175,26 +180,33 @@ Para executar os testes:
 dotnet test .\Core.Tests\Core.Tests.csproj
 ```
 
-## Documentação e scripts auxiliares
+## DocumentaÃ§Ã£o e scripts auxiliares
 
-O repositório também possui materiais de apoio:
+O repositÃ³rio tambÃ©m possui materiais de apoio:
 
-- **documentações tecnica/**: documentação funcional e técnica das telas e módulos
+- **documentaÃ§Ãµes tecnica/**: documentaÃ§Ã£o funcional e tÃ©cnica das telas e mÃ³dulos
 - **query's/**: scripts SQL de apoio e script mestre para ambiente local
-- **skills/** e **.codex/**: arquivos auxiliares para workflows com IA e documentação técnica complementar
+- **skills/** e **.codex/**: arquivos auxiliares para workflows com IA e documentaÃ§Ã£o tÃ©cnica complementar
+- Documentacao de Compras:
+  - documentações tecnica/lista-compra-regras-api.md
+  - documentações tecnica/desejo-compra-regras-api.md
+  - documentações tecnica/historico-produto-regras-api.md
+- SQL de Compras:
+  - query's/04-compras/25-compras.sql
+  - SignalR: /hubs/compras (evento `listaAtualizada`)
 
-## Boas práticas recomendadas para este repositório
+## Boas prÃ¡ticas recomendadas para este repositÃ³rio
 
-- manter regras de negócio concentradas em `Core.Application` e `Core.Domain`
-- evitar lógica de negócio em controllers
-- isolar integrações externas em `Core.Infrastructure`
-- não versionar segredos nem arquivos locais de ambiente
-- manter documentação de módulo próxima ao domínio correspondente
-- usar um arquivo de ignore específico para IA, como `.cursorignore`, para reduzir contexto desnecessário e economizar tokens
+- manter regras de negÃ³cio concentradas em `Core.Application` e `Core.Domain`
+- evitar lÃ³gica de negÃ³cio em controllers
+- isolar integraÃ§Ãµes externas em `Core.Infrastructure`
+- nÃ£o versionar segredos nem arquivos locais de ambiente
+- manter documentaÃ§Ã£o de mÃ³dulo prÃ³xima ao domÃ­nio correspondente
+- usar um arquivo de ignore especÃ­fico para IA, como `.cursorignore`, para reduzir contexto desnecessÃ¡rio e economizar tokens
 
-## Próximos passos sugeridos
+## PrÃ³ximos passos sugeridos
 
 - criar um `appsettings.Example.json`
 - mover segredos locais para `appsettings.Development.json` ou User Secrets
-- documentar endpoints principais por módulo
-- incluir exemplos de requests/responses no README ou em documentação separada
+- documentar endpoints principais por mÃ³dulo
+- incluir exemplos de requests/responses no README ou em documentaÃ§Ã£o separada

@@ -1,11 +1,14 @@
 using Core.Application.Services.Administracao;
+using Core.Application.Services.Compras;
 using Core.Application.Services.Financeiro;
 using Core.Domain.Interfaces;
 using Core.Domain.Interfaces.Administracao;
+using Core.Domain.Interfaces.Compras;
 using Core.Domain.Interfaces.Financeiro;
 using Core.Infrastructure.Persistence;
 using Core.Infrastructure.Persistence.Repositories;
 using Core.Infrastructure.Persistence.Repositories.Administracao;
+using Core.Infrastructure.Persistence.Repositories.Compras;
 using Core.Infrastructure.Persistence.Repositories.Financeiro;
 using Core.Infrastructure.Security;
 using Core.Infrastructure.Messaging;
@@ -38,6 +41,7 @@ public static class DependencyInjection
         services.AddScoped<IHistoricoTransacaoFinanceiraRepository, HistoricoTransacaoFinanceiraRepository>();
         services.AddScoped<IAreaRepository, AreaRepository>();
         services.AddScoped<IAmizadeRepository, AmizadeRepository>();
+        services.AddScoped<IComprasRepository, ComprasRepository>();
         services.AddScoped<IUsuarioRepository, UsuarioRepository>();
         services.AddScoped<IDocumentoStorageService, LocalDocumentoStorageService>();
         services.AddScoped<ITokenService, JwtTokenService>();
@@ -57,6 +61,7 @@ public static class DependencyInjection
         services.AddScoped<FaturaCartaoService>();
         services.AddScoped<HistoricoTransacaoFinanceiraService>();
         services.AddScoped<HistoricoTransacaoFinanceiraConsultaService>();
+        services.AddScoped<ComprasService>();
         services.AddScoped<UsuarioService>();
 
         return services;

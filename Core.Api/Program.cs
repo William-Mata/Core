@@ -1,8 +1,10 @@
 using System.Text;
 using System.Text.Json.Serialization;
 using Core.Api.Extensions;
+using Core.Api.Hubs;
 using Core.Api.Middlewares;
 using Core.Api.Security;
+using Core.Application.Contracts.Compras;
 using Core.Application.Validators.Administracao;
 using Core.Domain.Interfaces;
 using Core.Infrastructure;
@@ -60,6 +62,7 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IUsuarioAutenticadoProvider, UsuarioAutenticadoProvider>();
+builder.Services.AddScoped<IComprasTempoRealPublisher, ComprasTempoRealPublisher>();
 var jwtSecret = builder.Configuration["Jwt:Secret"]
     ?? throw new InvalidOperationException("Jwt:Secret nao configurado.");
 var jwtIssuer = builder.Configuration["Jwt:Issuer"]
@@ -82,8 +85,25 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             IssuerSigningKey = signingKey,
             ClockSkew = TimeSpan.Zero
         };
+
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+                if (!string.IsNullOrWhiteSpace(accessToken) &&
+                    path.StartsWithSegments("/hubs/compras"))
+                {
+                    context.Token = accessToken;
+                }
+
+                return Task.CompletedTask;
+            }
+        };
     });
 builder.Services.AddAuthorization();
+builder.Services.AddSignalR();
 builder.Services.Configure<HostOptions>(options =>
 {
     options.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore;
@@ -150,4 +170,5 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<ComprasHub>("/hubs/compras");
 app.Run();

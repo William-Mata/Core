@@ -3,8 +3,10 @@ using System.Linq;
 using Core.Domain.Common;
 using Core.Domain.Entities;
 using Core.Domain.Entities.Administracao;
+using Core.Domain.Entities.Compras;
 using Core.Domain.Entities.Financeiro;
-using Core.Domain.Enums;
+using Core.Domain.Enums.Compras;
+using Core.Domain.Enums.Financeiro;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 
@@ -43,6 +45,13 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<Area> Areas => Set<Area>();
     public DbSet<SubArea> SubAreas => Set<SubArea>();
     public DbSet<Documento> Documentos => Set<Documento>();
+    public DbSet<ListaCompra> ListasCompras => Set<ListaCompra>();
+    public DbSet<ItemListaCompra> ItensListasCompras => Set<ItemListaCompra>();
+    public DbSet<ParticipacaoListaCompra> ParticipacoesListasCompras => Set<ParticipacaoListaCompra>();
+    public DbSet<Produto> Produtos => Set<Produto>();
+    public DbSet<DesejoCompra> DesejosCompra => Set<DesejoCompra>();
+    public DbSet<HistoricoProduto> HistoricosProdutos => Set<HistoricoProduto>();
+    public DbSet<ListaCompraLog> ListasComprasLogs => Set<ListaCompraLog>();
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
@@ -98,7 +107,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         modelBuilder.Entity<Modulo>().HasIndex(x => x.Nome).IsUnique();
         modelBuilder.Entity<Modulo>().HasData(
             new { Id = 2, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, Nome = "financeiro", Status = true },
-            new { Id = 3, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, Nome = "administracao", Status = true });
+            new { Id = 3, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, Nome = "administracao", Status = true },
+            new { Id = 4, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, Nome = "compras", Status = true });
 
         modelBuilder.Entity<Tela>().ToTable("Tela");
         modelBuilder.Entity<Tela>().HasKey(x => x.Id);
@@ -107,7 +117,10 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         modelBuilder.Entity<Tela>().HasData(
             new { Id = 2, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, ModuloId = 2, Nome = "Despesas", Status = true },
             new { Id = 3, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, ModuloId = 2, Nome = "Receitas", Status = true },
-            new { Id = 4, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, ModuloId = 3, Nome = "Usuarios", Status = true });
+            new { Id = 4, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, ModuloId = 3, Nome = "Usuarios", Status = true },
+            new { Id = 5, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, ModuloId = 4, Nome = "ListasCompras", Status = true },
+            new { Id = 6, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, ModuloId = 4, Nome = "DesejosCompra", Status = true },
+            new { Id = 7, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, ModuloId = 4, Nome = "HistoricoPrecos", Status = true });
 
         modelBuilder.Entity<Funcionalidade>().ToTable("Funcionalidade");
         modelBuilder.Entity<Funcionalidade>().HasKey(x => x.Id);
@@ -116,7 +129,13 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         modelBuilder.Entity<Funcionalidade>().HasData(
             new { Id = 2, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, TelaId = 2, Nome = "editar", Status = true },
             new { Id = 3, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, TelaId = 2, Nome = "visualizar", Status = true },
-            new { Id = 4, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, TelaId = 4, Nome = "criar", Status = true });
+            new { Id = 4, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, TelaId = 4, Nome = "criar", Status = true },
+            new { Id = 5, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, TelaId = 5, Nome = "visualizar", Status = true },
+            new { Id = 6, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, TelaId = 5, Nome = "criar", Status = true },
+            new { Id = 7, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, TelaId = 5, Nome = "editar", Status = true },
+            new { Id = 8, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, TelaId = 5, Nome = "compartilhar", Status = true },
+            new { Id = 9, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, TelaId = 5, Nome = "acoes_em_lote", Status = true },
+            new { Id = 10, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, TelaId = 7, Nome = "consultar_historico", Status = true });
 
         modelBuilder.Entity<UsuarioModulo>().ToTable("UsuarioModulo");
         modelBuilder.Entity<UsuarioModulo>().HasKey(x => x.Id);
@@ -124,7 +143,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         modelBuilder.Entity<UsuarioModulo>().HasOne(x => x.Modulo).WithMany().HasForeignKey(x => x.ModuloId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<UsuarioModulo>().HasData(
             new { Id = 1, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, UsuarioId = 1, ModuloId = 2, Status = true },
-            new { Id = 2, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, UsuarioId = 1, ModuloId = 3, Status = true });
+            new { Id = 2, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, UsuarioId = 1, ModuloId = 3, Status = true },
+            new { Id = 3, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, UsuarioId = 1, ModuloId = 4, Status = true });
 
         modelBuilder.Entity<UsuarioTela>().ToTable("UsuarioTela");
         modelBuilder.Entity<UsuarioTela>().HasKey(x => x.Id);
@@ -133,7 +153,10 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         modelBuilder.Entity<UsuarioTela>().HasData(
             new { Id = 1, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, UsuarioId = 1, TelaId = 2, Status = true },
             new { Id = 2, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, UsuarioId = 1, TelaId = 3, Status = true },
-            new { Id = 3, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, UsuarioId = 1, TelaId = 4, Status = true });
+            new { Id = 3, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, UsuarioId = 1, TelaId = 4, Status = true },
+            new { Id = 4, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, UsuarioId = 1, TelaId = 5, Status = true },
+            new { Id = 5, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, UsuarioId = 1, TelaId = 6, Status = true },
+            new { Id = 6, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, UsuarioId = 1, TelaId = 7, Status = true });
 
         modelBuilder.Entity<UsuarioFuncionalidade>().ToTable("UsuarioFuncionalidade");
         modelBuilder.Entity<UsuarioFuncionalidade>().HasKey(x => x.Id);
@@ -142,7 +165,13 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         modelBuilder.Entity<UsuarioFuncionalidade>().HasData(
             new { Id = 1, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, UsuarioId = 1, FuncionalidadeId = 2, Status = true },
             new { Id = 2, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, UsuarioId = 1, FuncionalidadeId = 3, Status = true },
-            new { Id = 3, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, UsuarioId = 1, FuncionalidadeId = 4, Status = true });
+            new { Id = 3, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, UsuarioId = 1, FuncionalidadeId = 4, Status = true },
+            new { Id = 4, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, UsuarioId = 1, FuncionalidadeId = 5, Status = true },
+            new { Id = 5, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, UsuarioId = 1, FuncionalidadeId = 6, Status = true },
+            new { Id = 6, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, UsuarioId = 1, FuncionalidadeId = 7, Status = true },
+            new { Id = 7, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, UsuarioId = 1, FuncionalidadeId = 8, Status = true },
+            new { Id = 8, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, UsuarioId = 1, FuncionalidadeId = 9, Status = true },
+            new { Id = 9, DataHoraCadastro = seedDate, UsuarioCadastroId = 1, UsuarioId = 1, FuncionalidadeId = 10, Status = true });
 
         modelBuilder.Entity<TentativaLoginInvalida>().ToTable("TentativaLoginInvalida");
         modelBuilder.Entity<TentativaLoginInvalida>().HasKey(x => x.Id);
@@ -296,6 +325,71 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         modelBuilder.Entity<ReceitaAreaRateio>().HasOne(x => x.Area).WithMany().HasForeignKey(x => x.AreaId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<ReceitaAreaRateio>().HasOne(x => x.SubArea).WithMany().HasForeignKey(x => x.SubAreaId).OnDelete(DeleteBehavior.Restrict);
 
+        modelBuilder.Entity<ListaCompra>().ToTable("ListaCompra");
+        modelBuilder.Entity<ListaCompra>().HasKey(x => x.Id);
+        modelBuilder.Entity<ListaCompra>().Property(x => x.Status).HasConversion<string>();
+        modelBuilder.Entity<ListaCompra>().Property(x => x.Nome).HasMaxLength(120);
+        modelBuilder.Entity<ListaCompra>().Property(x => x.Categoria).HasMaxLength(80);
+        modelBuilder.Entity<ListaCompra>().Property(x => x.Observacao).HasMaxLength(500);
+        modelBuilder.Entity<ListaCompra>().HasIndex(x => new { x.UsuarioProprietarioId, x.Status });
+        modelBuilder.Entity<ListaCompra>().HasMany(x => x.Itens).WithOne(x => x.ListaCompra).HasForeignKey(x => x.ListaCompraId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<ListaCompra>().HasMany(x => x.Participantes).WithOne(x => x.ListaCompra).HasForeignKey(x => x.ListaCompraId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<ListaCompra>().HasMany(x => x.Logs).WithOne(x => x.ListaCompra).HasForeignKey(x => x.ListaCompraId).OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ItemListaCompra>().ToTable("ItemListaCompra");
+        modelBuilder.Entity<ItemListaCompra>().HasKey(x => x.Id);
+        modelBuilder.Entity<ItemListaCompra>().Property(x => x.Unidade).HasConversion<string>();
+        modelBuilder.Entity<ItemListaCompra>().Property(x => x.Descricao).HasMaxLength(180);
+        modelBuilder.Entity<ItemListaCompra>().Property(x => x.DescricaoNormalizada).HasMaxLength(180);
+        modelBuilder.Entity<ItemListaCompra>().Property(x => x.Observacao).HasMaxLength(500);
+        modelBuilder.Entity<ItemListaCompra>().Property(x => x.EtiquetaCor).HasMaxLength(40);
+        modelBuilder.Entity<ItemListaCompra>().Property(x => x.PrecoUnitario).HasPrecision(18, 4);
+        modelBuilder.Entity<ItemListaCompra>().Property(x => x.ValorTotal).HasPrecision(18, 2);
+        modelBuilder.Entity<ItemListaCompra>().HasIndex(x => new { x.ListaCompraId, x.DescricaoNormalizada, x.Unidade });
+        modelBuilder.Entity<ItemListaCompra>().HasOne(x => x.Produto).WithMany(x => x.Itens).HasForeignKey(x => x.ProdutoId).OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<ParticipacaoListaCompra>().ToTable("ParticipacaoListaCompra");
+        modelBuilder.Entity<ParticipacaoListaCompra>().HasKey(x => x.Id);
+        modelBuilder.Entity<ParticipacaoListaCompra>().Property(x => x.Papel).HasConversion<string>();
+        modelBuilder.Entity<ParticipacaoListaCompra>().HasIndex(x => new { x.ListaCompraId, x.UsuarioId }).IsUnique();
+
+        modelBuilder.Entity<Produto>().ToTable("Produto");
+        modelBuilder.Entity<Produto>().HasKey(x => x.Id);
+        modelBuilder.Entity<Produto>().Property(x => x.UnidadePadrao).HasConversion<string>();
+        modelBuilder.Entity<Produto>().Property(x => x.Descricao).HasMaxLength(180);
+        modelBuilder.Entity<Produto>().Property(x => x.DescricaoNormalizada).HasMaxLength(180);
+        modelBuilder.Entity<Produto>().Property(x => x.ObservacaoPadrao).HasMaxLength(500);
+        modelBuilder.Entity<Produto>().Property(x => x.UltimoPrecoUnitario).HasPrecision(18, 4);
+        modelBuilder.Entity<Produto>().HasIndex(x => new { x.DescricaoNormalizada, x.UnidadePadrao });
+
+        modelBuilder.Entity<DesejoCompra>().ToTable("DesejoCompra");
+        modelBuilder.Entity<DesejoCompra>().HasKey(x => x.Id);
+        modelBuilder.Entity<DesejoCompra>().Property(x => x.Unidade).HasConversion<string>();
+        modelBuilder.Entity<DesejoCompra>().Property(x => x.Descricao).HasMaxLength(180);
+        modelBuilder.Entity<DesejoCompra>().Property(x => x.DescricaoNormalizada).HasMaxLength(180);
+        modelBuilder.Entity<DesejoCompra>().Property(x => x.Observacao).HasMaxLength(500);
+        modelBuilder.Entity<DesejoCompra>().Property(x => x.PrecoEstimado).HasPrecision(18, 4);
+        modelBuilder.Entity<DesejoCompra>().HasIndex(x => new { x.UsuarioCadastroId, x.Convertido });
+        modelBuilder.Entity<DesejoCompra>().HasOne(x => x.Produto).WithMany(x => x.Desejos).HasForeignKey(x => x.ProdutoId).OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<HistoricoProduto>().ToTable("HistoricoProduto");
+        modelBuilder.Entity<HistoricoProduto>().HasKey(x => x.Id);
+        modelBuilder.Entity<HistoricoProduto>().Property(x => x.Unidade).HasConversion<string>();
+        modelBuilder.Entity<HistoricoProduto>().Property(x => x.Origem).HasConversion<string>();
+        modelBuilder.Entity<HistoricoProduto>().Property(x => x.PrecoUnitario).HasPrecision(18, 4);
+        modelBuilder.Entity<HistoricoProduto>().HasIndex(x => new { x.ProdutoId, x.DataHoraCadastro });
+        modelBuilder.Entity<HistoricoProduto>().HasOne(x => x.Produto).WithMany(x => x.HistoricosPreco).HasForeignKey(x => x.ProdutoId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<HistoricoProduto>().HasOne(x => x.ItemListaCompra).WithMany().HasForeignKey(x => x.ItemListaCompraId).OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<ListaCompraLog>().ToTable("ListaCompraLog");
+        modelBuilder.Entity<ListaCompraLog>().HasKey(x => x.Id);
+        modelBuilder.Entity<ListaCompraLog>().Property(x => x.Acao).HasConversion<string>();
+        modelBuilder.Entity<ListaCompraLog>().Property(x => x.Descricao).HasMaxLength(500);
+        modelBuilder.Entity<ListaCompraLog>().Property(x => x.ValorAnterior).HasMaxLength(500);
+        modelBuilder.Entity<ListaCompraLog>().Property(x => x.ValorNovo).HasMaxLength(500);
+        modelBuilder.Entity<ListaCompraLog>().HasIndex(x => new { x.ListaCompraId, x.DataHoraCadastro });
+        modelBuilder.Entity<ListaCompraLog>().HasOne(x => x.ItemListaCompra).WithMany().HasForeignKey(x => x.ItemListaCompraId).OnDelete(DeleteBehavior.NoAction);
+
         modelBuilder.Entity<Area>().ToTable("Area");
         modelBuilder.Entity<Area>().HasKey(x => x.Id);
         modelBuilder.Entity<Area>().Property(x => x.Tipo).HasConversion<string>();
@@ -349,4 +443,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         return !property.Metadata.Name.EndsWith("Utc", StringComparison.OrdinalIgnoreCase);
     }
 }
+
+
 
