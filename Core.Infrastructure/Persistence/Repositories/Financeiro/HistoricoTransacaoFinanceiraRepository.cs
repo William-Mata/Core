@@ -1,5 +1,5 @@
 using Core.Domain.Entities.Financeiro;
-using Core.Domain.Enums;
+using Core.Domain.Enums.Financeiro;
 using Core.Domain.Interfaces.Financeiro;
 using Microsoft.EntityFrameworkCore;
 

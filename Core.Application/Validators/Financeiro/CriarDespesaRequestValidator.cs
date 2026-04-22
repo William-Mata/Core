@@ -1,5 +1,5 @@
 using Core.Application.DTOs.Financeiro;
-using Core.Domain.Enums;
+using Core.Domain.Enums.Financeiro;
 using FluentValidation;
 
 namespace Core.Application.Validators.Financeiro;

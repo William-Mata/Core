@@ -1,6 +1,6 @@
 namespace Core.Domain.Entities.Financeiro;
 
-using Core.Domain.Enums;
+using Core.Domain.Enums.Financeiro;
 
 public sealed class Area
 {

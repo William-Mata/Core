@@ -1,4 +1,4 @@
-namespace Core.Domain.Enums;
+namespace Core.Domain.Enums.Financeiro;
 
 public enum TipoRateioAmigos
 {

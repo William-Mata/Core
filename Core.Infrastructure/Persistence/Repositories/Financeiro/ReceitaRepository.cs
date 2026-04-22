@@ -1,4 +1,5 @@
 ﻿using Core.Domain.Entities.Financeiro;
+using Core.Domain.Enums.Financeiro;
 using Core.Domain.Interfaces.Financeiro;
 using Microsoft.EntityFrameworkCore;
 
@@ -18,7 +19,7 @@ public sealed class ReceitaRepository(AppDbContext dbContext) : IReceitaReposito
     public Task<List<Receita>> ListarPendentesAprovacaoPorUsuarioAsync(int usuarioCadastroId, CancellationToken cancellationToken = default) =>
         dbContext.Receitas
             .Where(x => x.UsuarioCadastroId == usuarioCadastroId)
-            .Where(x => x.ReceitaOrigemId.HasValue && x.Status == Core.Domain.Enums.StatusReceita.PendenteAprovacao)
+            .Where(x => x.ReceitaOrigemId.HasValue && x.Status == StatusReceita.PendenteAprovacao)
             .Include(x => x.AmigosRateio)
             .Include(x => x.AreasRateio).ThenInclude(x => x.Area)
             .Include(x => x.AreasRateio).ThenInclude(x => x.SubArea)

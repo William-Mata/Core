@@ -1,6 +1,6 @@
-﻿namespace Core.Domain.Enums;
+﻿namespace Core.Domain.Enums.Financeiro;
 
-public enum StatusReceita
+public enum StatusDespesa
 {
     Pendente = 1,
     Efetivada = 2,

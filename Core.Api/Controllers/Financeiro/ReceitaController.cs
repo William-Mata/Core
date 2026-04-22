@@ -1,6 +1,6 @@
 using Core.Application.DTOs.Financeiro;
 using Core.Application.Services.Financeiro;
-using Core.Domain.Enums;
+using Core.Domain.Enums.Financeiro;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 

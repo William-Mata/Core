@@ -1,4 +1,4 @@
-using Core.Domain.Enums;
+using Core.Domain.Enums.Financeiro;
 
 namespace Core.Application.Contracts.Financeiro;
 

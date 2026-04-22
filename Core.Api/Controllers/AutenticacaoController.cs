@@ -2,7 +2,7 @@
 using Core.Application.Services.Administracao;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Core.Api.Controllers.Administracao;
+namespace Core.Api.Controllers;
 
 /// <summary>
 /// Endpoints de autenticacao e gerenciamento de token.

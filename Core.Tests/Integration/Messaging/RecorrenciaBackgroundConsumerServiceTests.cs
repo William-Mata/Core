@@ -2,7 +2,7 @@ using System.Reflection;
 using Core.Application.Contracts.Financeiro;
 using Core.Domain.Common;
 using Core.Domain.Entities.Financeiro;
-using Core.Domain.Enums;
+using Core.Domain.Enums.Financeiro;
 using Core.Infrastructure.Messaging;
 using Core.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;

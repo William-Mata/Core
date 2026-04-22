@@ -1,5 +1,5 @@
 using Core.Domain.Entities.Financeiro;
-using Core.Domain.Enums;
+using Core.Domain.Enums.Financeiro;
 
 namespace Core.Domain.Interfaces.Financeiro;
 
