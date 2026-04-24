@@ -32,6 +32,13 @@ public sealed class ComprasService(
         return await MapDetalheAsync(lista, usuarioId, cancellationToken);
     }
 
+    public async Task<ListaCompraParticipantesDetalheDto> ObterDetalheListaAsync(long listaId, CancellationToken cancellationToken = default)
+    {
+        var usuarioId = ObterUsuarioAutenticadoId();
+        var lista = await repository.ObterListaAcessivelPorIdAsync(listaId, usuarioId, cancellationToken) ?? throw new NotFoundException("lista_compra_nao_encontrada");
+        return await MapDetalheParticipantesAsync(lista, cancellationToken);
+    }
+
     public async Task<ListaCompraDetalheDto> CriarListaAsync(CriarListaCompraRequest request, CancellationToken cancellationToken = default)
     {
         var usuarioId = ObterUsuarioAutenticadoId();
@@ -49,13 +56,7 @@ public sealed class ComprasService(
             DataHoraAtualizacao = DateTime.UtcNow
         };
 
-        lista.Participantes.Add(new ParticipacaoListaCompra
-        {
-            UsuarioCadastroId = usuarioId,
-            UsuarioId = usuarioId,
-            Papel = PapelParticipacaoListaCompra.Proprietario,
-            Status = true
-        });
+        await AtualizarParticipantesAsync(lista, usuarioId, usuarioId, request.Participantes, definirParticipantesPadraoQuandoNulo: true, exigirProprietarioAutenticado: true, cancellationToken);
         lista.Logs.Add(CriarLog(usuarioId, null, AcaoLogs.Cadastro, "Lista criada."));
 
         await repository.AddListaAsync(lista, cancellationToken);
@@ -66,17 +67,25 @@ public sealed class ComprasService(
     public async Task<ListaCompraDetalheDto> AtualizarListaAsync(long listaId, AtualizarListaCompraRequest request, CancellationToken cancellationToken = default)
     {
         var usuarioId = ObterUsuarioAutenticadoId();
-        var lista = await repository.ObterListaDoProprietarioAsync(listaId, usuarioId, cancellationToken) ?? throw new NotFoundException("lista_compra_nao_encontrada");
+        var lista = await repository.ObterListaAcessivelPorIdAsync(listaId, usuarioId, cancellationToken) ?? throw new NotFoundException("lista_compra_nao_encontrada");
+        if (!PodeEditar(lista, usuarioId))
+            throw new DomainException("lista_compra_sem_permissao_edicao");
+
         var nome = NormalizarTextoObrigatorio(request.Nome, "lista_compra_nome_obrigatorio");
         var categoria = NormalizarTextoObrigatorio(request.Categoria, "lista_compra_categoria_obrigatoria");
 
-        var valorAnterior = $"nome={lista.Nome};categoria={lista.Categoria};observacao={lista.Observacao}";
+        var valorAnterior = $"nome={lista.Nome};categoria={lista.Categoria};observacao={lista.Observacao};status={lista.Status}";
         lista.Nome = nome;
         lista.Categoria = categoria;
         lista.Observacao = NormalizarTextoOpcional(request.Observacao);
+        if (request.Status.HasValue)
+            lista.Status = request.Status.Value;
+
+        await AtualizarParticipantesAsync(lista, usuarioId, lista.UsuarioProprietarioId, request.Participantes, definirParticipantesPadraoQuandoNulo: false, exigirProprietarioAutenticado: false, cancellationToken);
+
         lista.DataHoraAtualizacao = DateTime.UtcNow;
         lista.Logs.Add(CriarLog(usuarioId, null, AcaoLogs.Atualizacao, "Lista atualizada.", valorAnterior,
-            $"nome={lista.Nome};categoria={lista.Categoria};observacao={lista.Observacao}"));
+            $"nome={lista.Nome};categoria={lista.Categoria};observacao={lista.Observacao};status={lista.Status}"));
 
         await repository.SaveChangesAsync(cancellationToken);
         await PublicarAtualizacaoListaAsync(lista.Id, "lista_atualizada", usuarioId, cancellationToken);
@@ -157,61 +166,6 @@ public sealed class ComprasService(
         await repository.AddListaAsync(novaLista, cancellationToken);
         await PublicarAtualizacaoListaAsync(novaLista.Id, "lista_duplicada", usuarioId, cancellationToken);
         return await MapDetalheAsync(novaLista, usuarioId, cancellationToken);
-    }
-
-    public async Task<ListaCompraDetalheDto> CompartilharListaAsync(long listaId, CompartilharListaCompraRequest request, CancellationToken cancellationToken = default)
-    {
-        var usuarioId = ObterUsuarioAutenticadoId();
-        var lista = await repository.ObterListaDoProprietarioAsync(listaId, usuarioId, cancellationToken) ?? throw new NotFoundException("lista_compra_nao_encontrada");
-        if (request.AmigoId <= 0 || request.AmigoId == usuarioId)
-            throw new DomainException("participante_invalido");
-
-        var amigosIds = await amizadeRepository.ListarIdsAmigosAceitosAsync(usuarioId, cancellationToken);
-        if (!amigosIds.Contains(request.AmigoId))
-            throw new DomainException("participante_nao_eh_amigo_aceito");
-
-        var existente = lista.Participantes.FirstOrDefault(x => x.UsuarioId == request.AmigoId);
-        if (existente is null)
-        {
-            lista.Participantes.Add(new ParticipacaoListaCompra
-            {
-                UsuarioCadastroId = usuarioId,
-                UsuarioId = request.AmigoId,
-                Papel = request.Papel,
-                Status = true
-            });
-        }
-        else
-        {
-            existente.Status = true;
-            existente.Papel = request.Papel;
-            existente.UsuarioCadastroId = usuarioId;
-        }
-
-        lista.DataHoraAtualizacao = DateTime.UtcNow;
-        lista.Logs.Add(CriarLog(usuarioId, null, AcaoLogs.Atualizacao, $"Lista compartilhada com usuario {request.AmigoId}."));
-        await repository.SaveChangesAsync(cancellationToken);
-        await PublicarAtualizacaoListaAsync(lista.Id, "lista_compartilhada", usuarioId, cancellationToken);
-        return await MapDetalheAsync(lista, usuarioId, cancellationToken);
-    }
-
-    public async Task RemoverParticipanteAsync(long listaId, int participanteId, CancellationToken cancellationToken = default)
-    {
-        var usuarioId = ObterUsuarioAutenticadoId();
-        var lista = await repository.ObterListaDoProprietarioAsync(listaId, usuarioId, cancellationToken) ?? throw new NotFoundException("lista_compra_nao_encontrada");
-        if (participanteId == lista.UsuarioProprietarioId)
-            throw new DomainException("nao_permitido_remover_proprietario");
-
-        var participante = lista.Participantes.FirstOrDefault(x => x.UsuarioId == participanteId && x.Status);
-        if (participante is null)
-            throw new NotFoundException("participante_nao_encontrado");
-
-        participante.Status = false;
-        participante.UsuarioCadastroId = usuarioId;
-        lista.DataHoraAtualizacao = DateTime.UtcNow;
-        lista.Logs.Add(CriarLog(usuarioId, null, AcaoLogs.Exclusao, $"Participante {participanteId} removido da lista."));
-        await repository.SaveChangesAsync(cancellationToken);
-        await PublicarAtualizacaoListaAsync(lista.Id, "participante_removido", usuarioId, cancellationToken);
     }
 
     public async Task<IReadOnlyCollection<SugestaoProdutoCompraDto>> BuscarSugestoesItensAsync(long listaId, string? descricao, CancellationToken cancellationToken = default)
@@ -487,16 +441,6 @@ public sealed class ComprasService(
         await PublicarAtualizacaoListaAsync(lista.Id, "lote_executado", usuarioId, cancellationToken);
 
         return new AcaoLoteListaCompraResultadoDto(request.Acao.ToString(), itensAfetados, novaListaId);
-    }
-
-    public async Task<IReadOnlyCollection<ListaCompraLogDto>> ListarLogsAsync(long listaId, CancellationToken cancellationToken = default)
-    {
-        var usuarioId = ObterUsuarioAutenticadoId();
-        var lista = await repository.ObterListaAcessivelPorIdAsync(listaId, usuarioId, cancellationToken) ?? throw new NotFoundException("lista_compra_nao_encontrada");
-        return lista.Logs
-            .OrderByDescending(x => x.DataHoraCadastro)
-            .Select(x => new ListaCompraLogDto(x.Id, x.DataHoraCadastro, x.UsuarioCadastroId, x.ItemListaCompraId, x.Acao, x.Descricao, x.ValorAnterior, x.ValorNovo))
-            .ToArray();
     }
 
     public async Task<IReadOnlyCollection<DesejoCompraDto>> ListarDesejosAsync(CancellationToken cancellationToken = default)
@@ -838,25 +782,87 @@ public sealed class ComprasService(
         });
     }
 
+    private async Task AtualizarParticipantesAsync(
+        ListaCompra lista,
+        int usuarioId,
+        int usuarioReferenciaAmizadeId,
+        IReadOnlyCollection<ParticipanteListaCompraRequest>? participantes,
+        bool definirParticipantesPadraoQuandoNulo,
+        bool exigirProprietarioAutenticado,
+        CancellationToken cancellationToken)
+    {
+        if (participantes is null && !definirParticipantesPadraoQuandoNulo)
+            return;
+
+        var participantesSolicitados = participantes?.ToArray() ??
+            [new ParticipanteListaCompraRequest(usuarioId, PapelParticipacaoListaCompra.Proprietario)];
+
+        if (participantesSolicitados.Length == 0)
+            throw new DomainException("lista_compra_proprietario_invalido");
+
+        if (participantesSolicitados.Any(x => x.UsuarioId <= 0))
+            throw new DomainException("participante_invalido");
+
+        var usuariosDuplicados = participantesSolicitados
+            .GroupBy(x => x.UsuarioId)
+            .Where(x => x.Count() > 1)
+            .Select(x => x.Key)
+            .ToArray();
+        if (usuariosDuplicados.Length > 0)
+            throw new DomainException("participante_duplicado");
+
+        var proprietarios = participantesSolicitados
+            .Where(x => x.Papel == PapelParticipacaoListaCompra.Proprietario)
+            .ToArray();
+        if (proprietarios.Length != 1)
+            throw new DomainException("lista_compra_proprietario_invalido");
+
+        var novoProprietarioId = proprietarios[0].UsuarioId;
+        if (exigirProprietarioAutenticado && novoProprietarioId != usuarioId)
+            throw new DomainException("lista_compra_proprietario_invalido");
+
+        var amigosIds = (await amizadeRepository.ListarIdsAmigosAceitosAsync(usuarioReferenciaAmizadeId, cancellationToken)).ToHashSet();
+        foreach (var participante in participantesSolicitados.Where(x => x.UsuarioId != usuarioReferenciaAmizadeId))
+        {
+            if (!amigosIds.Contains(participante.UsuarioId))
+                throw new DomainException("participante_nao_eh_amigo_aceito");
+        }
+
+        var solicitadosPorUsuarioId = participantesSolicitados.ToDictionary(x => x.UsuarioId, x => x);
+        var existentesPorUsuarioId = lista.Participantes.ToDictionary(x => x.UsuarioId, x => x);
+
+        foreach (var solicitacao in participantesSolicitados)
+        {
+            if (existentesPorUsuarioId.TryGetValue(solicitacao.UsuarioId, out var participacaoExistente))
+            {
+                participacaoExistente.Status = true;
+                participacaoExistente.Papel = solicitacao.Papel;
+                participacaoExistente.UsuarioCadastroId = usuarioId;
+                continue;
+            }
+
+            lista.Participantes.Add(new ParticipacaoListaCompra
+            {
+                UsuarioCadastroId = usuarioId,
+                UsuarioId = solicitacao.UsuarioId,
+                Papel = solicitacao.Papel,
+                Status = true
+            });
+        }
+
+        foreach (var participacaoExistente in lista.Participantes.Where(x => !solicitadosPorUsuarioId.ContainsKey(x.UsuarioId)))
+        {
+            participacaoExistente.Status = false;
+            participacaoExistente.UsuarioCadastroId = usuarioId;
+        }
+
+        lista.UsuarioProprietarioId = novoProprietarioId;
+    }
+
     private async Task<ListaCompraDetalheDto> MapDetalheAsync(ListaCompra lista, int usuarioId, CancellationToken cancellationToken)
     {
         var usuariosPorId = (await usuarioRepository.ListarAtivosAsync(cancellationToken)).ToDictionary(x => x.Id, x => x);
-
-        var participantes = lista.Participantes
-            .Where(x => x.Status)
-            .GroupBy(x => x.UsuarioId)
-            .Select(x => x.OrderBy(p => p.Papel).First())
-            .Select(x =>
-            {
-                usuariosPorId.TryGetValue(x.UsuarioId, out var usuario);
-                return new ParticipanteListaCompraDto(
-                    x.UsuarioId,
-                    usuario?.Nome ?? $"Usuario {x.UsuarioId}",
-                    usuario?.Email ?? string.Empty,
-                    x.Papel.ToString().ToLowerInvariant());
-            })
-            .OrderBy(x => x.Nome)
-            .ToArray();
+        var participantes = MapParticipantesDetalhe(lista, usuariosPorId);
 
         var resumo = MapResumo(lista, usuarioId);
         return new ListaCompraDetalheDto(
@@ -880,6 +886,67 @@ public sealed class ComprasService(
                 .Select(x => new ListaCompraLogDto(x.Id, x.DataHoraCadastro, x.UsuarioCadastroId, x.ItemListaCompraId, x.Acao, x.Descricao, x.ValorAnterior, x.ValorNovo))
                 .ToArray(),
             lista.DataHoraAtualizacao);
+    }
+
+    private async Task<ListaCompraParticipantesDetalheDto> MapDetalheParticipantesAsync(ListaCompra lista, CancellationToken cancellationToken)
+    {
+        var usuariosPorId = (await usuarioRepository.ListarAtivosAsync(cancellationToken)).ToDictionary(x => x.Id, x => x);
+        var participantes = MapParticipantesResumo(lista, usuariosPorId);
+        var logs = lista.Logs
+            .OrderByDescending(x => x.DataHoraCadastro)
+            .Select(x => new ListaCompraLogDto(x.Id, x.DataHoraCadastro, x.UsuarioCadastroId, x.ItemListaCompraId, x.Acao, x.Descricao, x.ValorAnterior, x.ValorNovo))
+            .ToArray();
+
+        return new ListaCompraParticipantesDetalheDto(
+            lista.Id,
+            lista.Nome,
+            lista.Categoria,
+            lista.Observacao,
+            lista.Status.ToString().ToLowerInvariant(),
+            participantes,
+            logs,
+            lista.DataHoraAtualizacao);
+    }
+
+    private static IReadOnlyCollection<ParticipanteListaCompraDto> MapParticipantesDetalhe(
+        ListaCompra lista,
+        IReadOnlyDictionary<int, Core.Domain.Entities.Administracao.Usuario> usuariosPorId)
+    {
+        return lista.Participantes
+            .Where(x => x.Status)
+            .GroupBy(x => x.UsuarioId)
+            .Select(x => x.OrderBy(p => p.Papel).First())
+            .Select(x =>
+            {
+                usuariosPorId.TryGetValue(x.UsuarioId, out var usuario);
+                return new ParticipanteListaCompraDto(
+                    x.UsuarioId,
+                    usuario?.Nome ?? $"Usuario {x.UsuarioId}",
+                    usuario?.Email ?? string.Empty,
+                    x.Papel.ToString().ToLowerInvariant());
+            })
+            .OrderBy(x => x.Nome)
+            .ToArray();
+    }
+
+    private static IReadOnlyCollection<ParticipanteListaCompraResumoDto> MapParticipantesResumo(
+        ListaCompra lista,
+        IReadOnlyDictionary<int, Core.Domain.Entities.Administracao.Usuario> usuariosPorId)
+    {
+        return lista.Participantes
+            .Where(x => x.Status)
+            .GroupBy(x => x.UsuarioId)
+            .Select(x => x.OrderBy(p => p.Papel).First())
+            .Select(x =>
+            {
+                usuariosPorId.TryGetValue(x.UsuarioId, out var usuario);
+                return new ParticipanteListaCompraResumoDto(
+                    x.UsuarioId,
+                    usuario?.Nome ?? $"Usuario {x.UsuarioId}",
+                    x.Papel.ToString());
+            })
+            .OrderBy(x => x.Nome)
+            .ToArray();
     }
 
     private static ItemListaCompraDto MapItem(ItemListaCompra item) =>

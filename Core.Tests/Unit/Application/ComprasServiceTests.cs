@@ -32,6 +32,27 @@ public sealed class ComprasServiceTests
     }
 
     [Fact]
+    public async Task DeveCriarListaComParticipantesInformadosNoPayload()
+    {
+        var repository = new ComprasRepositoryFake();
+        var amizadeRepository = new AmizadeRepositoryFake { AmigosAceitosIds = [2] };
+        var service = CriarService(repository, amizadeRepository, 1);
+
+        var resultado = await service.CriarListaAsync(new CriarListaCompraRequest(
+            "Supermercado",
+            "Mercado",
+            "Lista da semana",
+            [
+                new ParticipanteListaCompraRequest(1, PapelParticipacaoListaCompra.Proprietario),
+                new ParticipanteListaCompraRequest(2, PapelParticipacaoListaCompra.CoProprietario)
+            ]));
+
+        Assert.Equal("Supermercado", resultado.Nome);
+        Assert.Equal(2, repository.Listas[0].Participantes.Count(x => x.Status));
+        Assert.Equal(1, repository.Listas[0].UsuarioProprietarioId);
+    }
+
+    [Fact]
     public async Task DeveRetornarPapelUsuarioNaListagemDeListas()
     {
         var repository = new ComprasRepositoryFake();
@@ -176,16 +197,97 @@ public sealed class ComprasServiceTests
     }
 
     [Fact]
-    public async Task DeveImpedirCompartilharListaComUsuarioQueNaoEhAmigoAceito()
+    public async Task DeveImpedirCriacaoComParticipanteQueNaoEhAmigoAceito()
+    {
+        var repository = new ComprasRepositoryFake();
+        var service = CriarService(repository, new AmizadeRepositoryFake(), 1);
+
+        var ex = await Assert.ThrowsAsync<DomainException>(() =>
+            service.CriarListaAsync(new CriarListaCompraRequest(
+                "Mercado",
+                "Mercado",
+                null,
+                [
+                    new ParticipanteListaCompraRequest(1, PapelParticipacaoListaCompra.Proprietario),
+                    new ParticipanteListaCompraRequest(2, PapelParticipacaoListaCompra.CoProprietario)
+                ])));
+
+        Assert.Equal("participante_nao_eh_amigo_aceito", ex.Message);
+    }
+
+    [Fact]
+    public async Task DeveAtualizarParticipantesDaListaNoEndpointDeEdicao()
+    {
+        var repository = new ComprasRepositoryFake();
+        var amizadeRepository = new AmizadeRepositoryFake { AmigosAceitosIds = [2, 3] };
+        var service = CriarService(repository, amizadeRepository, 1);
+        var listaCriada = await service.CriarListaAsync(new CriarListaCompraRequest(
+            "Mercado",
+            "Mercado",
+            null,
+            [
+                new ParticipanteListaCompraRequest(1, PapelParticipacaoListaCompra.Proprietario),
+                new ParticipanteListaCompraRequest(2, PapelParticipacaoListaCompra.CoProprietario)
+            ]));
+
+        await service.AtualizarListaAsync(listaCriada.Id, new AtualizarListaCompraRequest(
+            "Mercado Atualizado",
+            "Casa",
+            "Obs",
+            StatusListaCompra.Ativa,
+            [
+                new ParticipanteListaCompraRequest(1, PapelParticipacaoListaCompra.Proprietario),
+                new ParticipanteListaCompraRequest(3, PapelParticipacaoListaCompra.Leitor)
+            ]));
+
+        var lista = repository.Listas.Single(x => x.Id == listaCriada.Id);
+        Assert.Equal("Mercado Atualizado", lista.Nome);
+        Assert.Equal(2, lista.Participantes.Count(x => x.Status));
+        Assert.Contains(lista.Participantes, x => x.UsuarioId == 3 && x.Papel == PapelParticipacaoListaCompra.Leitor && x.Status);
+        Assert.Contains(lista.Participantes, x => x.UsuarioId == 2 && !x.Status);
+    }
+
+    [Fact]
+    public async Task DeveRetornarDetalheSemItensNoEndpointDeMetadados()
+    {
+        var repository = new ComprasRepositoryFake();
+        var amizadeRepository = new AmizadeRepositoryFake { AmigosAceitosIds = [2] };
+        var service = CriarService(repository, amizadeRepository, 1);
+        var lista = await service.CriarListaAsync(new CriarListaCompraRequest(
+            "Mercado",
+            "Mercado",
+            null,
+            [
+                new ParticipanteListaCompraRequest(1, PapelParticipacaoListaCompra.Proprietario),
+                new ParticipanteListaCompraRequest(2, PapelParticipacaoListaCompra.Leitor)
+            ]));
+
+        await service.CriarItemAsync(lista.Id, new CriarItemListaCompraRequest(
+            "Tomate",
+            null,
+            UnidadeMedidaCompra.Kg,
+            2m,
+            10m,
+            null));
+
+        var detalhe = await service.ObterDetalheListaAsync(lista.Id);
+
+        Assert.Equal(lista.Id, detalhe.Id);
+        Assert.Equal(2, detalhe.Participantes.Count);
+        Assert.NotEmpty(detalhe.Logs);
+    }
+
+    [Fact]
+    public async Task DeveExporLogsNoEndpointDeObterListaComItens()
     {
         var repository = new ComprasRepositoryFake();
         var service = CriarService(repository, new AmizadeRepositoryFake(), 1);
         var lista = await service.CriarListaAsync(new CriarListaCompraRequest("Mercado", "Mercado"));
 
-        var ex = await Assert.ThrowsAsync<DomainException>(() =>
-            service.CompartilharListaAsync(lista.Id, new CompartilharListaCompraRequest(2, PapelParticipacaoListaCompra.CoProprietario)));
+        var detalheComItens = await service.ObterListaAsync(lista.Id);
 
-        Assert.Equal("participante_nao_eh_amigo_aceito", ex.Message);
+        Assert.Equal(lista.Id, detalheComItens.Id);
+        Assert.NotEmpty(detalheComItens.Logs);
     }
 
     [Fact]

@@ -3,8 +3,18 @@ using Core.Domain.Enums.Compras;
 
 namespace Core.Application.DTOs.Compras;
 
-public sealed record CriarListaCompraRequest(string Nome, string Categoria, string? Observacao = null);
-public sealed record AtualizarListaCompraRequest(string Nome, string Categoria, string? Observacao = null);
+public sealed record ParticipanteListaCompraRequest(int UsuarioId, PapelParticipacaoListaCompra Papel);
+public sealed record CriarListaCompraRequest(
+    string Nome,
+    string Categoria,
+    string? Observacao = null,
+    IReadOnlyCollection<ParticipanteListaCompraRequest>? Participantes = null);
+public sealed record AtualizarListaCompraRequest(
+    string Nome,
+    string Categoria,
+    string? Observacao = null,
+    StatusListaCompra? Status = null,
+    IReadOnlyCollection<ParticipanteListaCompraRequest>? Participantes = null);
 public sealed record CompartilharListaCompraRequest(int AmigoId, PapelParticipacaoListaCompra Papel = PapelParticipacaoListaCompra.CoProprietario);
 public sealed record CriarItemListaCompraRequest(
     string Descricao,
@@ -48,6 +58,7 @@ public sealed record ConverterDesejosCompraRequest(
     AcaoPosConversaoDesejoCompra AcaoPosConversao);
 
 public sealed record ParticipanteListaCompraDto(int UsuarioId, string Nome, string Email, string Papel);
+public sealed record ParticipanteListaCompraResumoDto(int UsuarioId, string Nome, string Papel);
 public sealed record ListaCompraResumoDto(
     long Id,
     string Nome,
@@ -95,6 +106,15 @@ public sealed record ListaCompraDetalheDto(
     int QuantidadeItensComprados,
     IReadOnlyCollection<ItemListaCompraDto> Itens,
     IReadOnlyCollection<ParticipanteListaCompraDto> Participantes,
+    IReadOnlyCollection<ListaCompraLogDto> Logs,
+    DateTime DataHoraAtualizacao);
+public sealed record ListaCompraParticipantesDetalheDto(
+    long Id,
+    string Nome,
+    string Categoria,
+    string? Observacao,
+    string Status,
+    IReadOnlyCollection<ParticipanteListaCompraResumoDto> Participantes,
     IReadOnlyCollection<ListaCompraLogDto> Logs,
     DateTime DataHoraAtualizacao);
 public sealed record SugestaoProdutoCompraDto(

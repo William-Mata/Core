@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Core.Api.Controllers.Compras;
 
 /// <summary>
-/// Endpoints de listas de compra, itens, compartilhamento e logs.
+/// Endpoints de listas de compra, itens e compartilhamento.
 /// </summary>
 [ApiController]
 [Route("api/compras/listas")]
@@ -26,6 +26,12 @@ public sealed class ListaCompraController(ComprasService service) : ControllerBa
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Obter(long id, CancellationToken cancellationToken) =>
         Ok(await service.ObterListaAsync(id, cancellationToken));
+
+    [HttpGet("{id:long}/detalhe")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ObterDetalhe(long id, CancellationToken cancellationToken) =>
+        Ok(await service.ObterDetalheListaAsync(id, cancellationToken));
 
     [HttpPost]
     [ProducesResponseType(StatusCodes.Status201Created)]
@@ -59,21 +65,6 @@ public sealed class ListaCompraController(ComprasService service) : ControllerBa
     public async Task<IActionResult> Excluir(long id, CancellationToken cancellationToken)
     {
         await service.ExcluirListaAsync(id, cancellationToken);
-        return NoContent();
-    }
-
-    [HttpPost("{id:long}/participantes")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> Compartilhar(long id, [FromBody] CompartilharListaCompraRequest request, CancellationToken cancellationToken) =>
-        Ok(await service.CompartilharListaAsync(id, request, cancellationToken));
-
-    [HttpDelete("{id:long}/participantes/{participanteId:int}")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> RemoverParticipante(long id, int participanteId, CancellationToken cancellationToken)
-    {
-        await service.RemoverParticipanteAsync(id, participanteId, cancellationToken);
         return NoContent();
     }
 
@@ -112,9 +103,4 @@ public sealed class ListaCompraController(ComprasService service) : ControllerBa
     public async Task<IActionResult> ExecutarAcaoLote(long id, [FromBody] AcaoLoteListaCompraRequest request, CancellationToken cancellationToken) =>
         Ok(await service.ExecutarAcaoLoteAsync(id, request, cancellationToken));
 
-    [HttpGet("{id:long}/logs")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> ListarLogs(long id, CancellationToken cancellationToken) =>
-        Ok(await service.ListarLogsAsync(id, cancellationToken));
 }
