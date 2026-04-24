@@ -24,6 +24,16 @@ Documentar o contrato de listas de compras, itens, compartilhamento e logs do us
 - `POST /api/compras/listas/{id}/acoes-lote`
 - `GET /api/compras/listas/{id}/logs`
 
+## Permissoes de funcionalidade (tela)
+- Tela: `Planejamentos` (modulo `Compras`)
+- Funcionalidades padrao ativas:
+  - `Visualizar`
+  - `Criar`
+  - `Editar`
+  - `Excluir`
+- Observacao:
+  - Operacoes como compartilhar lista e executar acoes em lote continuam disponiveis por endpoint, mas nao usam funcionalidade dedicada fora do padrao; o controle e feito pelas regras de permissao de edicao da lista.
+
 ## Atualizacao em tempo real (SignalR)
 - Hub: `GET /hubs/compras`
 - Autenticacao no hub: JWT Bearer (via `access_token` na query string da conexao WebSocket).
@@ -61,7 +71,13 @@ Documentar o contrato de listas de compras, itens, compartilhamento e logs do us
 ## Regras globais
 - A lista e sempre carregada no contexto do usuario autenticado (proprietario ou participante ativo).
 - O proprietario controla compartilhamento, remocao de participante, arquivamento e exclusao da lista.
-- O papel `Editor` altera itens e executa lote; `Leitor` apenas consulta.
+- O papel `CoProprietario` altera itens e executa lote; `Leitor` apenas consulta.
+- `POST /api/compras/listas/{id}/duplicar` recebe o mesmo payload de `POST /api/compras/listas` (`nome`, `categoria`, `observacao`) e aplica as mesmas validacoes de obrigatoriedade para nome e categoria.
+- Na duplicacao de lista, os itens sao copiados para a nova lista com `comprado = false` e `dataHoraCompra = null`, mantendo descricao, observacao, unidade, quantidade, preco unitario e cor.
+- No `GET /api/compras/listas`, cada lista retorna `papelUsuario` com os valores:
+  - `Proprietario`: usuario autenticado e dono da lista.
+  - `CoProprietario`: usuario autenticado participante ativo com permissao de edicao.
+  - `Leitor`: usuario autenticado participante ativo apenas com leitura.
 - `ValorTotal` do item e derivado de `Quantidade x PrecoUnitario`.
 - `PercentualComprado` e calculado por quantidade de itens concluidos.
 - Toda alteracao relevante gera rastreabilidade em `ListaCompraLog`.
@@ -117,6 +133,25 @@ Documentar o contrato de listas de compras, itens, compartilhamento e logs do us
   "participantes": [],
   "logs": []
 }
+```
+
+## Exemplo de resposta (GET listagem)
+```json
+[
+  {
+    "id": 12,
+    "nome": "Mercado da semana",
+    "categoria": "Mercado",
+    "status": "ativa",
+    "papelUsuario": "Proprietario",
+    "valorTotal": 245.90,
+    "valorComprado": 80.00,
+    "percentualComprado": 33.33,
+    "quantidadeItens": 9,
+    "quantidadeItensComprados": 3,
+    "quantidadeParticipantes": 2
+  }
+]
 ```
 
 ## Erros comuns
