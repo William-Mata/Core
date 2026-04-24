@@ -9,6 +9,13 @@ Documentar o contrato de consulta do historico de preco por `Produto` no modulo 
 ## Rota
 - `GET /api/compras/historico-precos`
 
+## Permissoes de funcionalidade (tela)
+- Tela: `Histórico de Produtos` (historico de produto no modulo `Compras`)
+- Funcionalidade ativa:
+  - `Visualizar`
+- Regra de excecao:
+  - Esta tela nao recebe `Criar`, `Editar` e `Excluir`.
+
 ## Query params
 - `descricao` (opcional)
 - `unidade` (opcional, enum `UnidadeMedidaCompra`)

@@ -165,6 +165,177 @@ public sealed class UsuarioServiceTests
     }
 
     [Fact]
+    public async Task DeveAtualizarUsuario_ResolvendoTelasPorAliasQuandoIdDaTelaNaoBater()
+    {
+        var usuario = new Usuario { Id = 2, Nome = "Teste", Email = "teste@empresa.com", PerfilId = 2, Ativo = true };
+        var repository = new UsuarioRepositoryFake
+        {
+            UsuarioPorId = usuario,
+            TelasAtivas =
+            [
+                new Tela { Id = 120, ModuloId = 4, Nome = "ListasCompras", Status = true },
+                new Tela { Id = 121, ModuloId = 4, Nome = "DesejosCompra", Status = true },
+                new Tela { Id = 122, ModuloId = 4, Nome = "HistoricoPrecos", Status = true },
+                new Tela { Id = 104, ModuloId = 3, Nome = "Cartoes de Credito", Status = true },
+                new Tela { Id = 102, ModuloId = 3, Nome = "Reembolso", Status = true }
+            ],
+            FuncionalidadesAtivas =
+            [
+                new Funcionalidade { Id = 501, TelaId = 120, Nome = "Visualizar", Status = true },
+                new Funcionalidade { Id = 502, TelaId = 120, Nome = "Criar", Status = true },
+                new Funcionalidade { Id = 503, TelaId = 120, Nome = "Editar", Status = true },
+                new Funcionalidade { Id = 504, TelaId = 120, Nome = "Excluir", Status = true },
+                new Funcionalidade { Id = 511, TelaId = 121, Nome = "Visualizar", Status = true },
+                new Funcionalidade { Id = 512, TelaId = 121, Nome = "Criar", Status = true },
+                new Funcionalidade { Id = 513, TelaId = 121, Nome = "Editar", Status = true },
+                new Funcionalidade { Id = 514, TelaId = 121, Nome = "Excluir", Status = true },
+                new Funcionalidade { Id = 521, TelaId = 122, Nome = "Visualizar", Status = true },
+                new Funcionalidade { Id = 531, TelaId = 104, Nome = "Visualizar", Status = true },
+                new Funcionalidade { Id = 532, TelaId = 104, Nome = "Criar", Status = true },
+                new Funcionalidade { Id = 533, TelaId = 104, Nome = "Editar", Status = true },
+                new Funcionalidade { Id = 534, TelaId = 104, Nome = "Excluir", Status = true },
+                new Funcionalidade { Id = 541, TelaId = 102, Nome = "Visualizar", Status = true },
+                new Funcionalidade { Id = 542, TelaId = 102, Nome = "Criar", Status = true },
+                new Funcionalidade { Id = 543, TelaId = 102, Nome = "Editar", Status = true },
+                new Funcionalidade { Id = 544, TelaId = 102, Nome = "Excluir", Status = true }
+            ]
+        };
+
+        var request = new SalvarUsuarioRequest(
+            "WILLIAM MATA",
+            "william.xavante@gmail.com",
+            "USER",
+            new DateOnly(1997, 12, 8),
+            true,
+            [
+                new SalvarModuloUsuarioRequest(
+                    "4",
+                    "Compras",
+                    true,
+                    [
+                        new SalvarTelaUsuarioRequest(
+                            "9001",
+                            "Planejamentos",
+                            true,
+                            [
+                                new SalvarFuncionalidadeUsuarioRequest("1", "Visualizar", true),
+                                new SalvarFuncionalidadeUsuarioRequest("2", "Criar", true),
+                                new SalvarFuncionalidadeUsuarioRequest("3", "Editar", true),
+                                new SalvarFuncionalidadeUsuarioRequest("4", "Excluir", true)
+                            ]),
+                        new SalvarTelaUsuarioRequest(
+                            "9002",
+                            "Desejos",
+                            true,
+                            [
+                                new SalvarFuncionalidadeUsuarioRequest("1", "Visualizar", true),
+                                new SalvarFuncionalidadeUsuarioRequest("2", "Criar", true),
+                                new SalvarFuncionalidadeUsuarioRequest("3", "Editar", true),
+                                new SalvarFuncionalidadeUsuarioRequest("4", "Excluir", true)
+                            ]),
+                        new SalvarTelaUsuarioRequest(
+                            "9003",
+                            "Histórico de Produtos",
+                            true,
+                            [
+                                new SalvarFuncionalidadeUsuarioRequest("1", "Visualizar", true)
+                            ])
+                    ]),
+                new SalvarModuloUsuarioRequest(
+                    "3",
+                    "Financeiro",
+                    true,
+                    [
+                        new SalvarTelaUsuarioRequest(
+                            "9004",
+                            "Cartões",
+                            true,
+                            [
+                                new SalvarFuncionalidadeUsuarioRequest("1", "Visualizar", true),
+                                new SalvarFuncionalidadeUsuarioRequest("2", "Criar", true),
+                                new SalvarFuncionalidadeUsuarioRequest("3", "Editar", true),
+                                new SalvarFuncionalidadeUsuarioRequest("4", "Excluir", true)
+                            ]),
+                        new SalvarTelaUsuarioRequest(
+                            "9005",
+                            "Reembolsos",
+                            true,
+                            [
+                                new SalvarFuncionalidadeUsuarioRequest("1", "Visualizar", true),
+                                new SalvarFuncionalidadeUsuarioRequest("2", "Criar", true),
+                                new SalvarFuncionalidadeUsuarioRequest("3", "Editar", true),
+                                new SalvarFuncionalidadeUsuarioRequest("4", "Excluir", true)
+                            ])
+                    ])
+            ]);
+
+        var service = new UsuarioService(repository, new UsuarioAutenticadoProviderFake(1));
+        var response = await service.AtualizarAsync(2, request);
+
+        Assert.True(response.Sucesso);
+        Assert.Equal([3, 4], repository.ModulosAtivosIds);
+        Assert.Equal([102, 104, 120, 121, 122], repository.TelasAtivasIds.OrderBy(x => x).ToArray());
+        Assert.Equal(
+            [501, 502, 503, 504, 511, 512, 513, 514, 521, 531, 532, 533, 534, 541, 542, 543, 544],
+            repository.FuncionalidadesAtivasIds.OrderBy(x => x).ToArray());
+    }
+
+    [Fact]
+    public async Task DeveAtualizarUsuario_IgnorandoFuncionalidadeInativaDuplicada()
+    {
+        var usuario = new Usuario { Id = 2, Nome = "Teste", Email = "teste@empresa.com", PerfilId = 2, Ativo = true };
+        var repository = new UsuarioRepositoryFake
+        {
+            UsuarioPorId = usuario,
+            TelasAtivas =
+            [
+                new Tela { Id = 100, ModuloId = 3, Nome = "Despesas", Status = true }
+            ],
+            FuncionalidadesAtivas =
+            [
+                new Funcionalidade { Id = 900, TelaId = 100, Nome = "Visualizar", Status = false },
+                new Funcionalidade { Id = 901, TelaId = 100, Nome = "Visualizar", Status = true },
+                new Funcionalidade { Id = 902, TelaId = 100, Nome = "Criar", Status = true },
+                new Funcionalidade { Id = 903, TelaId = 100, Nome = "Editar", Status = true },
+                new Funcionalidade { Id = 904, TelaId = 100, Nome = "Excluir", Status = true }
+            ]
+        };
+
+        var request = new SalvarUsuarioRequest(
+            "WILLIAM MATA",
+            "william.xavante@gmail.com",
+            "USER",
+            new DateOnly(1997, 12, 8),
+            true,
+            [
+                new SalvarModuloUsuarioRequest(
+                    "3",
+                    "Financeiro",
+                    true,
+                    [
+                        new SalvarTelaUsuarioRequest(
+                            "100",
+                            "Despesas",
+                            true,
+                            [
+                                new SalvarFuncionalidadeUsuarioRequest("1", "Visualizar", true),
+                                new SalvarFuncionalidadeUsuarioRequest("2", "Criar", true),
+                                new SalvarFuncionalidadeUsuarioRequest("3", "Editar", true),
+                                new SalvarFuncionalidadeUsuarioRequest("4", "Excluir", true)
+                            ])
+                    ])
+            ]);
+
+        var service = new UsuarioService(repository, new UsuarioAutenticadoProviderFake(1));
+        var response = await service.AtualizarAsync(2, request);
+
+        Assert.True(response.Sucesso);
+        Assert.Equal([3], repository.ModulosAtivosIds);
+        Assert.Equal([100], repository.TelasAtivasIds);
+        Assert.Equal([901, 902, 903, 904], repository.FuncionalidadesAtivasIds.OrderBy(x => x).ToArray());
+    }
+
+    [Fact]
     public async Task DeveImpedirCriacao_ComEmailDuplicado()
     {
         var repository = new UsuarioRepositoryFake

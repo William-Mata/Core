@@ -174,8 +174,13 @@ public sealed class UsuarioService(IUsuarioRepository repository, IUsuarioAutent
         IReadOnlyCollection<SalvarModuloUsuarioRequest> modulosAtivos,
         CancellationToken cancellationToken)
     {
-        var telasDisponiveis = await repository.ListarTelasAsync(cancellationToken);
-        var funcionalidadesDisponiveis = await repository.ListarFuncionalidadesAsync(cancellationToken);
+        var telasDisponiveis = (await repository.ListarTelasAsync(cancellationToken))
+            .Where(x => x.Status)
+            .ToArray();
+
+        var funcionalidadesDisponiveis = (await repository.ListarFuncionalidadesAsync(cancellationToken))
+            .Where(x => x.Status)
+            .ToArray();
 
         var modulosAtivosIds = modulosAtivos
             .Where(x => x.Status)
@@ -244,7 +249,7 @@ public sealed class UsuarioService(IUsuarioRepository repository, IUsuarioAutent
         return telasDisponiveis
             .FirstOrDefault(x =>
                 (!moduloId.HasValue || x.ModuloId == moduloId.Value) &&
-                NormalizarChavePermissao(x.Nome) == NormalizarChavePermissao(tela.Nome))
+                NormalizarChaveTela(x.Nome) == NormalizarChaveTela(tela.Nome))
             ?.Id;
     }
 
@@ -307,6 +312,27 @@ public sealed class UsuarioService(IUsuarioRepository repository, IUsuarioAutent
         }
 
         return builder.ToString();
+    }
+
+    private static string NormalizarChaveTela(string? valor)
+    {
+        var chave = NormalizarChavePermissao(valor);
+
+        if (string.IsNullOrWhiteSpace(chave))
+        {
+            return string.Empty;
+        }
+
+        return chave switch
+        {
+            "planejamentos" => "listascompras",
+            "desejos" => "desejoscompra",
+            "historicodeprodutos" => "historicoprecos",
+            "reembolsos" => "reembolso",
+            "cartoes" => "cartoesdecredito",
+            _ when chave.StartsWith("documentacao", StringComparison.Ordinal) => "documentacao",
+            _ => chave
+        };
     }
 
     private static int MapearPerfilId(string? perfil) =>

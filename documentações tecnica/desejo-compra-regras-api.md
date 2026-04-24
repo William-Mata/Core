@@ -13,6 +13,14 @@ Documentar o contrato de gerenciamento de desejos de compra e conversao para lis
 - `DELETE /api/compras/desejos/{id}`
 - `POST /api/compras/desejos/converter`
 
+## Permissoes de funcionalidade (tela)
+- Tela: `Desejos` (modulo `Compras`)
+- Funcionalidades padrao ativas:
+  - `Visualizar`
+  - `Criar`
+  - `Editar`
+  - `Excluir`
+
 ## Regras globais
 - Desejo pertence ao usuario autenticado.
 - Desejo nao impacta totais de lista ate ser convertido.
