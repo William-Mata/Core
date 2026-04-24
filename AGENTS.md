@@ -6,6 +6,22 @@ Leia o `README.md` na raiz antes de qualquer tarefa. Ele é a fonte de verdade s
 
 ---
 
+## Fluxo de execução da tarefa
+
+1. Ler `README.md`
+2. Identificar claramente o escopo da tarefa
+3. Verificar se existe skill aplicável em `.codex/skills/`
+4. Carregar e seguir a(s) skill(s) relevante(s)
+5. Analisar impacto (camadas, contratos, banco de dados, dependências)
+6. Realizar alterações mínimas necessárias
+7. Validar conforme seção "Validação padrão"
+8. Atualizar documentação técnica quando aplicável
+9. Não realizar commit automaticamente.
+   Só gerar commit semântico utilizando a skill `.codex/skills/semantic-commit.md` quando houver solicitação explícita do usuário
+   Não inferir intenção de commit.
+
+---
+
 ## Skills disponíveis
 
 Leia o arquivo do skill correspondente antes de iniciar a tarefa.
