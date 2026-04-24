@@ -22,14 +22,14 @@ public sealed class ComprasService(
     {
         var usuarioId = ObterUsuarioAutenticadoId();
         var listas = await repository.ListarListasAcessiveisAsync(usuarioId, incluirArquivadas, cancellationToken);
-        return listas.Select(MapResumo).ToArray();
+        return listas.Select(x => MapResumo(x, usuarioId)).ToArray();
     }
 
     public async Task<ListaCompraDetalheDto> ObterListaAsync(long listaId, CancellationToken cancellationToken = default)
     {
         var usuarioId = ObterUsuarioAutenticadoId();
         var lista = await repository.ObterListaAcessivelPorIdAsync(listaId, usuarioId, cancellationToken) ?? throw new NotFoundException("lista_compra_nao_encontrada");
-        return await MapDetalheAsync(lista, cancellationToken);
+        return await MapDetalheAsync(lista, usuarioId, cancellationToken);
     }
 
     public async Task<ListaCompraDetalheDto> CriarListaAsync(CriarListaCompraRequest request, CancellationToken cancellationToken = default)
@@ -60,7 +60,7 @@ public sealed class ComprasService(
 
         await repository.AddListaAsync(lista, cancellationToken);
         await PublicarAtualizacaoListaAsync(lista.Id, "lista_criada", usuarioId, cancellationToken);
-        return await MapDetalheAsync(lista, cancellationToken);
+        return await MapDetalheAsync(lista, usuarioId, cancellationToken);
     }
 
     public async Task<ListaCompraDetalheDto> AtualizarListaAsync(long listaId, AtualizarListaCompraRequest request, CancellationToken cancellationToken = default)
@@ -80,7 +80,7 @@ public sealed class ComprasService(
 
         await repository.SaveChangesAsync(cancellationToken);
         await PublicarAtualizacaoListaAsync(lista.Id, "lista_atualizada", usuarioId, cancellationToken);
-        return await MapDetalheAsync(lista, cancellationToken);
+        return await MapDetalheAsync(lista, usuarioId, cancellationToken);
     }
 
     public async Task<ListaCompraDetalheDto> ArquivarListaAsync(long listaId, CancellationToken cancellationToken = default)
@@ -95,7 +95,7 @@ public sealed class ComprasService(
         lista.Logs.Add(CriarLog(usuarioId, null, AcaoLogs.Atualizacao, "Lista arquivada."));
         await repository.SaveChangesAsync(cancellationToken);
         await PublicarAtualizacaoListaAsync(lista.Id, "lista_arquivada", usuarioId, cancellationToken);
-        return await MapDetalheAsync(lista, cancellationToken);
+        return await MapDetalheAsync(lista, usuarioId, cancellationToken);
     }
 
     public async Task ExcluirListaAsync(long listaId, CancellationToken cancellationToken = default)
@@ -106,20 +106,22 @@ public sealed class ComprasService(
         await PublicarAtualizacaoListaAsync(lista.Id, "lista_excluida", usuarioId, cancellationToken);
     }
 
-    public async Task<ListaCompraDetalheDto> DuplicarListaAsync(long listaId, string? nomeNovaLista, CancellationToken cancellationToken = default)
+    public async Task<ListaCompraDetalheDto> DuplicarListaAsync(long listaId, CriarListaCompraRequest request, CancellationToken cancellationToken = default)
     {
         var usuarioId = ObterUsuarioAutenticadoId();
         var lista = await repository.ObterListaAcessivelPorIdAsync(listaId, usuarioId, cancellationToken) ?? throw new NotFoundException("lista_compra_nao_encontrada");
         if (!PodeEditar(lista, usuarioId))
             throw new DomainException("lista_compra_sem_permissao_edicao");
+        var nome = NormalizarTextoObrigatorio(request.Nome, "lista_compra_nome_obrigatorio");
+        var categoria = NormalizarTextoObrigatorio(request.Categoria, "lista_compra_categoria_obrigatoria");
 
         var novaLista = new ListaCompra
         {
             UsuarioCadastroId = usuarioId,
             UsuarioProprietarioId = usuarioId,
-            Nome = string.IsNullOrWhiteSpace(nomeNovaLista) ? $"{lista.Nome} (copia)" : nomeNovaLista.Trim(),
-            Categoria = lista.Categoria,
-            Observacao = lista.Observacao,
+            Nome = nome,
+            Categoria = categoria,
+            Observacao = NormalizarTextoOpcional(request.Observacao),
             Status = StatusListaCompra.Ativa,
             DataHoraAtualizacao = DateTime.UtcNow
         };
@@ -133,7 +135,7 @@ public sealed class ComprasService(
 
         foreach (var item in lista.Itens)
         {
-            novaLista.Itens.Add(new ItemListaCompra
+            var novoItem = new ItemListaCompra
             {
                 UsuarioCadastroId = usuarioId,
                 ProdutoId = item.ProdutoId,
@@ -143,17 +145,18 @@ public sealed class ComprasService(
                 Unidade = item.Unidade,
                 Quantidade = item.Quantidade,
                 PrecoUnitario = item.PrecoUnitario,
-                ValorTotal = item.ValorTotal,
                 EtiquetaCor = item.EtiquetaCor,
-                Comprado = item.Comprado,
-                DataHoraCompra = item.DataHoraCompra
-            });
+                Comprado = false,
+                DataHoraCompra = null
+            };
+            AtualizarValorTotalItem(novoItem);
+            novaLista.Itens.Add(novoItem);
         }
 
         novaLista.Logs.Add(CriarLog(usuarioId, null, AcaoLogs.Cadastro, $"Lista duplicada a partir da lista {lista.Id}."));
         await repository.AddListaAsync(novaLista, cancellationToken);
         await PublicarAtualizacaoListaAsync(novaLista.Id, "lista_duplicada", usuarioId, cancellationToken);
-        return await MapDetalheAsync(novaLista, cancellationToken);
+        return await MapDetalheAsync(novaLista, usuarioId, cancellationToken);
     }
 
     public async Task<ListaCompraDetalheDto> CompartilharListaAsync(long listaId, CompartilharListaCompraRequest request, CancellationToken cancellationToken = default)
@@ -189,7 +192,7 @@ public sealed class ComprasService(
         lista.Logs.Add(CriarLog(usuarioId, null, AcaoLogs.Atualizacao, $"Lista compartilhada com usuario {request.AmigoId}."));
         await repository.SaveChangesAsync(cancellationToken);
         await PublicarAtualizacaoListaAsync(lista.Id, "lista_compartilhada", usuarioId, cancellationToken);
-        return await MapDetalheAsync(lista, cancellationToken);
+        return await MapDetalheAsync(lista, usuarioId, cancellationToken);
     }
 
     public async Task RemoverParticipanteAsync(long listaId, int participanteId, CancellationToken cancellationToken = default)
@@ -461,7 +464,13 @@ public sealed class ComprasService(
                 itensAfetados = lista.Itens.Count(x => !x.Comprado);
                 break;
             case TipoAcaoLoteListaCompra.DuplicarLista:
-                var duplicada = await DuplicarListaAsync(listaId, request.NomeNovaLista, cancellationToken);
+                var duplicada = await DuplicarListaAsync(
+                    listaId,
+                    new CriarListaCompraRequest(
+                        string.IsNullOrWhiteSpace(request.NomeNovaLista) ? $"{lista.Nome} (copia)" : request.NomeNovaLista.Trim(),
+                        string.IsNullOrWhiteSpace(request.CategoriaNovaLista) ? lista.Categoria : request.CategoriaNovaLista.Trim(),
+                        lista.Observacao),
+                    cancellationToken);
                 novaListaId = duplicada.Id;
                 itensAfetados = lista.Itens.Count;
                 break;
@@ -829,7 +838,7 @@ public sealed class ComprasService(
         });
     }
 
-    private async Task<ListaCompraDetalheDto> MapDetalheAsync(ListaCompra lista, CancellationToken cancellationToken)
+    private async Task<ListaCompraDetalheDto> MapDetalheAsync(ListaCompra lista, int usuarioId, CancellationToken cancellationToken)
     {
         var usuariosPorId = (await usuarioRepository.ListarAtivosAsync(cancellationToken)).ToDictionary(x => x.Id, x => x);
 
@@ -849,7 +858,7 @@ public sealed class ComprasService(
             .OrderBy(x => x.Nome)
             .ToArray();
 
-        var resumo = MapResumo(lista);
+        var resumo = MapResumo(lista, usuarioId);
         return new ListaCompraDetalheDto(
             lista.Id,
             lista.Nome,
@@ -897,7 +906,7 @@ public sealed class ComprasService(
             desejo.Convertido,
             desejo.DataHoraConversao);
 
-    private static ListaCompraResumoDto MapResumo(ListaCompra lista)
+    private static ListaCompraResumoDto MapResumo(ListaCompra lista, int usuarioId)
     {
         var quantidadeItens = lista.Itens.Count;
         var quantidadeComprados = lista.Itens.Count(x => x.Comprado);
@@ -912,6 +921,7 @@ public sealed class ComprasService(
             lista.Categoria,
             lista.Observacao,
             lista.Status.ToString().ToLowerInvariant(),
+            ResolverPapelUsuario(lista, usuarioId),
             valorTotal,
             valorComprado,
             percentualComprado,
@@ -919,6 +929,21 @@ public sealed class ComprasService(
             quantidadeComprados,
             participantesAtivos,
             lista.DataHoraAtualizacao);
+    }
+
+    private static string ResolverPapelUsuario(ListaCompra lista, int usuarioId)
+    {
+        if (lista.UsuarioProprietarioId == usuarioId)
+            return PapelParticipacaoListaCompra.Proprietario.ToString();
+
+        var participacao = lista.Participantes
+            .Where(x => x.UsuarioId == usuarioId && x.Status)
+            .OrderBy(x => x.Papel)
+            .FirstOrDefault();
+
+        return participacao is null
+            ? PapelParticipacaoListaCompra.Leitor.ToString()
+            : participacao.Papel.ToString();
     }
 
     private static ListaCompraLog CriarLog(int usuarioId, long? itemId, AcaoLogs acao, string descricao, string? valorAnterior = null, string? valorNovo = null) =>

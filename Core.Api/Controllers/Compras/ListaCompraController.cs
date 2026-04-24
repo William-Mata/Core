@@ -50,8 +50,8 @@ public sealed class ListaCompraController(ComprasService service) : ControllerBa
     [HttpPost("{id:long}/duplicar")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> Duplicar(long id, [FromQuery] string? nomeNovaLista, CancellationToken cancellationToken) =>
-        Ok(await service.DuplicarListaAsync(id, nomeNovaLista, cancellationToken));
+    public async Task<IActionResult> Duplicar(long id, [FromBody] CriarListaCompraRequest request, CancellationToken cancellationToken) =>
+        Ok(await service.DuplicarListaAsync(id, request, cancellationToken));
 
     [HttpDelete("{id:long}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]

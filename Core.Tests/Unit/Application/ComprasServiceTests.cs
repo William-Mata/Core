@@ -32,6 +32,150 @@ public sealed class ComprasServiceTests
     }
 
     [Fact]
+    public async Task DeveRetornarPapelUsuarioNaListagemDeListas()
+    {
+        var repository = new ComprasRepositoryFake();
+        repository.Listas.AddRange(
+        [
+            new ListaCompra
+            {
+                Id = 1,
+                UsuarioProprietarioId = 1,
+                Nome = "Lista proprietario",
+                Categoria = "Mercado",
+                Status = StatusListaCompra.Ativa,
+                Participantes =
+                [
+                    new ParticipacaoListaCompra
+                    {
+                        UsuarioId = 1,
+                        Papel = PapelParticipacaoListaCompra.Proprietario,
+                        Status = true
+                    }
+                ]
+            },
+            new ListaCompra
+            {
+                Id = 2,
+                UsuarioProprietarioId = 99,
+                Nome = "Lista co-proprietario",
+                Categoria = "Mercado",
+                Status = StatusListaCompra.Ativa,
+                Participantes =
+                [
+                    new ParticipacaoListaCompra
+                    {
+                        UsuarioId = 1,
+                        Papel = PapelParticipacaoListaCompra.CoProprietario,
+                        Status = true
+                    }
+                ]
+            },
+            new ListaCompra
+            {
+                Id = 3,
+                UsuarioProprietarioId = 98,
+                Nome = "Lista leitor",
+                Categoria = "Mercado",
+                Status = StatusListaCompra.Ativa,
+                Participantes =
+                [
+                    new ParticipacaoListaCompra
+                    {
+                        UsuarioId = 1,
+                        Papel = PapelParticipacaoListaCompra.Leitor,
+                        Status = true
+                    }
+                ]
+            }
+        ]);
+
+        var service = CriarService(repository, new AmizadeRepositoryFake(), 1);
+
+        var resultado = await service.ListarListasAsync(false);
+        var listasPorId = resultado.ToDictionary(x => x.Id);
+
+        Assert.Equal("Proprietario", listasPorId[1].PapelUsuario);
+        Assert.Equal("CoProprietario", listasPorId[2].PapelUsuario);
+        Assert.Equal("Leitor", listasPorId[3].PapelUsuario);
+    }
+
+    [Fact]
+    public async Task DeveDuplicarListaComDadosDoBodyEResetarStatusDeCompraDosItens()
+    {
+        var repository = new ComprasRepositoryFake();
+        var service = CriarService(repository, new AmizadeRepositoryFake(), 1);
+        var origemDto = await service.CriarListaAsync(new CriarListaCompraRequest("Lista origem", "Mercado", "Obs origem"));
+        var origem = repository.Listas.Single(x => x.Id == origemDto.Id);
+
+        origem.Participantes.Add(new ParticipacaoListaCompra
+        {
+            UsuarioCadastroId = 1,
+            UsuarioId = 2,
+            Papel = PapelParticipacaoListaCompra.CoProprietario,
+            Status = true
+        });
+        origem.Logs.Add(new ListaCompraLog
+        {
+            UsuarioCadastroId = 1,
+            Acao = AcaoLogs.Atualizacao,
+            Descricao = "Log adicional"
+        });
+        origem.Itens.Add(new ItemListaCompra
+        {
+            UsuarioCadastroId = 1,
+            ProdutoId = 10,
+            Descricao = "Arroz",
+            DescricaoNormalizada = "arroz",
+            Observacao = "Integral",
+            Unidade = UnidadeMedidaCompra.Unidade,
+            Quantidade = 2,
+            PrecoUnitario = 15m,
+            ValorTotal = 30m,
+            EtiquetaCor = "#00ff00",
+            Comprado = true,
+            DataHoraCompra = DateTime.UtcNow
+        });
+        await repository.SaveChangesAsync();
+
+        var duplicadaDto = await service.DuplicarListaAsync(origem.Id, new CriarListaCompraRequest("Lista copia", "Atacado", "Obs nova"));
+        var duplicada = repository.Listas.Single(x => x.Id == duplicadaDto.Id);
+
+        Assert.NotEqual(origem.Id, duplicada.Id);
+        Assert.Equal("Lista copia", duplicada.Nome);
+        Assert.Equal("Atacado", duplicada.Categoria);
+        Assert.Equal("Obs nova", duplicada.Observacao);
+        Assert.Single(duplicada.Participantes);
+        Assert.Single(duplicada.Logs);
+        Assert.Single(duplicada.Itens);
+
+        var itemOrigem = origem.Itens.Single();
+        var itemDuplicado = duplicada.Itens.Single();
+        Assert.NotEqual(itemOrigem.Id, itemDuplicado.Id);
+        Assert.Equal(itemOrigem.Descricao, itemDuplicado.Descricao);
+        Assert.Equal(itemOrigem.Observacao, itemDuplicado.Observacao);
+        Assert.Equal(itemOrigem.Unidade, itemDuplicado.Unidade);
+        Assert.Equal(itemOrigem.Quantidade, itemDuplicado.Quantidade);
+        Assert.Equal(itemOrigem.PrecoUnitario, itemDuplicado.PrecoUnitario);
+        Assert.Equal(itemOrigem.EtiquetaCor, itemDuplicado.EtiquetaCor);
+        Assert.False(itemDuplicado.Comprado);
+        Assert.Null(itemDuplicado.DataHoraCompra);
+    }
+
+    [Fact]
+    public async Task DeveValidarCamposObrigatoriosDoBodyAoDuplicarLista()
+    {
+        var repository = new ComprasRepositoryFake();
+        var service = CriarService(repository, new AmizadeRepositoryFake(), 1);
+        var origem = await service.CriarListaAsync(new CriarListaCompraRequest("Lista origem", "Mercado"));
+
+        var ex = await Assert.ThrowsAsync<DomainException>(() =>
+            service.DuplicarListaAsync(origem.Id, new CriarListaCompraRequest(" ", "Mercado")));
+
+        Assert.Equal("lista_compra_nome_obrigatorio", ex.Message);
+    }
+
+    [Fact]
     public async Task DeveImpedirCompartilharListaComUsuarioQueNaoEhAmigoAceito()
     {
         var repository = new ComprasRepositoryFake();
@@ -39,7 +183,7 @@ public sealed class ComprasServiceTests
         var lista = await service.CriarListaAsync(new CriarListaCompraRequest("Mercado", "Mercado"));
 
         var ex = await Assert.ThrowsAsync<DomainException>(() =>
-            service.CompartilharListaAsync(lista.Id, new CompartilharListaCompraRequest(2, PapelParticipacaoListaCompra.Editor)));
+            service.CompartilharListaAsync(lista.Id, new CompartilharListaCompraRequest(2, PapelParticipacaoListaCompra.CoProprietario)));
 
         Assert.Equal("participante_nao_eh_amigo_aceito", ex.Message);
     }

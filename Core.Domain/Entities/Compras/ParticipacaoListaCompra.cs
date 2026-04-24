@@ -9,7 +9,7 @@ public sealed class ParticipacaoListaCompra
     public int UsuarioCadastroId { get; set; }
     public long ListaCompraId { get; set; }
     public int UsuarioId { get; set; }
-    public PapelParticipacaoListaCompra Papel { get; set; } = PapelParticipacaoListaCompra.Editor;
+    public PapelParticipacaoListaCompra Papel { get; set; } = PapelParticipacaoListaCompra.CoProprietario;
     public bool Status { get; set; } = true;
     public ListaCompra? ListaCompra { get; set; }
 }

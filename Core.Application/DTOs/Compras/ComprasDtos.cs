@@ -5,7 +5,7 @@ namespace Core.Application.DTOs.Compras;
 
 public sealed record CriarListaCompraRequest(string Nome, string Categoria, string? Observacao = null);
 public sealed record AtualizarListaCompraRequest(string Nome, string Categoria, string? Observacao = null);
-public sealed record CompartilharListaCompraRequest(int AmigoId, PapelParticipacaoListaCompra Papel = PapelParticipacaoListaCompra.Editor);
+public sealed record CompartilharListaCompraRequest(int AmigoId, PapelParticipacaoListaCompra Papel = PapelParticipacaoListaCompra.CoProprietario);
 public sealed record CriarItemListaCompraRequest(
     string Descricao,
     string? Observacao,
@@ -54,6 +54,7 @@ public sealed record ListaCompraResumoDto(
     string Categoria,
     string? Observacao,
     string Status,
+    string PapelUsuario,
     decimal ValorTotal,
     decimal ValorComprado,
     decimal PercentualComprado,

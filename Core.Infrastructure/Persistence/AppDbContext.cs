@@ -350,7 +350,11 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
         modelBuilder.Entity<ParticipacaoListaCompra>().ToTable("ParticipacaoListaCompra");
         modelBuilder.Entity<ParticipacaoListaCompra>().HasKey(x => x.Id);
-        modelBuilder.Entity<ParticipacaoListaCompra>().Property(x => x.Papel).HasConversion<string>();
+        modelBuilder.Entity<ParticipacaoListaCompra>()
+            .Property(x => x.Papel)
+            .HasConversion(
+                value => value.ToString(),
+                value => ParsePapelParticipacaoListaCompra(value));
         modelBuilder.Entity<ParticipacaoListaCompra>().HasIndex(x => new { x.ListaCompraId, x.UsuarioId }).IsUnique();
 
         modelBuilder.Entity<Produto>().ToTable("Produto");
@@ -418,6 +422,11 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
     private static TEnum ParseEnum<TEnum>(string value) where TEnum : struct, Enum =>
         Enum.Parse<TEnum>(value, true);
+
+    private static PapelParticipacaoListaCompra ParsePapelParticipacaoListaCompra(string value) =>
+        string.Equals(value, "Editor", StringComparison.OrdinalIgnoreCase)
+            ? PapelParticipacaoListaCompra.CoProprietario
+            : Enum.Parse<PapelParticipacaoListaCompra>(value, true);
 
     private static TEnum? ParseNullableEnum<TEnum>(string? value) where TEnum : struct, Enum =>
         string.IsNullOrWhiteSpace(value) ? null : Enum.Parse<TEnum>(value, true);
