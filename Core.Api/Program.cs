@@ -1,5 +1,3 @@
-using System.Text;
-using System.Text.Json.Serialization;
 using Core.Api.Extensions;
 using Core.Api.Hubs;
 using Core.Api.Middlewares;
@@ -12,10 +10,11 @@ using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Reflection;
+using System.Text;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 const string CorsPadrao = "CorsPadrao";
@@ -26,6 +25,7 @@ builder.Services
     {
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
+
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
     options.InvalidModelStateResponseFactory = context =>
@@ -40,6 +40,7 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
         return new BadRequestObjectResult("dados_invalidos".ParaProblemDetails(StatusCodes.Status400BadRequest, context.HttpContext, detalhes));
     };
 });
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(CorsPadrao, policy =>
@@ -102,16 +103,23 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             }
         };
     });
+
 builder.Services.AddAuthorization();
-builder.Services.AddSignalR();
+builder.Services.AddSignalR(options =>
+{
+    options.EnableDetailedErrors = true;
+});
+
 builder.Services.Configure<HostOptions>(options =>
 {
     options.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore;
 });
+
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddValidatorsFromAssemblyContaining<EntrarRequestValidator>();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddEndpointsApiExplorer();
+
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo

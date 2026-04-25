@@ -9,8 +9,9 @@ namespace Core.Api.Hubs;
 [Authorize]
 public sealed class ComprasHub(IComprasRepository comprasRepository) : Hub
 {
-    public async Task EntrarLista(long listaId, CancellationToken cancellationToken = default)
+    public async Task EntrarLista(long listaId)
     {
+        var cancellationToken = Context.ConnectionAborted;
         var usuarioId = ObterUsuarioId();
         var lista = await comprasRepository.ObterListaAcessivelPorIdAsync(listaId, usuarioId, cancellationToken);
         if (lista is null)
@@ -19,8 +20,11 @@ public sealed class ComprasHub(IComprasRepository comprasRepository) : Hub
         await Groups.AddToGroupAsync(Context.ConnectionId, ComprasTempoRealGrupos.Lista(listaId), cancellationToken);
     }
 
-    public Task SairLista(long listaId, CancellationToken cancellationToken = default) =>
-        Groups.RemoveFromGroupAsync(Context.ConnectionId, ComprasTempoRealGrupos.Lista(listaId), cancellationToken);
+    public Task SairLista(long listaId)
+    {
+        var cancellationToken = Context.ConnectionAborted;
+        return Groups.RemoveFromGroupAsync(Context.ConnectionId, ComprasTempoRealGrupos.Lista(listaId), cancellationToken);
+    }
 
     private int ObterUsuarioId()
     {
