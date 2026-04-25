@@ -168,7 +168,7 @@ public sealed class ComprasService(
         return await MapDetalheAsync(novaLista, usuarioId, cancellationToken);
     }
 
-    public async Task<IReadOnlyCollection<SugestaoProdutoCompraDto>> BuscarSugestoesItensAsync(long listaId, string? descricao, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyCollection<ItemListaCompraDto>> BuscarSugestoesItensAsync(long listaId, string? descricao, CancellationToken cancellationToken = default)
     {
         var usuarioId = ObterUsuarioAutenticadoId();
         if (descricao?.Trim().Length < 3)
@@ -178,8 +178,19 @@ public sealed class ComprasService(
         if (!PodeVisualizar(lista, usuarioId))
             throw new DomainException("lista_compra_sem_permissao_visualizacao");
 
-        var sugestoes = await repository.BuscarSugestoesProdutosAsync(usuarioId, NormalizarDescricao(descricao!), 10, cancellationToken);
-        return sugestoes.Select(x => new SugestaoProdutoCompraDto(x.Id, x.Descricao, x.UnidadePadrao, x.ObservacaoPadrao, x.UltimoPrecoUnitario)).ToArray();
+        var sugestoes = await repository.BuscarSugestoesItensAsync(usuarioId, NormalizarDescricao(descricao!), 10, cancellationToken);
+        return sugestoes.Select(MapItem).ToArray();
+    }
+
+    public async Task<ItemListaCompraDto> ObterItemAsync(long listaId, long itemId, CancellationToken cancellationToken = default)
+    {
+        var usuarioId = ObterUsuarioAutenticadoId();
+        var lista = await repository.ObterListaAcessivelPorIdAsync(listaId, usuarioId, cancellationToken) ?? throw new NotFoundException("lista_compra_nao_encontrada");
+        if (!PodeVisualizar(lista, usuarioId))
+            throw new DomainException("lista_compra_sem_permissao_visualizacao");
+
+        var item = lista.Itens.FirstOrDefault(x => x.Id == itemId) ?? throw new NotFoundException("item_lista_compra_nao_encontrado");
+        return MapItem(item);
     }
 
     public async Task<ItemListaCompraDto> CriarItemAsync(long listaId, CriarItemListaCompraRequest request, CancellationToken cancellationToken = default)
@@ -319,6 +330,23 @@ public sealed class ComprasService(
         await repository.SaveChangesAsync(cancellationToken);
         await PublicarAtualizacaoListaAsync(lista.Id, request.Comprado ? "item_comprado" : "item_desmarcado", usuarioId, cancellationToken);
         return MapItem(item);
+    }
+
+    public async Task ExcluirItemAsync(long listaId, long itemId, CancellationToken cancellationToken = default)
+    {
+        var usuarioId = ObterUsuarioAutenticadoId();
+        var lista = await repository.ObterListaAcessivelPorIdAsync(listaId, usuarioId, cancellationToken) ?? throw new NotFoundException("lista_compra_nao_encontrada");
+        if (!PodeEditar(lista, usuarioId))
+            throw new DomainException("lista_compra_sem_permissao_edicao");
+
+        var item = lista.Itens.FirstOrDefault(x => x.Id == itemId) ?? throw new NotFoundException("item_lista_compra_nao_encontrado");
+        DesvincularLogsDosItens(lista, [item.Id]);
+        lista.Itens.Remove(item);
+        lista.DataHoraAtualizacao = DateTime.UtcNow;
+        lista.Logs.Add(CriarLog(usuarioId, null, AcaoLogs.Exclusao, $"Item '{item.Descricao}' removido."));
+
+        await repository.SaveChangesAsync(cancellationToken);
+        await PublicarAtualizacaoListaAsync(lista.Id, "item_excluido", usuarioId, cancellationToken);
     }
 
     public async Task<AcaoLoteListaCompraResultadoDto> ExecutarAcaoLoteAsync(long listaId, AcaoLoteListaCompraRequest request, CancellationToken cancellationToken = default)

@@ -291,6 +291,57 @@ public sealed class ComprasServiceTests
     }
 
     [Fact]
+    public async Task DeveRetornarItemCompletoPorId()
+    {
+        var repository = new ComprasRepositoryFake();
+        var service = CriarService(repository, new AmizadeRepositoryFake(), 1);
+        var lista = await service.CriarListaAsync(new CriarListaCompraRequest("Feira", "Mercado"));
+        var criado = await service.CriarItemAsync(lista.Id, new CriarItemListaCompraRequest("Tomate", "Italiano", UnidadeMedidaCompra.Kg, 2m, 10m, "#ff0000"));
+
+        var item = await service.ObterItemAsync(lista.Id, criado.Id);
+
+        Assert.Equal(criado.Id, item.Id);
+        Assert.Equal("Tomate", item.Descricao);
+        Assert.Equal(UnidadeMedidaCompra.Kg, item.Unidade);
+    }
+
+    [Fact]
+    public async Task DeveExcluirItemPorId()
+    {
+        var repository = new ComprasRepositoryFake();
+        var service = CriarService(repository, new AmizadeRepositoryFake(), 1);
+        var lista = await service.CriarListaAsync(new CriarListaCompraRequest("Feira", "Mercado"));
+        var item1 = await service.CriarItemAsync(lista.Id, new CriarItemListaCompraRequest("Tomate", null, UnidadeMedidaCompra.Kg, 1m, 9m, null));
+        await service.CriarItemAsync(lista.Id, new CriarItemListaCompraRequest("Cebola", null, UnidadeMedidaCompra.Kg, 1m, 7m, null));
+
+        await service.ExcluirItemAsync(lista.Id, item1.Id);
+
+        var listaAtualizada = await service.ObterListaAsync(lista.Id);
+        Assert.Single(listaAtualizada.Itens);
+        Assert.DoesNotContain(listaAtualizada.Itens, x => x.Id == item1.Id);
+        Assert.Contains(listaAtualizada.Logs, x => x.Acao == AcaoLogs.Exclusao);
+    }
+
+    [Fact]
+    public async Task DeveBuscarSugestoesDeItensPorDescricaoParcial()
+    {
+        var repository = new ComprasRepositoryFake();
+        var service = CriarService(repository, new AmizadeRepositoryFake(), 1);
+        var lista = await service.CriarListaAsync(new CriarListaCompraRequest("Feira", "Mercado"));
+        var criado = await service.CriarItemAsync(lista.Id, new CriarItemListaCompraRequest("Tomate Italiano", "Obs", UnidadeMedidaCompra.Kg, 1m, 9m, null));
+
+        var sugestoes = await service.BuscarSugestoesItensAsync(lista.Id, "tom");
+
+        var sugestao = Assert.Single(sugestoes);
+        Assert.Equal(criado.Id, sugestao.Id);
+        Assert.Equal("Tomate Italiano", sugestao.Descricao);
+        Assert.Equal(UnidadeMedidaCompra.Kg, sugestao.Unidade);
+        Assert.Equal(1m, sugestao.Quantidade);
+        Assert.Equal(9m, sugestao.PrecoUnitario);
+        Assert.Equal(9m, sugestao.ValorTotal);
+    }
+
+    [Fact]
     public async Task DeveCriarItemComValorTotalCalculadoERegistrarHistoricoDePreco()
     {
         var repository = new ComprasRepositoryFake();
@@ -405,10 +456,13 @@ public sealed class ComprasServiceTests
             return Task.CompletedTask;
         }
 
-        public Task<List<Produto>> BuscarSugestoesProdutosAsync(int usuarioId, string descricao, int limite, CancellationToken cancellationToken = default)
+        public Task<List<ItemListaCompra>> BuscarSugestoesItensAsync(int usuarioId, string descricao, int limite, CancellationToken cancellationToken = default)
         {
-            var sugestoes = Produtos
+            var sugestoes = Listas
+                .Where(x => x.UsuarioProprietarioId == usuarioId || x.Participantes.Any(p => p.UsuarioId == usuarioId && p.Status))
+                .SelectMany(x => x.Itens)
                 .Where(x => x.DescricaoNormalizada.Contains(descricao))
+                .OrderBy(x => x.Descricao)
                 .Take(limite)
                 .ToList();
             return Task.FromResult(sugestoes);

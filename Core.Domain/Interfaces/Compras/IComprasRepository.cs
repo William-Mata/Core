@@ -10,7 +10,7 @@ public interface IComprasRepository
     Task<ListaCompra?> ObterListaDoProprietarioAsync(long listaId, int usuarioId, CancellationToken cancellationToken = default);
     Task AddListaAsync(ListaCompra lista, CancellationToken cancellationToken = default);
     Task RemoverListaAsync(ListaCompra lista, CancellationToken cancellationToken = default);
-    Task<List<Produto>> BuscarSugestoesProdutosAsync(int usuarioId, string descricao, int limite, CancellationToken cancellationToken = default);
+    Task<List<ItemListaCompra>> BuscarSugestoesItensAsync(int usuarioId, string descricao, int limite, CancellationToken cancellationToken = default);
     Task<Produto?> ObterProdutoPorDescricaoEUnidadeAsync(string descricaoNormalizada, UnidadeMedidaCompra unidade, CancellationToken cancellationToken = default);
     Task AddProdutoAsync(Produto produto, CancellationToken cancellationToken = default);
     Task<List<DesejoCompra>> ListarDesejosAsync(int usuarioId, CancellationToken cancellationToken = default);

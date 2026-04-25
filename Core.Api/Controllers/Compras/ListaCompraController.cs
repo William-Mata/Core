@@ -79,6 +79,21 @@ public sealed class ListaCompraController(ComprasService service) : ControllerBa
     public async Task<IActionResult> CriarItem(long id, [FromBody] CriarItemListaCompraRequest request, CancellationToken cancellationToken) =>
         Ok(await service.CriarItemAsync(id, request, cancellationToken));
 
+    [HttpGet("{id:long}/itens/{itemId:long}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ObterItem(long id, long itemId, CancellationToken cancellationToken) =>
+        Ok(await service.ObterItemAsync(id, itemId, cancellationToken));
+
+    [HttpDelete("{id:long}/itens/{itemId:long}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ExcluirItem(long id, long itemId, CancellationToken cancellationToken)
+    {
+        await service.ExcluirItemAsync(id, itemId, cancellationToken);
+        return NoContent();
+    }
+
     [HttpPut("{id:long}/itens/{itemId:long}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]

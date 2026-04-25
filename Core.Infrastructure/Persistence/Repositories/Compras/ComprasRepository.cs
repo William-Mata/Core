@@ -60,20 +60,17 @@ public sealed class ComprasRepository(AppDbContext dbContext) : IComprasReposito
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    public Task<List<Produto>> BuscarSugestoesProdutosAsync(int usuarioId, string descricao, int limite, CancellationToken cancellationToken = default)
+    public Task<List<ItemListaCompra>> BuscarSugestoesItensAsync(int usuarioId, string descricao, int limite, CancellationToken cancellationToken = default)
     {
-        return dbContext.Produtos
+        return dbContext.ItensListasCompras
             .AsNoTracking()
             .Where(x => x.DescricaoNormalizada.Contains(descricao))
             .Where(x =>
-                x.UsuarioCadastroId == usuarioId ||
-                x.Desejos.Any(d => d.UsuarioCadastroId == usuarioId) ||
-                x.Itens.Any(i =>
-                    i.ListaCompra != null &&
-                    (i.ListaCompra.UsuarioProprietarioId == usuarioId ||
-                     i.ListaCompra.Participantes.Any(p => p.UsuarioId == usuarioId && p.Status))))
-            .OrderByDescending(x => x.DataHoraUltimoPreco)
-            .ThenBy(x => x.Descricao)
+                x.ListaCompra != null &&
+                (x.ListaCompra.UsuarioProprietarioId == usuarioId ||
+                 x.ListaCompra.Participantes.Any(p => p.UsuarioId == usuarioId && p.Status)))
+            .OrderBy(x => x.Descricao)
+            .ThenByDescending(x => x.DataHoraCadastro)
             .Take(limite)
             .ToListAsync(cancellationToken);
     }
