@@ -16,6 +16,8 @@
   - `DELETE /api/compras/listas/{id}`
   - `GET /api/compras/listas/{id}/sugestoes-itens`
   - `POST /api/compras/listas/{id}/itens`
+  - `GET /api/compras/listas/{id}/itens/{itemId}`
+  - `DELETE /api/compras/listas/{id}/itens/{itemId}`
   - `PUT /api/compras/listas/{id}/itens/{itemId}`
   - `PATCH /api/compras/listas/{id}/itens/{itemId}/edicao-rapida`
   - `POST /api/compras/listas/{id}/itens/{itemId}/marcar-comprado`
@@ -301,14 +303,19 @@
 }
 ```
 
-### 3.15 SugestaoProdutoCompraDto
+### 3.15 Response de sugestoes (`ItemListaCompraDto`)
 ```json
 {
-  "produtoId": 55,
+  "id": 101,
   "descricao": "Tomate",
+  "observacao": "Italiano",
   "unidade": "Kg",
-  "observacaoPadrao": "Italiano",
-  "ultimoPrecoUnitario": 10.5
+  "quantidade": 2.0,
+  "precoUnitario": 10.5,
+  "valorTotal": 21.0,
+  "etiquetaCor": "#ff0000",
+  "comprado": false,
+  "dataHoraCompra": null
 }
 ```
 
@@ -426,14 +433,17 @@ curl -X GET "https://api.exemplo.com/api/compras/listas?incluirArquivadas=false"
 ## 5. Endpoints de itens
 
 ### 4.1 GET /api/compras/listas/{id}/sugestoes-itens
-- Objetivo: buscar sugestoes de produtos para autocomplete.
+- Objetivo: buscar sugestoes de itens por descricao parcial para autocomplete.
 - Request:
   - query opcional: `descricao`.
 - Response sucesso:
-  - `200 OK` com `IReadOnlyCollection<SugestaoProdutoCompraDto>`.
+  - `200 OK` com `IReadOnlyCollection<ItemListaCompraDto>`.
 - Regras:
   - se `descricao` tiver menos de 3 caracteres, retorna colecao vazia.
-  - exige acesso de visualizacao da lista.
+  - busca parcial por descricao (contains/like) sem exigir match exato.
+  - retorna multiplos registros.
+  - retorna dados completos do item sugerido.
+  - retorna apenas itens de listas que o usuario tem acesso (proprietario ou participante ativo).
 - Efeitos colaterais:
   - sem escrita.
 
@@ -452,7 +462,31 @@ curl -X GET "https://api.exemplo.com/api/compras/listas?incluirArquivadas=false"
   - cria log.
   - publica `item_criado`.
 
-### 4.3 PUT /api/compras/listas/{id}/itens/{itemId}
+### 4.3 GET /api/compras/listas/{id}/itens/{itemId}
+- Objetivo: consultar item completo por identificador.
+- Response sucesso:
+  - `200 OK` com `ItemListaCompraDto`.
+- Regras:
+  - exige acesso de visualizacao a lista.
+  - retorna apenas um item.
+- Erros:
+  - `404`: `lista_compra_nao_encontrada` ou `item_lista_compra_nao_encontrado`.
+- Efeitos colaterais:
+  - sem escrita.
+
+### 4.4 DELETE /api/compras/listas/{id}/itens/{itemId}
+- Objetivo: excluir item por identificador.
+- Response sucesso:
+  - `204 NoContent`.
+- Regras:
+  - exige permissao de edicao.
+  - item inexistente retorna `item_lista_compra_nao_encontrado`.
+- Efeitos colaterais:
+  - remove item da lista.
+  - cria log de exclusao.
+  - publica `item_excluido`.
+
+### 4.5 PUT /api/compras/listas/{id}/itens/{itemId}
 - Objetivo: atualizar item completo.
 - Request body:
   - `AtualizarItemListaCompraRequest`.
@@ -466,7 +500,7 @@ curl -X GET "https://api.exemplo.com/api/compras/listas?incluirArquivadas=false"
   - cria log.
   - publica `item_atualizado`.
 
-### 4.4 PATCH /api/compras/listas/{id}/itens/{itemId}/edicao-rapida
+### 4.6 PATCH /api/compras/listas/{id}/itens/{itemId}/edicao-rapida
 - Objetivo: atualizar quantidade e preco do item.
 - Request body:
   - `EdicaoRapidaItemListaCompraRequest`.
@@ -481,7 +515,7 @@ curl -X GET "https://api.exemplo.com/api/compras/listas?incluirArquivadas=false"
   - cria log.
   - publica `item_edicao_rapida`.
 
-### 4.5 POST /api/compras/listas/{id}/itens/{itemId}/marcar-comprado
+### 4.7 POST /api/compras/listas/{id}/itens/{itemId}/marcar-comprado
 - Objetivo: marcar/desmarcar item como comprado.
 - Request body:
   - `MarcarCompradoItemListaCompraRequest` (`comprado`).
@@ -495,7 +529,7 @@ curl -X GET "https://api.exemplo.com/api/compras/listas?incluirArquivadas=false"
   - cria log.
   - publica `item_comprado` ou `item_desmarcado`.
 
-### 4.6 POST /api/compras/listas/{id}/acoes-lote
+### 4.8 POST /api/compras/listas/{id}/acoes-lote
 - Objetivo: executar acao em lote sobre itens/lista.
 - Request body:
   - `AcaoLoteListaCompraRequest`:
@@ -538,6 +572,8 @@ curl -X GET "https://api.exemplo.com/api/compras/listas?incluirArquivadas=false"
 | `DELETE /listas/{id}` | - | token invalido/ausente | `lista_compra_nao_encontrada` |
 | `GET /listas/{id}/sugestoes-itens` | `lista_compra_sem_permissao_visualizacao` | token invalido/ausente | `lista_compra_nao_encontrada` |
 | `POST /listas/{id}/itens` | validacoes de item/permissao | token invalido/ausente | `lista_compra_nao_encontrada` |
+| `GET /listas/{id}/itens/{itemId}` | `lista_compra_sem_permissao_visualizacao` | token invalido/ausente | lista/item nao encontrado |
+| `DELETE /listas/{id}/itens/{itemId}` | permissao de edicao | token invalido/ausente | lista/item nao encontrado |
 | `PUT /listas/{id}/itens/{itemId}` | validacoes de item/permissao | token invalido/ausente | lista/item nao encontrado |
 | `PATCH /listas/{id}/itens/{itemId}/edicao-rapida` | validacoes de item/permissao | token invalido/ausente | lista/item nao encontrado |
 | `POST /listas/{id}/itens/{itemId}/marcar-comprado` | permissao | token invalido/ausente | lista/item nao encontrado |
