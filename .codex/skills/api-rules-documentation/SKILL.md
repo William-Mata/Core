@@ -1,149 +1,248 @@
 ﻿---
+
 name: api-rules-documentation
-description: Documentar regras de negocio e contratos da API com rastreabilidade ao codigo. Usar quando for necessario mapear validacoes, regras, efeitos colaterais e consumo de endpoints.
----
+description: Documentar regras de negócio e contratos da API com rastreabilidade total ao código, garantindo cobertura completa, clareza de consumo e consistência entre backend e frontend.
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 # API Rules Documentation
 
+---
+
 ## Objetivo
 
-Criar ou atualizar documentacao tecnica da API garantindo:
+Criar ou atualizar documentação técnica da API garantindo:
 
-1. Cobertura completa das regras implementadas no backend.
-2. Contrato de consumo detalhado e confiavel.
-3. Rastreabilidade direta ao codigo.
+1. Cobertura completa das regras implementadas no backend
+2. Contrato de consumo detalhado, realista e utilizável
+3. Rastreabilidade direta ao código
+4. Clareza suficiente para consumo sem necessidade de leitura do código
 
-Usar [references/doc-template.md](references/doc-template.md) como estrutura base quando nao houver template do time.
+Usar `references/doc-template.md` como base quando não houver template do time.
 
-Usar a pasta `documentações tecnica/` e `../Core-Front/documentação tecnica/API/` como destino padrao das documentacoes tecnicas desta skill.
+Destinos padrões:
+
+* `documentações tecnica/`
+* `../Core-Front/documentação tecnica/API/`
 
 ---
 
 ## Fonte de verdade
 
-A documentacao deve ser baseada EXCLUSIVAMENTE em:
+A documentação deve ser baseada EXCLUSIVAMENTE em:
 
-- Codigo fonte
-- Testes automatizados (quando existirem)
+* Código fonte
+* Testes automatizados
 
-Nunca assumir comportamento sem evidencia.
-
----
-
-## Regras obrigatorias permanentes
-
-Estas regras sao obrigatorias em qualquer uso desta skill:
-
-1. O primeiro indice "Resumo" da documentacao deve conter:
-- resumo geral do modulo/escopo
-- todos os endpoints atuais da controller/rota documentada
-- endpoints descontinuados, quando existirem no historico recente
-
-2. Ao receber pedido de "atualizar documentacao", documentar o estado ATUAL da controller inteira.
-- Nao documentar apenas endpoints alterados na task.
-- Refletir todas as rotas publicas atualmente expostas na controller.
-
-3. Sempre incluir body completo de consumo.
-- Request completo para todos endpoints que recebem body.
-- Response completa (payload JSON) para todos endpoints relevantes.
-- Quando houver DTOs compartilhados, incluir secao de "Contratos completos (request/response)".
-
-4. Separar fatos confirmados de inferencias.
-- Fato confirmado: observado diretamente no codigo/testes.
-- Inferencia: deducao necessaria por ausencia de evidencia explicita.
-
-5. Garantir rastreabilidade.
-- Citar controller, service/use case, DTOs, repositorio, enums/excecoes e testes relacionados.
-
-6. Nao usar linguagem vaga.
-- Evitar frases como "pode retornar erro".
-- Sempre informar condicao objetiva + codigo/mensagem quando conhecida.
-
-7. Sincronizar backend e frontend.
-- Sempre que atualizar documentacao de API no backend, replicar o mesmo arquivo para `../Core-Front/documentação tecnica/API/`.
-- Manter o mesmo nome de arquivo entre backend e frontend.
-- Se a pasta de destino nao existir, registrar explicitamente no retorno final.
+Nunca assumir comportamento sem evidência.
 
 ---
 
-## Fluxo de execucao
+## Regras obrigatórias permanentes
 
-1. Identificar o escopo pedido pelo usuario:
-- modulo inteiro
-- endpoint especifico
-- regra especifica (exemplo: recorrencia, status, permissao)
+### 1) Índice "Resumo" (OBRIGATÓRIO)
 
-2. Localizar fonte primaria no codigo antes de escrever:
-- controllers/routers (entrada HTTP)
-- services/use cases (regras de negocio)
-- validators/schemas
-- repositorios e efeitos em persistencia
-- enums/exceptions e middlewares de erro
+Deve conter:
 
-3. Registrar regras reais observadas no codigo:
-- validacoes de entrada
-- condicionais de negocio
-- limites e bloqueios
-- side effects (logs, eventos, atualizacoes em outras entidades)
-- regras de autorizacao/autenticacao
-
-4. Mapear contrato de consumo:
-- metodo e rota
-- parametros obrigatorios e opcionais
-- payload completo de request
-- payload completo de response de sucesso
-- codigos de erro e motivo
-
-5. Inserir ou atualizar a documentacao dentro da pasta `documentações tecnica/`.
-
-5.1 Replicar o arquivo atualizado em `../Core-Front/documentação tecnica/API/`.
-
-6. Se o usuario nao informar nome do arquivo, criar nome descritivo no formato:
-- `documentações tecnica/<modulo-ou-endpoint>-regras-api.md`
+* descrição do módulo/controller
+* lista de TODOS endpoints atuais
+* endpoints descontinuados (quando identificados)
 
 ---
 
-## Regras de redacao
+### 2) Cobertura total da controller
 
-Escrever de forma objetiva e auditavel, sempre baseada no codigo atual.
+Ao atualizar documentação:
 
-Incluir exemplos minimos de consumo para cada endpoint documentado:
-- exemplo de request valido
-- exemplo de response de sucesso
-- exemplo de erro comum
-
-Quando houver muitos endpoints, usar esta ordem:
-1. Indice geral (resumo + todos endpoints)
-2. Contratos completos (DTOs request/response)
-3. Regras por endpoint
-4. Matriz de erros por endpoint
-5. Rastreabilidade
-6. Fatos confirmados e inferencias
-7. Pendencias (se houver)
+* Documentar TODA a controller
+* Nunca documentar apenas endpoints alterados
 
 ---
 
-## Checklist minimo por endpoint
+### 3) Contrato completo (OBRIGATÓRIO)
 
-Antes de finalizar, garantir que cada endpoint documentado contem:
+Para cada endpoint:
 
-1. Objetivo da rota
-2. Autenticacao/autorizacao exigida
-3. Campos obrigatorios e validacoes
-4. Regras de negocio aplicadas
-5. Efeitos colaterais (persistencia, log, integracoes)
-6. Response de sucesso (status + body completo)
-7. Responses de erro (status + condicao de disparo + mensagem/codigo quando conhecida)
-8. Exemplo de consumo
+* Request completo (body, params, query)
+* Response completo (JSON realista)
+
+Se houver DTO compartilhado:
+→ criar seção **Contratos completos**
 
 ---
 
-## Validacao
+### 4) Exemplos reais (CRÍTICO)
 
-Conferir se a documentacao esta consistente com nomes reais de rotas, DTOs, enums e status code.
+* Exemplos devem refletir:
 
-Quando houver testes automatizados cobrindo as regras, citar que as regras estao alinhadas aos testes.
+  * estrutura real
+  * nomes reais
+  * tipos reais
 
-Se detectar lacunas (regra no codigo sem documentacao ou comportamento ambiguo), registrar em uma secao `Pendencias` com acao sugerida.
+* Nunca usar:
+
+  * exemplos genéricos
+  * campos fictícios
+
+---
+
+### 5) Regras de negócio (OBRIGATÓRIO)
+
+Para cada endpoint, detalhar:
+
+* validações
+* condicionais
+* limites
+* bloqueios
+
+E também o fluxo:
+
+1. Validação
+2. Processamento
+3. Persistência
+4. Retorno
+
+---
+
+### 6) Efeitos colaterais (OBRIGATÓRIO)
+
+Descrever explicitamente:
+
+* alterações em outras entidades
+* logs
+* eventos
+* integrações externas
+
+---
+
+### 7) Autorização (OBRIGATÓRIO)
+
+Informar claramente:
+
+* quem pode acessar
+* regras de permissão
+* dependência de usuário/autenticação
+
+---
+
+### 8) Enums e valores possíveis
+
+Para campos relevantes, documentar:
+
+* valores possíveis
+* significado de cada valor
+
+---
+
+### 9) Erros (OBRIGATÓRIO)
+
+Nunca usar linguagem vaga.
+
+Para cada erro:
+
+* status HTTP
+* condição de disparo
+* mensagem/código (quando possível)
+
+---
+
+### 10) Rastreabilidade (OBRIGATÓRIO)
+
+Sempre citar:
+
+* Controller
+* Service / UseCase
+* DTOs
+* Repository
+* Enums
+* Exceptions
+* Testes (quando existirem)
+
+---
+
+### 11) Fato vs Inferência
+
+Separar:
+
+* Fato confirmado
+* Inferência
+
+---
+
+### 12) Sincronização Frontend
+
+* Replicar documentação em:
+
+  * `../Core-Front/documentação tecnica/API/`
+
+* Manter:
+
+  * mesmo nome
+  * mesmo conteúdo
+
+* Se não for possível:
+  → registrar no retorno final
+
+---
+
+## Fluxo de execução
+
+1. Identificar escopo
+2. Analisar código completo
+3. Mapear regras reais
+4. Mapear contrato completo
+5. Documentar controller inteira
+6. Replicar no frontend
+
+---
+
+## Estrutura recomendada
+
+1. Resumo (índice geral)
+2. Contratos completos (DTOs)
+3. Endpoints detalhados
+4. Matriz de erros
+5. Efeitos colaterais
+6. Rastreabilidade
+7. Fatos vs inferências
+8. Pendências
+
+---
+
+## Checklist por endpoint
+
+1. Objetivo
+2. Autorização
+3. Validações
+4. Regras de negócio
+5. Fluxo de execução
+6. Efeitos colaterais
+7. Response completo
+8. Erros detalhados
+9. Exemplo real
+
+---
+
+## Validação final
+
+Antes de concluir:
+
+* Conferir nomes reais (rotas, DTOs, enums)
+* Validar consistência com código
+* Validar consistência com frontend
+* Validar ausência de lacunas
+
+Se houver dúvidas:
+→ registrar em `Pendências`
+
+---
+
+## Formato de entrega
+
+A resposta deve conter:
+
+* Arquivos criados/atualizados
+* Resumo das regras documentadas
+* Pendências identificadas
+* Divergências entre front e back (se houver)
 
 ---
