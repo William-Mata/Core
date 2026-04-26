@@ -26,7 +26,7 @@ public sealed class RecorrenciaBackgroundConsumerServiceTests
         var dataLancamentoOrigem = new DateTime(2026, 1, 10, 0, 0, 0);
         var dataVencimentoOrigem = DateOnly.FromDateTime(dataLancamentoOrigem);
 
-        context.Despesas.AddRange(
+        context.Despesas.Add(
             new Despesa
             {
                 Id = 1,
@@ -42,9 +42,13 @@ public sealed class RecorrenciaBackgroundConsumerServiceTests
                 ValorTotal = 50m,
                 ValorLiquido = 50m,
                 Status = StatusDespesa.Pendente
-            },
+            });
+        await context.SaveChangesAsync();
+
+        context.Despesas.AddRange(
             new Despesa
             {
+                Id = 2,
                 UsuarioCadastroId = 99,
                 Descricao = "Recorrencia legado",
                 DataHoraCadastro = dataCadastroOrigem,
@@ -61,6 +65,7 @@ public sealed class RecorrenciaBackgroundConsumerServiceTests
             },
             new Despesa
             {
+                Id = 3,
                 UsuarioCadastroId = 99,
                 Descricao = "Recorrencia legado",
                 DataHoraCadastro = dataCadastroOrigem,
@@ -122,7 +127,7 @@ public sealed class RecorrenciaBackgroundConsumerServiceTests
         var dataLancamentoOrigem = new DateTime(2026, 1, 10, 0, 0, 0);
         var dataVencimentoOrigem = DateOnly.FromDateTime(dataLancamentoOrigem);
 
-        context.Receitas.AddRange(
+        context.Receitas.Add(
             new Receita
             {
                 Id = 1,
@@ -138,9 +143,13 @@ public sealed class RecorrenciaBackgroundConsumerServiceTests
                 ValorTotal = 50m,
                 ValorLiquido = 50m,
                 Status = StatusReceita.Pendente
-            },
+            });
+        await context.SaveChangesAsync();
+
+        context.Receitas.AddRange(
             new Receita
             {
+                Id = 2,
                 UsuarioCadastroId = 99,
                 Descricao = "Recorrencia legado receita",
                 DataHoraCadastro = dataCadastroOrigem,
@@ -157,6 +166,7 @@ public sealed class RecorrenciaBackgroundConsumerServiceTests
             },
             new Receita
             {
+                Id = 3,
                 UsuarioCadastroId = 99,
                 Descricao = "Recorrencia legado receita",
                 DataHoraCadastro = dataCadastroOrigem,
