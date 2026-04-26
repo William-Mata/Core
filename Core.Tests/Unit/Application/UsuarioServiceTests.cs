@@ -273,7 +273,7 @@ public sealed class UsuarioServiceTests
         var response = await service.AtualizarAsync(2, request);
 
         Assert.True(response.Sucesso);
-        Assert.Equal([3, 4], repository.ModulosAtivosIds);
+        Assert.Equal([3, 4], repository.ModulosAtivosIds.OrderBy(x => x));
         Assert.Equal([102, 104, 120, 121, 122], repository.TelasAtivasIds.OrderBy(x => x).ToArray());
         Assert.Equal(
             [501, 502, 503, 504, 511, 512, 513, 514, 521, 531, 532, 533, 534, 541, 542, 543, 544],
