@@ -1,3 +1,4 @@
+using Core.Application.DTOs.Compras;
 using Core.Application.Services.Compras;
 using Core.Domain.Enums.Compras;
 using Microsoft.AspNetCore.Authorization;
@@ -17,7 +18,7 @@ namespace Core.Api.Controllers.Compras;
 public sealed class HistoricoPrecoCompraController(ComprasService service) : ControllerBase
 {
     [HttpGet]
-    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(IReadOnlyCollection<HistoricoProdutoDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> Listar(
         [FromQuery] string? descricao,
         [FromQuery] UnidadeMedidaCompra? unidade,

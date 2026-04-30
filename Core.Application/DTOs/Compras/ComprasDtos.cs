@@ -146,6 +146,11 @@ public sealed record HistoricoProdutoDto(
     decimal MaiorPreco,
     decimal MediaPreco,
     DateTime DataUltimoPreco,
-    int TotalOcorrencias);
+    int TotalOcorrencias,
+    IReadOnlyCollection<HistoricoPrecoItemDto> HistoricoPrecos);
+
+public sealed record HistoricoPrecoItemDto(
+    DateOnly Data,
+    decimal Valor);
 
 

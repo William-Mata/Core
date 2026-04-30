@@ -630,19 +630,34 @@ public sealed class ComprasService(
             })
             .Select(grupo =>
             {
-                var ordenados = grupo.OrderByDescending(x => x.DataHoraCadastro).ToArray();
-                var valores = grupo.Select(x => x.PrecoUnitario).ToArray();
+                var historicoValidoOrdenado = grupo
+                    .Where(x => x.PrecoUnitario > 0)
+                    .OrderBy(x => x.DataHoraCadastro)
+                    .ToArray();
+
+                if (historicoValidoOrdenado.Length == 0)
+                    return null;
+
+                var ultimoHistorico = historicoValidoOrdenado[^1];
+                var valores = historicoValidoOrdenado.Select(x => x.PrecoUnitario).ToArray();
                 return new HistoricoProdutoDto(
                     grupo.Key.ProdutoId,
                     grupo.Key.Descricao,
                     grupo.Key.Unidade,
-                    ordenados.First().PrecoUnitario,
+                    ultimoHistorico.PrecoUnitario,
                     valores.Min(),
                     valores.Max(),
                     decimal.Round(valores.Average(), 2),
-                    ordenados.First().DataHoraCadastro,
-                    valores.Length);
+                    ultimoHistorico.DataHoraCadastro,
+                    valores.Length,
+                    historicoValidoOrdenado
+                        .Select(x => new HistoricoPrecoItemDto(
+                            DateOnly.FromDateTime(x.DataHoraCadastro),
+                            x.PrecoUnitario))
+                        .ToArray());
             })
+            .Where(x => x is not null)
+            .Select(x => x!)
             .OrderBy(x => x.Descricao)
             .ToArray();
     }

@@ -35,6 +35,11 @@ Documentar o contrato de consulta do historico de preco por `Produto` no modulo 
   - media de preco
   - data do ultimo preco
   - total de ocorrencias
+- Cada grupo tambem retorna `historicoPrecos` com a serie cronologica detalhada.
+- `historicoPrecos`:
+  - ordenado por data crescente
+  - ignora registros com preco invalido (`<= 0`)
+  - ultimo item da serie e a fonte de `ultimoPreco` e `dataUltimoPreco`
 
 ## Regras de preenchimento do historico
 - `HistoricoProduto` e alimentado por alteracoes relevantes de item com preco valido.
@@ -55,7 +60,21 @@ Documentar o contrato de consulta do historico de preco por `Produto` no modulo 
     "maiorPreco": 12.30,
     "mediaPreco": 10.44,
     "dataUltimoPreco": "2026-04-20T15:31:00Z",
-    "totalOcorrencias": 5
+    "totalOcorrencias": 5,
+    "historicoPrecos": [
+      {
+        "data": "2026-03-15",
+        "valor": 8.99
+      },
+      {
+        "data": "2026-04-01",
+        "valor": 10.90
+      },
+      {
+        "data": "2026-04-20",
+        "valor": 12.30
+      }
+    ]
   }
 ]
 ```

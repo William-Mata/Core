@@ -386,6 +386,79 @@ public sealed class ComprasServiceTests
         Assert.All(repository.Desejos, x => Assert.True(x.Convertido));
     }
 
+    [Fact]
+    public async Task DeveRetornarHistoricoPrecosOrdenadoDeFormaCrescenteComMetricasConsistentes()
+    {
+        var repository = new ComprasRepositoryFake();
+        var service = CriarService(repository, new AmizadeRepositoryFake(), 1);
+
+        repository.Produtos.Add(new Produto
+        {
+            Id = 101,
+            UsuarioCadastroId = 1,
+            Descricao = "Arroz",
+            DescricaoNormalizada = "arroz",
+            UnidadePadrao = UnidadeMedidaCompra.Kg,
+            HistoricosPreco =
+            [
+                new HistoricoProduto { UsuarioCadastroId = 1, ProdutoId = 101, Unidade = UnidadeMedidaCompra.Kg, PrecoUnitario = 32.9m, DataHoraCadastro = new DateTime(2026, 04, 28, 10, 0, 0, DateTimeKind.Utc) },
+                new HistoricoProduto { UsuarioCadastroId = 1, ProdutoId = 101, Unidade = UnidadeMedidaCompra.Kg, PrecoUnitario = 27.5m, DataHoraCadastro = new DateTime(2026, 02, 10, 10, 0, 0, DateTimeKind.Utc) },
+                new HistoricoProduto { UsuarioCadastroId = 1, ProdutoId = 101, Unidade = UnidadeMedidaCompra.Kg, PrecoUnitario = 29.9m, DataHoraCadastro = new DateTime(2026, 03, 01, 10, 0, 0, DateTimeKind.Utc) }
+            ]
+        });
+
+        var resultado = await service.ListarHistoricoPrecosAsync(null, null, null, null);
+        var produto = Assert.Single(resultado);
+
+        Assert.Equal(32.9m, produto.UltimoPreco);
+        Assert.Equal(new DateTime(2026, 04, 28, 10, 0, 0, DateTimeKind.Utc), produto.DataUltimoPreco);
+        Assert.Equal(27.5m, produto.MenorPreco);
+        Assert.Equal(32.9m, produto.MaiorPreco);
+        Assert.Equal(30.1m, produto.MediaPreco);
+        Assert.Equal(3, produto.TotalOcorrencias);
+        Assert.Collection(produto.HistoricoPrecos,
+            item =>
+            {
+                Assert.Equal(new DateOnly(2026, 02, 10), item.Data);
+                Assert.Equal(27.5m, item.Valor);
+            },
+            item =>
+            {
+                Assert.Equal(new DateOnly(2026, 03, 01), item.Data);
+                Assert.Equal(29.9m, item.Valor);
+            },
+            item =>
+            {
+                Assert.Equal(new DateOnly(2026, 04, 28), item.Data);
+                Assert.Equal(32.9m, item.Valor);
+            });
+    }
+
+    [Fact]
+    public async Task DeveIgnorarHistoricosSemPrecoValido()
+    {
+        var repository = new ComprasRepositoryFake();
+        var service = CriarService(repository, new AmizadeRepositoryFake(), 1);
+
+        repository.Produtos.Add(new Produto
+        {
+            Id = 102,
+            UsuarioCadastroId = 1,
+            Descricao = "Feijao",
+            DescricaoNormalizada = "feijao",
+            UnidadePadrao = UnidadeMedidaCompra.Kg,
+            HistoricosPreco =
+            [
+                new HistoricoProduto { UsuarioCadastroId = 1, ProdutoId = 102, Unidade = UnidadeMedidaCompra.Kg, PrecoUnitario = 0m, DataHoraCadastro = new DateTime(2026, 02, 10, 10, 0, 0, DateTimeKind.Utc) },
+                new HistoricoProduto { UsuarioCadastroId = 1, ProdutoId = 102, Unidade = UnidadeMedidaCompra.Kg, PrecoUnitario = -2m, DataHoraCadastro = new DateTime(2026, 03, 10, 10, 0, 0, DateTimeKind.Utc) }
+            ]
+        });
+
+        var resultado = await service.ListarHistoricoPrecosAsync(null, null, null, null);
+
+        Assert.Empty(resultado);
+    }
+
     private static ComprasService CriarService(ComprasRepositoryFake repository, AmizadeRepositoryFake amizadeRepository, int? usuarioId) =>
         new(repository, amizadeRepository, new UsuarioRepositoryFake(), new UsuarioAutenticadoProviderFake(usuarioId), new ComprasTempoRealPublisherFake());
 
