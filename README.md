@@ -12,7 +12,7 @@ Backend em .NET 10 organizado em camadas (API, Application, Domain, Infrastructu
 ## Módulos principais
 - Administração: autenticação (login, refresh token, primeira senha e esqueci senha) e gestão de usuários/permissões.
 - Financeiro: contas, cartões, despesas, receitas, reembolsos, faturas, histórico e amizade/rateio.
-- Compras: listas compartilhadas, itens, desejos, histórico de preço, logs e atualização em tempo real.
+- Compras: listas compartilhadas, itens, desejos, histórico de preço, dashboard agregado, logs e atualização em tempo real.
 
 ## Stack
 - .NET 10 / ASP.NET Core Web API
@@ -161,6 +161,7 @@ Documentos de regras e contratos da API ficam em `documentações tecnica/`, inc
 - `usuario-regras-api.md`
 - `despesa-regras-api.md`, `receita-regras-api.md`, `reembolso-regras-api.md`
 - `lista-compra-regras-api.md`, `desejo-compra-regras-api.md`, `historico-produto-regras-api.md`
+- endpoints de dashboard de Compras documentados nos contratos de listas, desejos e histórico de preços.
 
 ## Segurança
 - Não versionar segredos reais, tokens ou connection strings de ambientes reais.

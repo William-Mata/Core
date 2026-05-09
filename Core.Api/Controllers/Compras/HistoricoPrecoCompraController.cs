@@ -17,6 +17,16 @@ namespace Core.Api.Controllers.Compras;
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
 public sealed class HistoricoPrecoCompraController(ComprasService service) : ControllerBase
 {
+    [HttpGet("dashboard/variacao")]
+    [ProducesResponseType(typeof(IReadOnlyCollection<ComprasDashboardVariacaoPrecoDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ListarDashboardVariacao([FromQuery] int limite = 10, CancellationToken cancellationToken = default) =>
+        Ok(await service.ListarDashboardVariacoesPrecosAsync(limite, cancellationToken));
+
+    [HttpGet("dashboard/economia-potencial")]
+    [ProducesResponseType(typeof(ComprasDashboardEconomiaPotencialDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ObterDashboardEconomiaPotencial([FromQuery] int limite = 10, CancellationToken cancellationToken = default) =>
+        Ok(await service.ObterDashboardEconomiaPotencialAsync(limite, cancellationToken));
+
     [HttpGet]
     [ProducesResponseType(typeof(IReadOnlyCollection<HistoricoProdutoDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> Listar(

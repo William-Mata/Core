@@ -459,6 +459,170 @@ public sealed class ComprasServiceTests
         Assert.Empty(resultado);
     }
 
+    [Fact]
+    public async Task DeveRetornarKpisDashboardDoMesAtualFiltrandoUsuario()
+    {
+        var repository = new ComprasRepositoryFake();
+        var service = CriarService(repository, new AmizadeRepositoryFake(), 1);
+        var agora = DateTime.UtcNow;
+
+        repository.Listas.Add(new ListaCompra
+        {
+            Id = 1,
+            UsuarioProprietarioId = 1,
+            Nome = "Compras da semana",
+            Categoria = "Mercado",
+            Status = StatusListaCompra.Ativa,
+            Itens =
+            [
+                new ItemListaCompra
+                {
+                    Id = 10,
+                    ListaCompraId = 1,
+                    Descricao = "Cafe",
+                    DescricaoNormalizada = "cafe",
+                    Comprado = true,
+                    ValorTotal = 21.9m,
+                    DataHoraCompra = new DateTime(agora.Year, agora.Month, 5, 10, 0, 0, DateTimeKind.Utc)
+                }
+            ]
+        });
+        repository.Listas.Add(new ListaCompra
+        {
+            Id = 2,
+            UsuarioProprietarioId = 2,
+            Nome = "Outra lista",
+            Categoria = "Mercado",
+            Status = StatusListaCompra.Ativa,
+            Itens =
+            [
+                new ItemListaCompra
+                {
+                    Id = 20,
+                    ListaCompraId = 2,
+                    Descricao = "Leite",
+                    Comprado = true,
+                    ValorTotal = 99m,
+                    DataHoraCompra = new DateTime(agora.Year, agora.Month, 5, 10, 0, 0, DateTimeKind.Utc)
+                }
+            ]
+        });
+        repository.Desejos.Add(new DesejoCompra { Id = 1, UsuarioCadastroId = 1, Descricao = "Air Fryer", Convertido = false });
+        repository.Desejos.Add(new DesejoCompra { Id = 2, UsuarioCadastroId = 1, Descricao = "Panela", Convertido = true });
+        repository.Produtos.Add(new Produto
+        {
+            Id = 301,
+            UsuarioCadastroId = 1,
+            Descricao = "Cafe 500g",
+            DescricaoNormalizada = "cafe 500g",
+            UnidadePadrao = UnidadeMedidaCompra.Unidade,
+            HistoricosPreco =
+            [
+                new HistoricoProduto { Id = 1, UsuarioCadastroId = 1, ProdutoId = 301, Unidade = UnidadeMedidaCompra.Unidade, PrecoUnitario = 17.5m, DataHoraCadastro = agora.AddMonths(-1) },
+                new HistoricoProduto { Id = 2, UsuarioCadastroId = 1, ProdutoId = 301, Unidade = UnidadeMedidaCompra.Unidade, PrecoUnitario = 21.9m, DataHoraCadastro = new DateTime(agora.Year, agora.Month, 6, 10, 0, 0, DateTimeKind.Utc) }
+            ]
+        });
+
+        var resultado = await service.ObterDashboardKpisAsync();
+
+        Assert.Equal(21.9m, resultado.TotalGastoMes);
+        Assert.Equal(1, resultado.PlanejamentosAtivos);
+        Assert.Equal(1, resultado.ItensCompradosMes);
+        Assert.Equal(1, resultado.DesejosPendentes);
+        Assert.Equal(4.4m, resultado.EconomiaPotencialMes);
+        Assert.True(resultado.PossuiEconomiaPotencial);
+    }
+
+    [Fact]
+    public async Task DeveRetornarEvolucaoMensalComSequenciaDeDozeMeses()
+    {
+        var repository = new ComprasRepositoryFake();
+        var service = CriarService(repository, new AmizadeRepositoryFake(), 1);
+        var inicioMesAtual = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        repository.Listas.Add(new ListaCompra
+        {
+            Id = 1,
+            UsuarioProprietarioId = 1,
+            Nome = "Mercado",
+            Categoria = "Mercado",
+            Status = StatusListaCompra.Arquivada,
+            Itens =
+            [
+                new ItemListaCompra
+                {
+                    Id = 1,
+                    ListaCompraId = 1,
+                    Descricao = "Arroz",
+                    Comprado = true,
+                    ValorTotal = 50m,
+                    DataHoraCompra = inicioMesAtual.AddMonths(-2).AddDays(3)
+                }
+            ]
+        });
+
+        var resultado = await service.ListarDashboardEvolucaoMensalAsync();
+
+        Assert.Equal(12, resultado.Count);
+        Assert.Equal(inicioMesAtual.AddMonths(-11).ToString("yyyy-MM"), resultado.First().ChaveMes);
+        Assert.Equal(inicioMesAtual.ToString("yyyy-MM"), resultado.Last().ChaveMes);
+        Assert.Contains(resultado, x => x.ChaveMes == inicioMesAtual.AddMonths(-2).ToString("yyyy-MM") && x.ValorTotal == 50m && x.QuantidadeItens == 1 && x.ListasFinalizadas == 1);
+    }
+
+    [Fact]
+    public async Task DeveRetornarVariacaoPrecoEEconomiaPotencialOrdenadasPorEconomia()
+    {
+        var repository = new ComprasRepositoryFake();
+        var service = CriarService(repository, new AmizadeRepositoryFake(), 1);
+
+        repository.Produtos.AddRange(
+        [
+            new Produto
+            {
+                Id = 301,
+                UsuarioCadastroId = 1,
+                Descricao = "Cafe 500g",
+                DescricaoNormalizada = "cafe 500g",
+                UnidadePadrao = UnidadeMedidaCompra.Unidade,
+                HistoricosPreco =
+                [
+                    new HistoricoProduto { Id = 1, UsuarioCadastroId = 1, ProdutoId = 301, Unidade = UnidadeMedidaCompra.Unidade, PrecoUnitario = 17.5m, DataHoraCadastro = new DateTime(2026, 01, 01, 0, 0, 0, DateTimeKind.Utc) },
+                    new HistoricoProduto { Id = 2, UsuarioCadastroId = 1, ProdutoId = 301, Unidade = UnidadeMedidaCompra.Unidade, PrecoUnitario = 21.9m, DataHoraCadastro = new DateTime(2026, 02, 01, 0, 0, 0, DateTimeKind.Utc) },
+                    new HistoricoProduto { Id = 3, UsuarioCadastroId = 1, ProdutoId = 301, Unidade = UnidadeMedidaCompra.Unidade, PrecoUnitario = 24.9m, DataHoraCadastro = new DateTime(2026, 03, 01, 0, 0, 0, DateTimeKind.Utc) }
+                ]
+            },
+            new Produto
+            {
+                Id = 302,
+                UsuarioCadastroId = 1,
+                Descricao = "Leite",
+                DescricaoNormalizada = "leite",
+                UnidadePadrao = UnidadeMedidaCompra.Unidade,
+                HistoricosPreco =
+                [
+                    new HistoricoProduto { Id = 4, UsuarioCadastroId = 1, ProdutoId = 302, Unidade = UnidadeMedidaCompra.Unidade, PrecoUnitario = 4m, DataHoraCadastro = new DateTime(2026, 01, 01, 0, 0, 0, DateTimeKind.Utc) },
+                    new HistoricoProduto { Id = 5, UsuarioCadastroId = 1, ProdutoId = 302, Unidade = UnidadeMedidaCompra.Unidade, PrecoUnitario = 5m, DataHoraCadastro = new DateTime(2026, 02, 01, 0, 0, 0, DateTimeKind.Utc) }
+                ]
+            }
+        ]);
+
+        var variacoes = await service.ListarDashboardVariacoesPrecosAsync(1);
+        var economia = await service.ObterDashboardEconomiaPotencialAsync(2);
+
+        var variacao = Assert.Single(variacoes);
+        Assert.Equal("301-unidade", variacao.Id);
+        Assert.Equal("Cafe 500g", variacao.Produto);
+        Assert.Equal(24.9m, variacao.UltimoPreco);
+        Assert.Equal(17.5m, variacao.MenorPreco);
+        Assert.Equal(24.9m, variacao.MaiorPreco);
+        Assert.Equal(21.43m, variacao.MediaPreco);
+        Assert.Equal(42.29m, variacao.PercentualVariacao);
+        Assert.Equal(7.4m, variacao.PotencialEconomiaUnitaria);
+
+        Assert.Equal(8.4m, economia.EconomiaPotencialTotal);
+        Assert.Equal(new[] { "301-unidade", "302-unidade" }, economia.ProdutosComMelhorEconomia.Select(x => x.Id));
+    }
+
     private static ComprasService CriarService(ComprasRepositoryFake repository, AmizadeRepositoryFake amizadeRepository, int? usuarioId) =>
         new(repository, amizadeRepository, new UsuarioRepositoryFake(), new UsuarioAutenticadoProviderFake(usuarioId), new ComprasTempoRealPublisherFake());
 
@@ -613,6 +777,120 @@ public sealed class ComprasServiceTests
             return Task.FromResult(historicos);
         }
 
+        public Task<ComprasDashboardKpisReadModel> ObterDashboardKpisAsync(int usuarioId, DateTime inicioMes, DateTime fimMesExclusivo, CancellationToken cancellationToken = default)
+        {
+            var itensMes = ItensCompradosAcessiveis(usuarioId)
+                .Where(x => x.DataHoraCompra >= inicioMes && x.DataHoraCompra < fimMesExclusivo)
+                .ToArray();
+            var variacoesMes = VariacoesPrecos(usuarioId)
+                .Where(x => x.UltimaData >= inicioMes && x.UltimaData < fimMesExclusivo)
+                .ToArray();
+
+            return Task.FromResult(new ComprasDashboardKpisReadModel(
+                itensMes.Sum(x => x.ValorTotal),
+                Listas.Count(x => PodeAcessarLista(x, usuarioId) && x.Status == StatusListaCompra.Ativa),
+                itensMes.Length,
+                Desejos.Count(x => x.UsuarioCadastroId == usuarioId && !x.Convertido),
+                decimal.Round(variacoesMes.Sum(x => Math.Max(0m, x.UltimoPreco - x.MenorPreco)), 2)));
+        }
+
+        public Task<List<ComprasDashboardEvolucaoMensalReadModel>> ListarDashboardEvolucaoMensalAsync(int usuarioId, DateTime inicio, DateTime fimExclusivo, CancellationToken cancellationToken = default)
+        {
+            var resultado = ItensCompradosAcessiveis(usuarioId)
+                .Where(x => x.DataHoraCompra >= inicio && x.DataHoraCompra < fimExclusivo)
+                .GroupBy(x => new { x.DataHoraCompra!.Value.Year, x.DataHoraCompra.Value.Month })
+                .Select(x => new ComprasDashboardEvolucaoMensalReadModel(
+                    x.Key.Year,
+                    x.Key.Month,
+                    x.Sum(i => i.ValorTotal),
+                    x.Count(),
+                    x.Where(i => i.ListaCompra?.Status == StatusListaCompra.Arquivada)
+                        .Select(i => i.ListaCompraId)
+                        .Distinct()
+                        .Count()))
+                .ToList();
+
+            return Task.FromResult(resultado);
+        }
+
+        public Task<List<ComprasDashboardTipoCompraReadModel>> ListarDashboardTiposCompraAsync(int usuarioId, CancellationToken cancellationToken = default)
+        {
+            var resultado = ItensCompradosAcessiveis(usuarioId)
+                .Where(x => x.ListaCompra is not null)
+                .GroupBy(x => x.ListaCompra!.Categoria)
+                .Select(x => new ComprasDashboardTipoCompraReadModel(x.Key, x.Sum(i => i.ValorTotal), x.Count()))
+                .OrderByDescending(x => x.ValorTotal)
+                .ToList();
+
+            return Task.FromResult(resultado);
+        }
+
+        public Task<List<ComprasDashboardProdutoMaisCompradoReadModel>> ListarDashboardProdutosMaisCompradosAsync(int usuarioId, int limite, CancellationToken cancellationToken = default)
+        {
+            var resultado = ItensCompradosAcessiveis(usuarioId)
+                .GroupBy(x => x.Descricao)
+                .Select(x => new ComprasDashboardProdutoMaisCompradoReadModel(x.Key, x.Count()))
+                .OrderByDescending(x => x.Quantidade)
+                .ThenBy(x => x.Descricao)
+                .Take(limite)
+                .ToList();
+
+            return Task.FromResult(resultado);
+        }
+
+        public Task<List<ComprasDashboardUltimaCompraReadModel>> ListarDashboardUltimasComprasAsync(int usuarioId, int limite, CancellationToken cancellationToken = default)
+        {
+            var resultado = ItensCompradosAcessiveis(usuarioId)
+                .Where(x => x.DataHoraCompra.HasValue && x.ListaCompra is not null)
+                .OrderByDescending(x => x.DataHoraCompra)
+                .ThenByDescending(x => x.Id)
+                .Select(x => new ComprasDashboardUltimaCompraReadModel(
+                    x.Id,
+                    x.Descricao,
+                    x.ValorTotal,
+                    x.DataHoraCompra!.Value,
+                    x.ListaCompra!.Nome,
+                    x.EtiquetaCor))
+                .Take(limite)
+                .ToList();
+
+            return Task.FromResult(resultado);
+        }
+
+        public Task<List<ComprasDashboardUltimoDesejoReadModel>> ListarDashboardUltimosDesejosAsync(int usuarioId, int limite, CancellationToken cancellationToken = default)
+        {
+            var resultado = Desejos
+                .Where(x => x.UsuarioCadastroId == usuarioId)
+                .OrderByDescending(x => x.DataHoraCadastro)
+                .ThenByDescending(x => x.Id)
+                .Select(x => new ComprasDashboardUltimoDesejoReadModel(x.Id, x.Descricao, x.PrecoEstimado, x.DataHoraCadastro, x.Convertido))
+                .Take(limite)
+                .ToList();
+
+            return Task.FromResult(resultado);
+        }
+
+        public Task<List<ComprasDashboardVariacaoPrecoReadModel>> ListarDashboardVariacoesPrecosAsync(int usuarioId, int limite, CancellationToken cancellationToken = default)
+        {
+            var resultado = VariacoesPrecos(usuarioId)
+                .Where(x => x.UltimoPreco > x.MenorPreco)
+                .OrderByDescending(x => x.UltimoPreco - x.MenorPreco)
+                .ThenBy(x => x.Produto)
+                .Take(limite)
+                .Select(x => new ComprasDashboardVariacaoPrecoReadModel(
+                    x.ProdutoId,
+                    x.Unidade,
+                    x.Produto,
+                    x.UltimoPreco,
+                    x.MenorPreco,
+                    x.MaiorPreco,
+                    x.MediaPreco,
+                    x.TotalOcorrencias))
+                .ToList();
+
+            return Task.FromResult(resultado);
+        }
+
         public Task SaveChangesAsync(CancellationToken cancellationToken = default)
         {
             foreach (var lista in Listas)
@@ -641,6 +919,52 @@ public sealed class ComprasServiceTests
             return Task.CompletedTask;
         }
 
+        private IEnumerable<ItemListaCompra> ItensCompradosAcessiveis(int usuarioId)
+        {
+            foreach (var lista in Listas.Where(x => PodeAcessarLista(x, usuarioId)))
+            {
+                foreach (var item in lista.Itens.Where(x => x.Comprado && x.DataHoraCompra.HasValue))
+                {
+                    item.ListaCompra = lista;
+                    item.ListaCompraId = lista.Id;
+                    yield return item;
+                }
+            }
+        }
+
+        private IEnumerable<VariacaoPrecoFake> VariacoesPrecos(int usuarioId)
+        {
+            return Produtos
+                .SelectMany(x => x.HistoricosPreco.Select(h =>
+                {
+                    h.Produto = x;
+                    h.ProdutoId = x.Id;
+                    return h;
+                }))
+                .Where(x => x.UsuarioCadastroId == usuarioId && x.PrecoUnitario > 0)
+                .GroupBy(x => new { x.ProdutoId, x.Unidade, Produto = x.Produto?.Descricao ?? string.Empty })
+                .Select(x =>
+                {
+                    var ordenados = x.OrderBy(h => h.DataHoraCadastro).ThenBy(h => h.Id).ToArray();
+                    var ultimo = ordenados[^1];
+                    return new VariacaoPrecoFake(
+                        x.Key.ProdutoId,
+                        x.Key.Unidade,
+                        x.Key.Produto,
+                        ultimo.PrecoUnitario,
+                        ordenados.Min(h => h.PrecoUnitario),
+                        ordenados.Max(h => h.PrecoUnitario),
+                        ordenados.Average(h => h.PrecoUnitario),
+                        ordenados.Length,
+                        ultimo.DataHoraCadastro);
+                })
+                .Where(x => x.TotalOcorrencias >= 2);
+        }
+
+        private static bool PodeAcessarLista(ListaCompra lista, int usuarioId) =>
+            lista.UsuarioProprietarioId == usuarioId ||
+            lista.Participantes.Any(p => p.UsuarioId == usuarioId && p.Status);
+
         private void AtualizarGrafoLista(ListaCompra lista)
         {
             foreach (var item in lista.Itens)
@@ -664,6 +988,17 @@ public sealed class ComprasServiceTests
                 log.ListaCompraId = lista.Id;
             }
         }
+
+        private sealed record VariacaoPrecoFake(
+            long ProdutoId,
+            UnidadeMedidaCompra Unidade,
+            string Produto,
+            decimal UltimoPreco,
+            decimal MenorPreco,
+            decimal MaiorPreco,
+            decimal MediaPreco,
+            int TotalOcorrencias,
+            DateTime UltimaData);
     }
 
     private sealed class AmizadeRepositoryFake : IAmizadeRepository

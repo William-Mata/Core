@@ -153,4 +153,66 @@ public sealed record HistoricoPrecoItemDto(
     DateOnly Data,
     decimal Valor);
 
+public sealed record ComprasDashboardKpisDto(
+    decimal TotalGastoMes,
+    int PlanejamentosAtivos,
+    int ItensCompradosMes,
+    int DesejosPendentes,
+    decimal EconomiaPotencialMes,
+    bool PossuiEconomiaPotencial);
+
+public sealed record ComprasDashboardEvolucaoMensalDto(
+    string ChaveMes,
+    string RotuloMes,
+    decimal ValorTotal,
+    int QuantidadeItens,
+    int ListasFinalizadas);
+
+public sealed record ComprasDashboardTipoCompraDto(
+    string Categoria,
+    string Rotulo,
+    decimal ValorTotal,
+    decimal Percentual,
+    int QuantidadeItens);
+
+public sealed record ComprasDashboardProdutoMaisCompradoDto(
+    string Descricao,
+    int Quantidade);
+
+public sealed record ComprasDashboardUltimaCompraDto(
+    string Id,
+    string Descricao,
+    decimal Valor,
+    DateOnly Data,
+    string Planejamento,
+    string? CorMarcador);
+
+public sealed record ComprasDashboardUltimoDesejoDto(
+    string Id,
+    string Descricao,
+    decimal? ValorEstimado,
+    DateOnly Data,
+    string Status);
+
+public sealed record ComprasDashboardVariacaoPrecoDto(
+    string Id,
+    string Produto,
+    decimal UltimoPreco,
+    decimal MenorPreco,
+    decimal MaiorPreco,
+    decimal MediaPreco,
+    decimal PercentualVariacao,
+    decimal PotencialEconomiaUnitaria);
+
+public sealed record ComprasDashboardEconomiaPotencialDto(
+    decimal EconomiaPotencialTotal,
+    IReadOnlyCollection<ComprasDashboardProdutoEconomiaDto> ProdutosComMelhorEconomia);
+
+public sealed record ComprasDashboardProdutoEconomiaDto(
+    string Id,
+    string Produto,
+    decimal EconomiaUnitaria,
+    decimal UltimoPreco,
+    decimal MenorPreco);
+
 

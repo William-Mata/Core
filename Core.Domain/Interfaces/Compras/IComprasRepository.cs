@@ -19,6 +19,13 @@ public interface IComprasRepository
     Task AddDesejoAsync(DesejoCompra desejo, CancellationToken cancellationToken = default);
     Task RemoverDesejoAsync(DesejoCompra desejo, CancellationToken cancellationToken = default);
     Task<List<HistoricoProduto>> ListarHistoricoPrecosAsync(int usuarioId, string? descricao, UnidadeMedidaCompra? unidade, DateTime? dataInicio, DateTime? dataFim, CancellationToken cancellationToken = default);
+    Task<ComprasDashboardKpisReadModel> ObterDashboardKpisAsync(int usuarioId, DateTime inicioMes, DateTime fimMesExclusivo, CancellationToken cancellationToken = default);
+    Task<List<ComprasDashboardEvolucaoMensalReadModel>> ListarDashboardEvolucaoMensalAsync(int usuarioId, DateTime inicio, DateTime fimExclusivo, CancellationToken cancellationToken = default);
+    Task<List<ComprasDashboardTipoCompraReadModel>> ListarDashboardTiposCompraAsync(int usuarioId, CancellationToken cancellationToken = default);
+    Task<List<ComprasDashboardProdutoMaisCompradoReadModel>> ListarDashboardProdutosMaisCompradosAsync(int usuarioId, int limite, CancellationToken cancellationToken = default);
+    Task<List<ComprasDashboardUltimaCompraReadModel>> ListarDashboardUltimasComprasAsync(int usuarioId, int limite, CancellationToken cancellationToken = default);
+    Task<List<ComprasDashboardUltimoDesejoReadModel>> ListarDashboardUltimosDesejosAsync(int usuarioId, int limite, CancellationToken cancellationToken = default);
+    Task<List<ComprasDashboardVariacaoPrecoReadModel>> ListarDashboardVariacoesPrecosAsync(int usuarioId, int limite, CancellationToken cancellationToken = default);
     Task SaveChangesAsync(CancellationToken cancellationToken = default);
 }
 

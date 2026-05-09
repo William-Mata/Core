@@ -21,6 +21,31 @@ public sealed class ListaCompraController(ComprasService service) : ControllerBa
     public async Task<IActionResult> Listar([FromQuery] bool incluirArquivadas = false, CancellationToken cancellationToken = default) =>
         Ok(await service.ListarListasAsync(incluirArquivadas, cancellationToken));
 
+    [HttpGet("dashboard/kpis")]
+    [ProducesResponseType(typeof(ComprasDashboardKpisDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ObterDashboardKpis(CancellationToken cancellationToken) =>
+        Ok(await service.ObterDashboardKpisAsync(cancellationToken));
+
+    [HttpGet("dashboard/evolucao-mensal")]
+    [ProducesResponseType(typeof(IReadOnlyCollection<ComprasDashboardEvolucaoMensalDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ListarDashboardEvolucaoMensal(CancellationToken cancellationToken) =>
+        Ok(await service.ListarDashboardEvolucaoMensalAsync(cancellationToken));
+
+    [HttpGet("dashboard/tipos")]
+    [ProducesResponseType(typeof(IReadOnlyCollection<ComprasDashboardTipoCompraDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ListarDashboardTipos(CancellationToken cancellationToken) =>
+        Ok(await service.ListarDashboardTiposCompraAsync(cancellationToken));
+
+    [HttpGet("dashboard/produtos-mais-comprados")]
+    [ProducesResponseType(typeof(IReadOnlyCollection<ComprasDashboardProdutoMaisCompradoDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ListarDashboardProdutosMaisComprados([FromQuery] int limite = 10, CancellationToken cancellationToken = default) =>
+        Ok(await service.ListarDashboardProdutosMaisCompradosAsync(limite, cancellationToken));
+
+    [HttpGet("dashboard/ultimas-compras")]
+    [ProducesResponseType(typeof(IReadOnlyCollection<ComprasDashboardUltimaCompraDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ListarDashboardUltimasCompras([FromQuery] int limite = 50, CancellationToken cancellationToken = default) =>
+        Ok(await service.ListarDashboardUltimasComprasAsync(limite, cancellationToken));
+
     [HttpGet("{id:long}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]

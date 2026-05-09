@@ -8,6 +8,7 @@ Documentar o contrato de gerenciamento de desejos de compra e conversao para lis
 
 ## Rotas
 - `GET /api/compras/desejos`
+- `GET /api/compras/desejos/dashboard/ultimos`
 - `POST /api/compras/desejos`
 - `PUT /api/compras/desejos/{id}`
 - `DELETE /api/compras/desejos/{id}`
@@ -75,6 +76,34 @@ Documentar o contrato de gerenciamento de desejos de compra e conversao para lis
 }
 ```
 
+## Endpoint de dashboard
+
+### GET /api/compras/desejos/dashboard/ultimos
+- Objetivo: retornar ultimos desejos para consumo direto pelo dashboard de Compras.
+- Autorizacao:
+  - JWT Bearer obrigatorio.
+  - retorna somente desejos cadastrados pelo usuario autenticado.
+- Request:
+  - query opcional: `limite` (int, default `50`, maximo aplicado pelo service `100`).
+- Response:
+```json
+[
+  {
+    "id": "88",
+    "descricao": "Air Fryer",
+    "valorEstimado": 399.9,
+    "data": "2026-04-28",
+    "status": "pendente"
+  }
+]
+```
+- Regras:
+  - ordenacao decrescente por `DataHoraCadastro` e `Id`.
+  - `status` retorna `pendente` quando `Convertido = false` e `convertido` quando `Convertido = true`.
+  - usa consulta `AsNoTracking()` com projecao.
+- Efeitos colaterais:
+  - sem escrita, sem logs e sem eventos SignalR.
+
 ## Erros comuns
 - `dados_invalidos`
 - `usuario_nao_autenticado`
@@ -88,3 +117,4 @@ Documentar o contrato de gerenciamento de desejos de compra e conversao para lis
 - DTOs: `Core.Application/DTOs/Compras/ComprasDtos.cs`
 - Repository: `Core.Infrastructure/Persistence/Repositories/Compras/ComprasRepository.cs`
 - Entidades: `Core.Domain/Entities/Compras/DesejoCompra.cs`
+- Read models de dashboard: `Core.Domain/Interfaces/Compras/ComprasDashboardReadModels.cs`

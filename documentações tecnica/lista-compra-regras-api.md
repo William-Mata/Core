@@ -7,6 +7,11 @@
   - todos os endpoints exigem JWT Bearer.
 - Endpoints atuais (controller):
   - `GET /api/compras/listas`
+  - `GET /api/compras/listas/dashboard/kpis`
+  - `GET /api/compras/listas/dashboard/evolucao-mensal`
+  - `GET /api/compras/listas/dashboard/tipos`
+  - `GET /api/compras/listas/dashboard/produtos-mais-comprados`
+  - `GET /api/compras/listas/dashboard/ultimas-compras`
   - `GET /api/compras/listas/{id}`
   - `GET /api/compras/listas/{id}/detalhe`
   - `POST /api/compras/listas`
@@ -328,6 +333,60 @@
 }
 ```
 
+### 3.17 ComprasDashboardKpisDto
+```json
+{
+  "totalGastoMes": 1845.73,
+  "planejamentosAtivos": 3,
+  "itensCompradosMes": 47,
+  "desejosPendentes": 12,
+  "economiaPotencialMes": 126.4,
+  "possuiEconomiaPotencial": true
+}
+```
+
+### 3.18 ComprasDashboardEvolucaoMensalDto
+```json
+{
+  "chaveMes": "2026-01",
+  "rotuloMes": "jan",
+  "valorTotal": 980.5,
+  "quantidadeItens": 22,
+  "listasFinalizadas": 1
+}
+```
+
+### 3.19 ComprasDashboardTipoCompraDto
+```json
+{
+  "categoria": "mercado",
+  "rotulo": "Mercado",
+  "valorTotal": 720.3,
+  "percentual": 39.04,
+  "quantidadeItens": 18
+}
+```
+
+### 3.20 ComprasDashboardProdutoMaisCompradoDto
+```json
+{
+  "descricao": "Arroz 5kg",
+  "quantidade": 9
+}
+```
+
+### 3.21 ComprasDashboardUltimaCompraDto
+```json
+{
+  "id": "120-2026-05-01-0",
+  "descricao": "Leite integral",
+  "valor": 23.9,
+  "data": "2026-05-01",
+  "planejamento": "Compras da semana",
+  "corMarcador": "#22c55e"
+}
+```
+
 ## 4. Endpoints de listas
 
 ### 3.1 GET /api/compras/listas
@@ -344,6 +403,92 @@
 ```bash
 curl -X GET "https://api.exemplo.com/api/compras/listas?incluirArquivadas=false" -H "Authorization: Bearer <token>"
 ```
+
+### 3.1.1 GET /api/compras/listas/dashboard/kpis
+- Objetivo: retornar a linha de KPIs do dashboard de Compras.
+- Request:
+  - sem body e sem query params.
+- Response sucesso:
+  - `200 OK` com `ComprasDashboardKpisDto`.
+- Regras:
+  - considera o mes atual em UTC.
+  - filtra listas, itens e historico pelo usuario autenticado ou por listas compartilhadas com participacao ativa.
+  - `totalGastoMes` soma `ValorTotal` de itens comprados no mes.
+  - `planejamentosAtivos` conta listas acessiveis com status `Ativa`.
+  - `itensCompradosMes` conta itens comprados no mes.
+  - `desejosPendentes` conta desejos do usuario ainda nao convertidos.
+  - `economiaPotencialMes` soma diferencas positivas entre ultimo preco do mes e menor historico para produtos com pelo menos 2 ocorrencias.
+  - usa consultas agregadas com `AsNoTracking()` e projecoes.
+- Efeitos colaterais:
+  - sem escrita, sem logs e sem eventos SignalR.
+- Exemplo:
+```bash
+curl -X GET "https://api.exemplo.com/api/compras/listas/dashboard/kpis" -H "Authorization: Bearer <token>"
+```
+
+### 3.1.2 GET /api/compras/listas/dashboard/evolucao-mensal
+- Objetivo: retornar serie mensal dos ultimos 12 meses para o grafico de evolucao.
+- Request:
+  - sem body e sem query params.
+- Response sucesso:
+  - `200 OK` com `IReadOnlyCollection<ComprasDashboardEvolucaoMensalDto>`.
+- Regras:
+  - sempre retorna 12 meses, em ordem cronologica.
+  - `chaveMes` usa formato `yyyy-MM`.
+  - `rotuloMes` usa abreviacao curta em PT-BR (`jan`, `fev`, etc.).
+  - valores e quantidades consideram somente itens comprados.
+  - `listasFinalizadas` conta listas arquivadas com itens comprados naquele mes.
+  - meses sem compra retornam valores zerados.
+  - usa agregacao no banco e complementa a sequencia mensal na Application.
+- Efeitos colaterais:
+  - sem escrita.
+
+### 3.1.3 GET /api/compras/listas/dashboard/tipos
+- Objetivo: retornar distribuicao agregada por categoria da lista.
+- Request:
+  - sem body e sem query params.
+- Response sucesso:
+  - `200 OK` com `IReadOnlyCollection<ComprasDashboardTipoCompraDto>`.
+- Regras:
+  - considera itens comprados de listas acessiveis.
+  - agrupa por `ListaCompra.Categoria`.
+  - `categoria` e normalizada em minusculo.
+  - `rotulo` mantem texto pronto para exibicao.
+  - `percentual` e calculado sobre o total geral comprado.
+  - resultado ordenado por maior `valorTotal`.
+- Efeitos colaterais:
+  - sem escrita.
+
+### 3.1.4 GET /api/compras/listas/dashboard/produtos-mais-comprados
+- Objetivo: retornar produtos mais comprados para ranking.
+- Request:
+  - query opcional: `limite` (int, default `10`, maximo aplicado pelo service `100`).
+- Response sucesso:
+  - `200 OK` com `IReadOnlyCollection<ComprasDashboardProdutoMaisCompradoDto>`.
+- Regras:
+  - considera apenas itens comprados.
+  - agrupa por descricao do item.
+  - `quantidade` representa numero de ocorrencias compradas.
+  - ordena por quantidade decrescente e descricao crescente.
+- Efeitos colaterais:
+  - sem escrita.
+
+### 3.1.5 GET /api/compras/listas/dashboard/ultimas-compras
+- Objetivo: retornar compras recentes prontas para timeline do dashboard.
+- Request:
+  - query opcional: `limite` (int, default `50`, maximo aplicado pelo service `100`).
+- Response sucesso:
+  - `200 OK` com `IReadOnlyCollection<ComprasDashboardUltimaCompraDto>`.
+- Regras:
+  - considera apenas itens comprados com `DataHoraCompra`.
+  - ordena por compras mais recentes.
+  - retorna `id` estavel no formato `{itemId}-{yyyy-MM-dd}-0`.
+  - `valor` usa `ItemListaCompra.ValorTotal`.
+  - `planejamento` usa o nome da lista.
+  - `corMarcador` usa `EtiquetaCor`.
+  - consulta usa `AsNoTracking()` e projecao sem carregar entidades completas.
+- Efeitos colaterais:
+  - sem escrita.
 
 ### 3.2 GET /api/compras/listas/{id}
 - Objetivo: obter detalhe completo da lista com itens, participantes e logs.
@@ -563,6 +708,11 @@ curl -X GET "https://api.exemplo.com/api/compras/listas?incluirArquivadas=false"
 | Endpoint | 400 | 401 | 404 |
 |---|---|---|---|
 | `GET /listas` | regras de dominio quando aplicavel | token invalido/ausente | - |
+| `GET /listas/dashboard/kpis` | `usuario_nao_autenticado` quando aplicavel | token invalido/ausente | - |
+| `GET /listas/dashboard/evolucao-mensal` | `usuario_nao_autenticado` quando aplicavel | token invalido/ausente | - |
+| `GET /listas/dashboard/tipos` | `usuario_nao_autenticado` quando aplicavel | token invalido/ausente | - |
+| `GET /listas/dashboard/produtos-mais-comprados` | `usuario_nao_autenticado` quando aplicavel | token invalido/ausente | - |
+| `GET /listas/dashboard/ultimas-compras` | `usuario_nao_autenticado` quando aplicavel | token invalido/ausente | - |
 | `GET /listas/{id}` | - | token invalido/ausente | `lista_compra_nao_encontrada` |
 | `GET /listas/{id}/detalhe` | - | token invalido/ausente | `lista_compra_nao_encontrada` |
 | `POST /listas` | validacoes de lista/participantes | token invalido/ausente | - |
@@ -593,6 +743,7 @@ Resultado esperado: erro de regra de negocio (`lista_compra_nome_obrigatorio`).
 - Service: `Core.Application/Services/Compras/ComprasService.cs`
 - DTOs: `Core.Application/DTOs/Compras/ComprasDtos.cs`
 - Repository: `Core.Infrastructure/Persistence/Repositories/Compras/ComprasRepository.cs`
+- Read models: `Core.Domain/Interfaces/Compras/ComprasDashboardReadModels.cs`
 - Enums: `Core.Domain/Enums/Compras/*`
 - Testes: `Core.Tests/Unit/Application/ComprasServiceTests.cs`
 
@@ -601,6 +752,7 @@ Resultado esperado: erro de regra de negocio (`lista_compra_nome_obrigatorio`).
 - todos os endpoints listados no indice existem atualmente na `ListaCompraController`.
 - endpoints dedicados de participantes nao existem mais na controller.
 - `POST` e `PUT` de lista aceitam participantes no contrato atual.
+- endpoints de dashboard de listas sao consultas agregadas e nao reutilizam a listagem pesada.
 
 ### Inferencias
 - o mapeamento final de `DomainException`/`NotFoundException` para HTTP ocorre no middleware global de erro.

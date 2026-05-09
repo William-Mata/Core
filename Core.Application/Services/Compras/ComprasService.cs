@@ -18,6 +18,8 @@ public sealed class ComprasService(
     IUsuarioAutenticadoProvider usuarioAutenticadoProvider,
     IComprasTempoRealPublisher comprasTempoRealPublisher)
 {
+    private static readonly string[] RotulosMeses = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+
     public async Task<IReadOnlyCollection<ListaCompraResumoDto>> ListarListasAsync(bool incluirArquivadas, CancellationToken cancellationToken = default)
     {
         var usuarioId = ObterUsuarioAutenticadoId();
@@ -611,6 +613,127 @@ public sealed class ComprasService(
         return new ResultadoConversaoDesejosDto(listaDestino.Id, desejos.Count, desejos.Count);
     }
 
+    public async Task<ComprasDashboardKpisDto> ObterDashboardKpisAsync(CancellationToken cancellationToken = default)
+    {
+        var usuarioId = ObterUsuarioAutenticadoId();
+        var inicioMes = ObterInicioMesAtualUtc();
+        var kpis = await repository.ObterDashboardKpisAsync(usuarioId, inicioMes, inicioMes.AddMonths(1), cancellationToken);
+
+        return new ComprasDashboardKpisDto(
+            kpis.TotalGastoMes,
+            kpis.PlanejamentosAtivos,
+            kpis.ItensCompradosMes,
+            kpis.DesejosPendentes,
+            kpis.EconomiaPotencialMes,
+            kpis.EconomiaPotencialMes > 0);
+    }
+
+    public async Task<IReadOnlyCollection<ComprasDashboardEvolucaoMensalDto>> ListarDashboardEvolucaoMensalAsync(CancellationToken cancellationToken = default)
+    {
+        var usuarioId = ObterUsuarioAutenticadoId();
+        var inicioMesAtual = ObterInicioMesAtualUtc();
+        var inicio = inicioMesAtual.AddMonths(-11);
+        var fimExclusivo = inicioMesAtual.AddMonths(1);
+        var agregados = await repository.ListarDashboardEvolucaoMensalAsync(usuarioId, inicio, fimExclusivo, cancellationToken);
+        var agregadosPorMes = agregados.ToDictionary(x => new DateOnly(x.Ano, x.Mes, 1));
+
+        return Enumerable.Range(0, 12)
+            .Select(offset =>
+            {
+                var mes = DateOnly.FromDateTime(inicio.AddMonths(offset));
+                agregadosPorMes.TryGetValue(mes, out var agregado);
+
+                return new ComprasDashboardEvolucaoMensalDto(
+                    $"{mes.Year:D4}-{mes.Month:D2}",
+                    RotulosMeses[mes.Month - 1],
+                    agregado?.ValorTotal ?? 0m,
+                    agregado?.QuantidadeItens ?? 0,
+                    agregado?.ListasFinalizadas ?? 0);
+            })
+            .ToArray();
+    }
+
+    public async Task<IReadOnlyCollection<ComprasDashboardTipoCompraDto>> ListarDashboardTiposCompraAsync(CancellationToken cancellationToken = default)
+    {
+        var usuarioId = ObterUsuarioAutenticadoId();
+        var tipos = await repository.ListarDashboardTiposCompraAsync(usuarioId, cancellationToken);
+        var totalGeral = tipos.Sum(x => x.ValorTotal);
+
+        return tipos
+            .Select(x => new ComprasDashboardTipoCompraDto(
+                NormalizarCategoriaDashboard(x.Categoria),
+                FormatarRotuloCategoria(x.Categoria),
+                x.ValorTotal,
+                totalGeral <= 0 ? 0m : decimal.Round((x.ValorTotal * 100m) / totalGeral, 2),
+                x.QuantidadeItens))
+            .ToArray();
+    }
+
+    public async Task<IReadOnlyCollection<ComprasDashboardProdutoMaisCompradoDto>> ListarDashboardProdutosMaisCompradosAsync(int limite = 10, CancellationToken cancellationToken = default)
+    {
+        var usuarioId = ObterUsuarioAutenticadoId();
+        var produtos = await repository.ListarDashboardProdutosMaisCompradosAsync(usuarioId, NormalizarLimite(limite, 10), cancellationToken);
+        return produtos
+            .Select(x => new ComprasDashboardProdutoMaisCompradoDto(x.Descricao, x.Quantidade))
+            .ToArray();
+    }
+
+    public async Task<IReadOnlyCollection<ComprasDashboardUltimaCompraDto>> ListarDashboardUltimasComprasAsync(int limite = 50, CancellationToken cancellationToken = default)
+    {
+        var usuarioId = ObterUsuarioAutenticadoId();
+        var compras = await repository.ListarDashboardUltimasComprasAsync(usuarioId, NormalizarLimite(limite, 50), cancellationToken);
+        return compras
+            .Select(x => new ComprasDashboardUltimaCompraDto(
+                $"{x.Id}-{x.Data:yyyy-MM-dd}-0",
+                x.Descricao,
+                x.Valor,
+                DateOnly.FromDateTime(x.Data),
+                x.Planejamento,
+                x.CorMarcador))
+            .ToArray();
+    }
+
+    public async Task<IReadOnlyCollection<ComprasDashboardUltimoDesejoDto>> ListarDashboardUltimosDesejosAsync(int limite = 50, CancellationToken cancellationToken = default)
+    {
+        var usuarioId = ObterUsuarioAutenticadoId();
+        var desejos = await repository.ListarDashboardUltimosDesejosAsync(usuarioId, NormalizarLimite(limite, 50), cancellationToken);
+        return desejos
+            .Select(x => new ComprasDashboardUltimoDesejoDto(
+                x.Id.ToString(),
+                x.Descricao,
+                x.ValorEstimado,
+                DateOnly.FromDateTime(x.Data),
+                x.Convertido ? "convertido" : "pendente"))
+            .ToArray();
+    }
+
+    public async Task<IReadOnlyCollection<ComprasDashboardVariacaoPrecoDto>> ListarDashboardVariacoesPrecosAsync(int limite = 10, CancellationToken cancellationToken = default)
+    {
+        var usuarioId = ObterUsuarioAutenticadoId();
+        var variacoes = await repository.ListarDashboardVariacoesPrecosAsync(usuarioId, NormalizarLimite(limite, 10), cancellationToken);
+        return variacoes.Select(MapVariacaoPrecoDashboard).ToArray();
+    }
+
+    public async Task<ComprasDashboardEconomiaPotencialDto> ObterDashboardEconomiaPotencialAsync(int limite = 10, CancellationToken cancellationToken = default)
+    {
+        var usuarioId = ObterUsuarioAutenticadoId();
+        var variacoes = await repository.ListarDashboardVariacoesPrecosAsync(usuarioId, NormalizarLimite(limite, 10), cancellationToken);
+        var produtos = variacoes
+            .Select(x => new ComprasDashboardProdutoEconomiaDto(
+                CriarIdProdutoUnidade(x.ProdutoId, x.Unidade),
+                x.Produto,
+                decimal.Round(Math.Max(0m, x.UltimoPreco - x.MenorPreco), 2),
+                x.UltimoPreco,
+                x.MenorPreco))
+            .Where(x => x.EconomiaUnitaria > 0)
+            .OrderByDescending(x => x.EconomiaUnitaria)
+            .ToArray();
+
+        return new ComprasDashboardEconomiaPotencialDto(
+            decimal.Round(produtos.Sum(x => x.EconomiaUnitaria), 2),
+            produtos);
+    }
+
     public async Task<IReadOnlyCollection<HistoricoProdutoDto>> ListarHistoricoPrecosAsync(
         string? descricao,
         UnidadeMedidaCompra? unidade,
@@ -1066,6 +1189,45 @@ public sealed class ComprasService(
             ValorAnterior = valorAnterior,
             ValorNovo = valorNovo
         };
+
+    private static ComprasDashboardVariacaoPrecoDto MapVariacaoPrecoDashboard(ComprasDashboardVariacaoPrecoReadModel variacao)
+    {
+        var potencialEconomia = Math.Max(0m, variacao.UltimoPreco - variacao.MenorPreco);
+        var percentualVariacao = variacao.MenorPreco <= 0
+            ? 0m
+            : ((variacao.MaiorPreco - variacao.MenorPreco) * 100m) / variacao.MenorPreco;
+
+        return new ComprasDashboardVariacaoPrecoDto(
+            CriarIdProdutoUnidade(variacao.ProdutoId, variacao.Unidade),
+            variacao.Produto,
+            variacao.UltimoPreco,
+            variacao.MenorPreco,
+            variacao.MaiorPreco,
+            decimal.Round(variacao.MediaPreco, 2),
+            decimal.Round(percentualVariacao, 2),
+            decimal.Round(potencialEconomia, 2));
+    }
+
+    private static string CriarIdProdutoUnidade(long produtoId, UnidadeMedidaCompra unidade) =>
+        $"{produtoId}-{unidade.ToString().ToLowerInvariant()}";
+
+    private static int NormalizarLimite(int limite, int padrao) =>
+        limite <= 0 ? padrao : Math.Min(limite, 100);
+
+    private static DateTime ObterInicioMesAtualUtc()
+    {
+        var agora = DateTime.UtcNow;
+        return new DateTime(agora.Year, agora.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+    }
+
+    private static string NormalizarCategoriaDashboard(string categoria) =>
+        NormalizarDescricao(categoria);
+
+    private static string FormatarRotuloCategoria(string categoria)
+    {
+        var texto = string.IsNullOrWhiteSpace(categoria) ? "Geral" : categoria.Trim();
+        return texto.Length == 1 ? texto.ToUpperInvariant() : string.Concat(texto[..1].ToUpperInvariant(), texto[1..]);
+    }
 
     private static void AtualizarValorTotalItem(ItemListaCompra item)
     {

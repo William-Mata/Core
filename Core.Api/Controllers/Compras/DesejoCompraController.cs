@@ -21,6 +21,11 @@ public sealed class DesejoCompraController(ComprasService service) : ControllerB
     public async Task<IActionResult> Listar(CancellationToken cancellationToken) =>
         Ok(await service.ListarDesejosAsync(cancellationToken));
 
+    [HttpGet("dashboard/ultimos")]
+    [ProducesResponseType(typeof(IReadOnlyCollection<ComprasDashboardUltimoDesejoDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ListarDashboardUltimos([FromQuery] int limite = 50, CancellationToken cancellationToken = default) =>
+        Ok(await service.ListarDashboardUltimosDesejosAsync(limite, cancellationToken));
+
     [HttpPost]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> Criar([FromBody] CriarDesejoCompraRequest request, CancellationToken cancellationToken) =>
