@@ -534,11 +534,13 @@ public sealed class ComprasServiceTests
     }
 
     [Fact]
-    public async Task DeveRetornarEvolucaoMensalComSequenciaDeDozeMeses()
+    public async Task DeveRetornarEvolucaoMensalComAnoAtualCompletoOrdenado()
     {
         var repository = new ComprasRepositoryFake();
         var service = CriarService(repository, new AmizadeRepositoryFake(), 1);
-        var inicioMesAtual = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        var anoAtual = DateTime.UtcNow.Year;
+        var inicioAnoAtual = new DateTime(anoAtual, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var inicioAnoAnterior = inicioAnoAtual.AddYears(-1);
 
         repository.Listas.Add(new ListaCompra
         {
@@ -556,7 +558,16 @@ public sealed class ComprasServiceTests
                     Descricao = "Arroz",
                     Comprado = true,
                     ValorTotal = 50m,
-                    DataHoraCompra = inicioMesAtual.AddMonths(-2).AddDays(3)
+                    DataHoraCompra = inicioAnoAtual.AddMonths(2).AddDays(3)
+                },
+                new ItemListaCompra
+                {
+                    Id = 2,
+                    ListaCompraId = 1,
+                    Descricao = "Compra antiga",
+                    Comprado = true,
+                    ValorTotal = 99m,
+                    DataHoraCompra = inicioAnoAnterior.AddMonths(11).AddDays(3)
                 }
             ]
         });
@@ -564,9 +575,30 @@ public sealed class ComprasServiceTests
         var resultado = await service.ListarDashboardEvolucaoMensalAsync();
 
         Assert.Equal(12, resultado.Count);
-        Assert.Equal(inicioMesAtual.AddMonths(-11).ToString("yyyy-MM"), resultado.First().ChaveMes);
-        Assert.Equal(inicioMesAtual.ToString("yyyy-MM"), resultado.Last().ChaveMes);
-        Assert.Contains(resultado, x => x.ChaveMes == inicioMesAtual.AddMonths(-2).ToString("yyyy-MM") && x.ValorTotal == 50m && x.QuantidadeItens == 1 && x.ListasFinalizadas == 1);
+        Assert.Equal($"{anoAtual}-01", resultado.First().ChaveMes);
+        Assert.Equal($"{anoAtual}-12", resultado.Last().ChaveMes);
+        Assert.Contains(resultado, x => x.ChaveMes == $"{anoAtual}-03" && x.ValorTotal == 50m && x.QuantidadeItens == 1 && x.ListasFinalizadas == 1);
+        Assert.DoesNotContain(resultado, x => x.ValorTotal == 99m);
+    }
+
+    [Fact]
+    public async Task DeveRetornarEvolucaoMensalComMesesSemCompraZerados()
+    {
+        var repository = new ComprasRepositoryFake();
+        var service = CriarService(repository, new AmizadeRepositoryFake(), 1);
+        var anoAtual = DateTime.UtcNow.Year;
+
+        var resultado = await service.ListarDashboardEvolucaoMensalAsync();
+
+        Assert.Equal(12, resultado.Count);
+        Assert.Equal($"{anoAtual}-01", resultado.First().ChaveMes);
+        Assert.Equal($"{anoAtual}-12", resultado.Last().ChaveMes);
+        Assert.All(resultado, mes =>
+        {
+            Assert.Equal(0m, mes.ValorTotal);
+            Assert.Equal(0, mes.QuantidadeItens);
+            Assert.Equal(0, mes.ListasFinalizadas);
+        });
     }
 
     [Fact]

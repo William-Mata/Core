@@ -631,9 +631,7 @@ public sealed class ComprasService(
     public async Task<IReadOnlyCollection<ComprasDashboardEvolucaoMensalDto>> ListarDashboardEvolucaoMensalAsync(CancellationToken cancellationToken = default)
     {
         var usuarioId = ObterUsuarioAutenticadoId();
-        var inicioMesAtual = ObterInicioMesAtualUtc();
-        var inicio = inicioMesAtual.AddMonths(-11);
-        var fimExclusivo = inicioMesAtual.AddMonths(1);
+        var (inicio, fimExclusivo) = ObterPeriodoAnoAtualUtc();
         var agregados = await repository.ListarDashboardEvolucaoMensalAsync(usuarioId, inicio, fimExclusivo, cancellationToken);
         var agregadosPorMes = agregados.ToDictionary(x => new DateOnly(x.Ano, x.Mes, 1));
 
@@ -1218,6 +1216,13 @@ public sealed class ComprasService(
     {
         var agora = DateTime.UtcNow;
         return new DateTime(agora.Year, agora.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+    }
+
+    private static (DateTime Inicio, DateTime FimExclusivo) ObterPeriodoAnoAtualUtc()
+    {
+        var anoAtualUtc = DateTime.UtcNow.Year;
+        var inicio = new DateTime(anoAtualUtc, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        return (inicio, inicio.AddYears(1));
     }
 
     private static string NormalizarCategoriaDashboard(string categoria) =>
