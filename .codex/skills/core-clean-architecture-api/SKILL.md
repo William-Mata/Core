@@ -22,7 +22,7 @@ Aplicar sempre os principios SOLID, KISS, DRY, Clean Code e YAGNI ao decidir ond
 5. Preservar regras e contratos do dominio em `Core.Domain`.
 6. Ajustar persistencia e integracoes em `Core.Infrastructure`.
 7. Atualizar ou criar testes em `src/tests/Core.Tests`.
-8. Validar com `dotnet test src/tests/Core.Tests/Core.Tests.csproj` ou com um filtro de teste mais especifico.
+8. Validar com `dotnet test src/tests/Core.Tests/Core.Tests.csproj` ou com um filtro de teste mais especifico, usando timeout maximo de 120 segundos por comando.
 
 ## Aplicar mudancas na camada certa
 
@@ -62,8 +62,10 @@ Desconfiar de caminhos duplicados. O codigo-fonte de testes esta em `src/tests/C
 
 ## Validar
 
+Executar testes com timeout maximo de 120 segundos por comando. Se o timeout for atingido, interromper a tentativa e informar ao usuario quais testes ele deve executar localmente.
+
 Preferir testes de unidade ou integracao do modulo alterado antes de rodar a suite inteira.
 
 Usar comandos como `dotnet test src/tests/Core.Tests/Core.Tests.csproj --filter AutenticacaoServiceTests` para validacao rapida.
 
-Rodar a suite completa quando tocar contratos compartilhados, `AppDbContext`, middlewares, autenticacao ou servicos financeiros reutilizados por varios endpoints.
+Rodar a suite completa quando tocar contratos compartilhados, `AppDbContext`, middlewares, autenticacao ou servicos financeiros reutilizados por varios endpoints, respeitando o timeout.

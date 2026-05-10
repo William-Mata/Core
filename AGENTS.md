@@ -54,14 +54,15 @@ Quando a tarefa envolver mais de um skill, leia todos os relevantes antes de com
 
 Antes de encerrar qualquer tarefa que altere código:
 
-1. Rodar testes do módulo afetado:
+1. Rodar testes do módulo afetado com timeout máximo de 120 segundos por comando:
    ```bash
    dotnet test .\Core.Tests\Core.Tests.csproj --filter [NomeDoTestClass]
    ```
-2. Rodar suite completa ao tocar contratos compartilhados, `AppDbContext`, middlewares ou autenticação:
+2. Rodar suite completa com timeout máximo de 120 segundos ao tocar contratos compartilhados, `AppDbContext`, middlewares ou autenticação:
    ```bash
    dotnet test .\Core.Tests\Core.Tests.csproj
    ```
-3. Confirmar que nenhuma camada foi violada.
-4. Verificar se documentação técnica precisa ser atualizada.
-5. Fazer commit semântico em PT-BR com apenas os arquivos da mudança.
+3. Se qualquer execução de teste atingir timeout, parar a tentativa e informar ao usuário quais testes ele deve executar localmente.
+4. Confirmar que nenhuma camada foi violada.
+5. Verificar se documentação técnica precisa ser atualizada.
+6. Fazer commit semântico em PT-BR com apenas os arquivos da mudança.

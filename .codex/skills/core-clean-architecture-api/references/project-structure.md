@@ -123,6 +123,8 @@ Usar `src/tests/Core.Tests/Core.Tests.csproj` como projeto real de testes.
 
 Tratar `tests/Core.Tests` como residuo de build ate que a estrutura seja consolidada; hoje esse caminho nao contem as classes de teste.
 
+Executar testes com timeout maximo de 120 segundos por comando. Se houver timeout, informar ao usuario quais destes comandos ele deve executar localmente.
+
 Comandos uteis:
 
 ```powershell

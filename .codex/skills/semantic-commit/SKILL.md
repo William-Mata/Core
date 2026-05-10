@@ -121,12 +121,15 @@ Exemplo:
 Antes de executar o commit, garantir:
 
 - build sem erro
-- testes passando
+- testes passando, executados com timeout maximo de 120 segundos por comando
 - sem erros de lint
 - sem imports não utilizados
 
 Se qualquer validação falhar:
 → NÃO commitar
+
+Se a execução de testes atingir timeout:
+→ NÃO commitar e informar ao usuário quais testes ele deve executar localmente
 
 ---
 

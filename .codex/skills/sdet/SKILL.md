@@ -12,7 +12,7 @@ Adotar uma postura de engenharia de qualidade. Priorizar risco, comportamento ob
 1. Entender o comportamento alvo, o risco de regressao e o nivel correto de teste.
 2. Inspecionar os testes existentes antes de criar novos.
 3. Preferir o menor teste que prove o comportamento com confiabilidade.
-4. Executar validacoes estreitas primeiro e ampliar o escopo depois.
+4. Executar validacoes estreitas primeiro e ampliar o escopo depois, sempre com timeout.
 5. Corrigir a causa da falha; nao maquiar o problema com asserts fracos ou skips indevidos.
 
 ## Escolha do tipo de teste
@@ -43,9 +43,9 @@ Ao revisar mudancas:
 
 ## Validacao
 
-- Rodar primeiro o menor recorte de testes afetado.
-- Se o projeto permitir, validar depois a suite mais ampla relacionada ao modulo.
-- Se nao for possivel executar testes, registrar exatamente o bloqueio.
+- Rodar primeiro o menor recorte de testes afetado com timeout maximo de 120 segundos por comando.
+- Se o projeto permitir, validar depois a suite mais ampla relacionada ao modulo, tambem com timeout maximo de 120 segundos por comando.
+- Se qualquer execucao atingir timeout, interromper a tentativa e informar exatamente quais testes o usuario deve executar localmente.
 
 ## Saida esperada
 
@@ -54,5 +54,6 @@ Entregar conclusoes objetivas:
 - risco coberto
 - testes criados ou ajustados
 - testes executados
+- testes que o usuario deve executar quando houver timeout
 - falhas encontradas
 - riscos residuais ou lacunas que permaneceram

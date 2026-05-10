@@ -150,6 +150,8 @@ dotnet run --project .\Core.Api\Core.Api.csproj
 ```
 
 ## Testes
+Ao executar testes como agente, usar timeout maximo de 120 segundos por comando. Se o timeout for atingido, interromper a execucao e informar quais testes o usuario deve executar localmente.
+
 ```bash
 dotnet test .\Core.Tests\Core.Tests.csproj
 ```
